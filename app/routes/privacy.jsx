@@ -1,6 +1,6 @@
 import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
 
-export const meta = () => [{title: 'Privacy Policy | House of Spoils'}];
+export const meta = () => [{title: 'Privacy Policy | The Long Look'}];
 
 export default function PrivacyPage() {
   return (

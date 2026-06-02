@@ -5,18 +5,19 @@ import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {SpoilsProductCard} from '~/components/spoils/ProductGrid';
 import {ArtistProfile, ArtistsIndex} from '~/components/spoils/ArtistProfile';
 import {getArtistByHandle, artists} from '~/lib/spoils-data';
+import {getMockCollectionByHandle} from '~/lib/collections-data';
 
 /**
  * @type {Route.MetaFunction}
  */
 export const meta = ({data}) => {
   if (data?.pageType === 'artist') {
-    return [{title: `${data.artist.name} | House of Spoils`}];
+    return [{title: `${data.artist.name} | The Long Look`}];
   }
   if (data?.pageType === 'artists-index') {
-    return [{title: 'Artists | House of Spoils'}];
+    return [{title: 'Artists | The Long Look'}];
   }
-  return [{title: `${data?.collection?.title ?? 'Collection'} | House of Spoils`}];
+  return [{title: `${data?.collection?.title ?? 'Collection'} | The Long Look`}];
 };
 
 /**
@@ -36,6 +37,11 @@ export async function loader(args) {
   const artist = getArtistByHandle(handle);
   if (artist) {
     return {pageType: 'artist', artist};
+  }
+
+  const mockCollection = getMockCollectionByHandle(handle);
+  if (mockCollection) {
+    return {pageType: 'collection', collection: mockCollection};
   }
 
   const criticalData = await loadCriticalData(args);

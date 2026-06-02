@@ -1,6 +1,6 @@
 import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
 
-export const meta = () => [{title: 'FAQ | House of Spoils'}];
+export const meta = () => [{title: 'FAQ | The Long Look'}];
 
 const faqs = [
   {q: 'How long does shipping take?', a: 'Orders ship within 5–7 business days.'},

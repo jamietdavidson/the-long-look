@@ -1,6 +1,6 @@
-# House of Spoils
+# The Long Look
 
-A [Hydrogen](https://shopify.dev/docs/custom-storefronts/hydrogen) storefront for House of Spoils, deployed on **Shopify Oxygen**.
+A [Hydrogen](https://shopify.dev/docs/custom-storefronts/hydrogen) storefront for The Long Look, deployed on **Shopify Oxygen**.
 
 ## Stack
 
@@ -8,6 +8,7 @@ A [Hydrogen](https://shopify.dev/docs/custom-storefronts/hydrogen) storefront fo
 - **Oxygen** — Shopify's global edge hosting for Hydrogen storefronts
 - **React Router 7** — file-based routing
 - **Tailwind CSS v4** — styling
+- **shadcn/ui** (Radix Nova) — accessible UI primitives in `app/components/ui/`
 - **Storefront API** — products, collections, cart, and checkout
 
 ## Local development
@@ -17,7 +18,7 @@ npm install
 npm run dev
 ```
 
-Runs at [http://localhost:3001](http://localhost:3001) using Shopify's mock store by default.
+Runs at [http://localhost:3002](http://localhost:3002) using Shopify's mock store by default.
 
 ## Connect your Shopify store
 
@@ -50,7 +51,7 @@ This builds the storefront and deploys it to Shopify Oxygen. Your store will be 
 
 ```
 app/
-  components/spoils/   # House of Spoils UI (header, sidebar, footer, product grid)
+  components/spoils/   # Storefront UI (header, sidebar, footer, product grid)
   routes/              # Pages (home, collections, products, about, etc.)
   lib/                 # Mock data, artist profiles, helpers
 ```
@@ -59,9 +60,19 @@ app/
 
 Cart and checkout use Shopify's native cart API. Click **Checkout** in the cart drawer to go to Shopify Checkout.
 
+## UI components (shadcn)
+
+shadcn/ui is configured via `components.json`. Add components with:
+
+```bash
+npx shadcn@latest add [component-name]
+```
+
+Imports use the `~/components/ui/*` alias, for example `~/components/ui/button`.
+
 ## Tests
 
 ```bash
 npm run test:unit   # Jest component tests
-npm run test:e2e    # Playwright navigation tests (requires dev server on :3001)
+npm run test:e2e    # Playwright tests (starts dev server with mock.shop via .env.test)
 ```

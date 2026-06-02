@@ -1,14 +1,14 @@
 import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
 
-export const meta = () => [{title: 'About | House of Spoils'}];
+export const meta = () => [{title: 'About | The Long Look'}];
 
 export default function AboutPage() {
   return (
     <>
-      <SpoilsPageHero title="Spoils World" />
+      <SpoilsPageHero title="The Long Look" />
       <SpoilsPageContent>
         <p className="text-[13px] text-neutral-600 leading-relaxed text-center mb-12">
-          House of Spoils curates stunning photography prints from a worldwide collective of artists.
+          The Long Look curates stunning photography prints from a worldwide collective of artists.
           Each piece arrives framed and ready to hang.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">

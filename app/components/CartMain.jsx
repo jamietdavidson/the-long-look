@@ -6,7 +6,7 @@ import {CartSummary} from './CartSummary';
 /**
  * Returns a map of all line items and their children.
  * @param {CartLine[]} lines
- * @return {import("/tmp/house-of-spoils-h2/app/components/CartMain").LineItemChildrenMap}
+ * @return {import('~/components/CartMain').LineItemChildrenMap}
  */
 function getLineItemChildrenMap(lines) {
   const children = {};

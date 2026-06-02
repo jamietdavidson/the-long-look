@@ -33,7 +33,7 @@ export function SpoilsHeader({cart}) {
             <NavLink to="/collections/best-sellers" className="spoils-nav-link">Best Sellers</NavLink>
             <Link to="/" className="mx-6">
               <span className="text-[14px] font-semibold uppercase tracking-[0.3em] text-neutral-900">
-                House of Spoils
+                The Long Look
               </span>
             </Link>
             <NavLink to="/collections/artists" className="spoils-nav-link">Artists</NavLink>
@@ -42,7 +42,7 @@ export function SpoilsHeader({cart}) {
 
           <Link to="/" className="lg:hidden absolute left-1/2 -translate-x-1/2">
             <span className="text-[13px] font-semibold uppercase tracking-[0.3em] text-neutral-900">
-              House of Spoils
+              The Long Look
             </span>
           </Link>
 

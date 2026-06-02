@@ -17,7 +17,7 @@ import {getMockProductByHandle} from '~/lib/spoils-data';
  * @type {Route.MetaFunction}
  */
 export const meta = ({data}) => {
-  return [{title: `${data?.product?.title ?? 'Product'} | House of Spoils`}];
+  return [{title: `${data?.product?.title ?? 'Product'} | The Long Look`}];
 };
 
 /**
@@ -77,7 +77,7 @@ function MockProductPage({product}) {
             )}
           </div>
           <div className="md:pt-8">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-400 mb-3">House of Spoils</p>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-400 mb-3">The Long Look</p>
             <h1 className="text-[22px] uppercase tracking-[0.1em] font-semibold mb-4">{product.title}</h1>
             {price && (
               <p className="text-[14px] text-neutral-600 mb-6">

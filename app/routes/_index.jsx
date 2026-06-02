@@ -2,18 +2,36 @@ import {Await, useLoaderData} from 'react-router';
 import {Suspense} from 'react';
 import {Hero} from '~/components/spoils/Hero';
 import {ProductGrid, VideoSection} from '~/components/spoils/ProductGrid';
+import {
+  bestSellers as mockBestSellers,
+  newArrivals as mockNewArrivals,
+} from '~/lib/mock-data';
+import {mockProductsToCards} from '~/lib/spoils-data';
 
 /**
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: 'House of Spoils | The Art of Living'}];
+  return [{title: 'The Long Look | The Art of Living'}];
 };
+
+/** @param {Promise<{products?: {nodes?: unknown[]}} | null>} query */
+async function withMockFallback(query, mockProducts) {
+  const data = await query;
+  if (data?.products?.nodes?.length) return data;
+  return {products: {nodes: mockProductsToCards(mockProducts)}};
+}
 
 /** @param {Route.LoaderArgs} args */
 export async function loader({context}) {
-  const newArrivals = context.storefront.query(NEW_ARRIVALS_QUERY).catch(() => null);
-  const bestSellers = context.storefront.query(BEST_SELLERS_QUERY).catch(() => null);
+  const newArrivals = withMockFallback(
+    context.storefront.query(NEW_ARRIVALS_QUERY).catch(() => null),
+    mockNewArrivals,
+  );
+  const bestSellers = withMockFallback(
+    context.storefront.query(BEST_SELLERS_QUERY).catch(() => null),
+    mockBestSellers,
+  );
 
   return {newArrivals, bestSellers};
 }

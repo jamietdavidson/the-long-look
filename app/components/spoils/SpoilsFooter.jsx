@@ -6,7 +6,7 @@ export function SpoilsFooter() {
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div>
-            <h3 className="text-[11px] uppercase tracking-[0.2em] font-semibold mb-6">House of Spoils</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.2em] font-semibold mb-6">The Long Look</h3>
             <p className="text-[11px] text-neutral-400 leading-relaxed">
               Ready-to-hang photography from the world&apos;s top artists. The art of living.
             </p>
@@ -39,7 +39,7 @@ export function SpoilsFooter() {
           </div>
         </div>
         <div className="border-t border-neutral-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-[10px] text-neutral-500">&copy; {new Date().getFullYear()} House of Spoils. All rights reserved.</p>
+          <p className="text-[10px] text-neutral-500">&copy; {new Date().getFullYear()} The Long Look. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <FooterLink to="/privacy">Privacy Policy</FooterLink>
             <FooterLink to="/terms">Terms of Service</FooterLink>

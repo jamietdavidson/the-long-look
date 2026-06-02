@@ -1,13 +1,14 @@
 import {useLoaderData} from 'react-router';
 import {getPaginationVariables} from '@shopify/hydrogen';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
-import {ProductItem} from '~/components/ProductItem';
+import {SpoilsProductCard} from '~/components/spoils/ProductGrid';
+import {getAllMockCatalogProducts} from '~/lib/collections-data';
 
 /**
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: `Hydrogen | Products`}];
+  return [{title: 'All Prints | The Long Look'}];
 };
 
 /**
@@ -38,9 +39,24 @@ async function loadCriticalData({context, request}) {
     storefront.query(CATALOG_QUERY, {
       variables: {...paginationVariables},
     }),
-    // Add other queries here, so that they are loaded in parallel
   ]);
-  return {products};
+
+  const nodes = products?.nodes ?? [];
+  if (nodes.length > 0) {
+    return {products};
+  }
+
+  return {
+    products: {
+      nodes: getAllMockCatalogProducts(),
+      pageInfo: {
+        hasPreviousPage: false,
+        hasNextPage: false,
+        startCursor: null,
+        endCursor: null,
+      },
+    },
+  };
 }
 
 /**
@@ -58,20 +74,26 @@ export default function Collection() {
   const {products} = useLoaderData();
 
   return (
-    <div className="collection">
-      <h1>Products</h1>
-      <PaginatedResourceSection
-        connection={products}
-        resourcesClassName="products-grid"
-      >
-        {({node: product, index}) => (
-          <ProductItem
-            key={product.id}
-            product={product}
-            loading={index < 8 ? 'eager' : undefined}
-          />
-        )}
-      </PaginatedResourceSection>
+    <div className="pt-20">
+      <div className="text-center py-12 px-6 border-b border-neutral-100">
+        <h1 className="text-[22px] md:text-[30px] uppercase tracking-[0.15em] font-semibold">
+          All Prints
+        </h1>
+      </div>
+      <section className="py-12 px-6 md:px-10 max-w-7xl mx-auto">
+        <PaginatedResourceSection
+          connection={products}
+          resourcesClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
+        >
+          {({node: product, index}) => (
+            <SpoilsProductCard
+              key={product.id}
+              product={product}
+              loading={index < 8 ? 'eager' : undefined}
+            />
+          )}
+        </PaginatedResourceSection>
+      </section>
     </div>
   );
 }

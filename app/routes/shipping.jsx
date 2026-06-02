@@ -1,6 +1,6 @@
 import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
 
-export const meta = () => [{title: 'Shipping & Returns | House of Spoils'}];
+export const meta = () => [{title: 'Shipping & Returns | The Long Look'}];
 
 export default function ShippingPage() {
   return (
@@ -16,7 +16,7 @@ export default function ShippingPage() {
         <section className="space-y-4">
           <h2 className="text-[14px] uppercase tracking-[0.2em] font-semibold">Returns</h2>
           <p className="text-[12px] text-neutral-600 leading-relaxed">
-            Returns accepted within 30 days of delivery. Contact hello@houseofspoils.com to initiate a return.
+            Returns accepted within 30 days of delivery. Contact hello@thelonglook.com to initiate a return.
           </p>
         </section>
       </SpoilsPageContent>
