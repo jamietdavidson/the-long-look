@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# House of Spoils
 
-## Getting Started
+A [Hydrogen](https://shopify.dev/docs/custom-storefronts/hydrogen) storefront for House of Spoils, deployed on **Shopify Oxygen**.
 
-First, run the development server:
+## Stack
+
+- **Hydrogen** — Shopify's React framework for headless commerce
+- **Oxygen** — Shopify's global edge hosting for Hydrogen storefronts
+- **React Router 7** — file-based routing
+- **Tailwind CSS v4** — styling
+- **Storefront API** — products, collections, cart, and checkout
+
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Runs at [http://localhost:3001](http://localhost:3001) using Shopify's mock store by default.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Connect your Shopify store
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Log in to Shopify CLI:
+   ```bash
+   npx shopify auth login
+   ```
 
-## Learn More
+2. Link this project to your store:
+   ```bash
+   npx shopify hydrogen link
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+3. Pull environment variables:
+   ```bash
+   npx shopify hydrogen env pull
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Restart the dev server.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy to Oxygen
 
-## Deploy on Vercel
+```bash
+npx shopify hydrogen deploy
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This builds the storefront and deploys it to Shopify Oxygen. Your store will be accessible from your Shopify admin under **Sales channels → Headless**.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
+
+```
+app/
+  components/spoils/   # House of Spoils UI (header, sidebar, footer, product grid)
+  routes/              # Pages (home, collections, products, about, etc.)
+  lib/                 # Mock data, artist profiles, helpers
+```
+
+## Checkout
+
+Cart and checkout use Shopify's native cart API. Click **Checkout** in the cart drawer to go to Shopify Checkout.
+
+## Tests
+
+```bash
+npm run test:unit   # Jest component tests
+npm run test:e2e    # Playwright navigation tests (requires dev server on :3001)
+```

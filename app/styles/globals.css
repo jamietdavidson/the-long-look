@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    @apply font-sans scroll-smooth antialiased;
+  }
+  body {
+    @apply bg-white text-neutral-900;
+  }
+  .spoils-nav-link {
+    @apply text-[11px] uppercase tracking-[0.2em] text-neutral-800 hover:text-neutral-500 transition-colors;
+  }
+  .sidebar-link {
+    @apply flex items-center justify-between py-2.5 text-[11px] text-neutral-600 hover:text-neutral-900 transition-colors;
+  }
+}
+
+.overlay {
+  @apply fixed inset-0 z-50 bg-black/20 opacity-0 pointer-events-none transition-opacity duration-300;
+}
+.overlay.expanded {
+  @apply opacity-100 pointer-events-auto;
+}
+.overlay aside {
+  @apply fixed top-0 h-full bg-white shadow-xl transition-transform duration-300 flex flex-col;
+}
+.overlay.expanded aside {
+  @apply translate-x-0;
+}
+.overlay:not(.expanded) aside {
+  @apply -translate-x-full;
+}
+.overlay[data-type='cart'] aside,
+.overlay.cart-aside aside {
+  @apply right-0 left-auto;
+}
+.overlay:not(.expanded)[data-type='cart'] aside,
+.overlay.cart-aside:not(.expanded) aside {
+  @apply translate-x-full;
+}
+.overlay.expanded[data-type='cart'] aside,
+.overlay.cart-aside.expanded aside {
+  @apply translate-x-0;
+}
