@@ -4,11 +4,12 @@ import {useAside} from './Aside';
 
 /**
  * @param {{
+ *   analytics?: unknown;
  *   productOptions: MappedProductOptions[];
  *   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
  * }}
  */
-export function ProductForm({productOptions, selectedVariant}) {
+export function ProductForm({analytics, productOptions, selectedVariant}) {
   const navigate = useNavigate();
   const {open} = useAside();
   return (
@@ -94,6 +95,7 @@ export function ProductForm({productOptions, selectedVariant}) {
         );
       })}
       <AddToCartButton
+        analytics={analytics}
         disabled={!selectedVariant || !selectedVariant.availableForSale}
         onClick={() => {
           open('cart');

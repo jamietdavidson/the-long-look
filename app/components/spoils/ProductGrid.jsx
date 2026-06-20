@@ -1,40 +1,67 @@
 import {Link} from 'react-router';
 import {Image, Money} from '@shopify/hydrogen';
-import {useVariantUrl} from '~/lib/variants';
+import {printPath, printsPath} from '~/lib/paths';
 
-/** @param {{product: import('storefrontapi.generated').ProductItemFragment, loading?: 'eager'|'lazy'}} */
+/**
+ * @param {{
+ *   product: import('~/lib/content-api').PictureCard & {
+ *     priceRange: {minVariantPrice: {amount: string; currencyCode: string}};
+ *   };
+ *   loading?: 'eager' | 'lazy';
+ * }}
+ */
 export function SpoilsProductCard({product, loading = 'lazy'}) {
-  const variantUrl = useVariantUrl(product.handle);
+  const variantUrl = printPath(product.handle);
   const image = product.featuredImage;
+  const imageAspect =
+    image?.width && image?.height ? image.width / image.height : 0.75;
 
   return (
-    <Link to={variantUrl} prefetch="intent" className="group block">
-      <div className="relative aspect-[3/4] overflow-hidden bg-neutral-100 mb-3">
-        {image && (
-          <Image
-            alt={image.altText || product.title}
-            aspectRatio="3/4"
-            data={image}
-            loading={loading}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover group-hover:scale-[1.03] transition-transform duration-700"
-          />
+    <Link
+      to={variantUrl}
+      prefetch="intent"
+      className="group print-grid-item block w-full h-full"
+      style={{'--img-aspect': imageAspect}}
+    >
+      <div className="print-grid-item-picture">
+        <div className="print-frame">
+          <div className="print-frame-mat">
+            {image ? (
+              <div className="print-frame-image-wrap">
+                <Image
+                  alt={image.altText || product.title}
+                  data={image}
+                  loading={loading}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 33vw, 25vw"
+                  className="print-frame-image"
+                />
+              </div>
+            ) : (
+              <div className="print-frame-image-wrap print-frame-placeholder" aria-hidden />
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="print-grid-item-info">
+        <h3 className="print-frame-title">{product.title}</h3>
+        {product.artistName ? (
+          <p className="print-frame-artist">{product.artistName}</p>
+        ) : null}
+        {Number(product.priceRange.minVariantPrice.amount) > 0 && (
+          <p className="print-frame-price">
+            From <Money data={product.priceRange.minVariantPrice} withoutTrailingZeros />
+          </p>
         )}
       </div>
-      <h3 className="text-[12px] md:text-[13px] font-medium text-neutral-800 mb-1">{product.title}</h3>
-      <p className="text-[11px] md:text-[12px] text-neutral-500">
-        From <Money data={product.priceRange.minVariantPrice} withoutTrailingZeros />
-      </p>
     </Link>
   );
 }
 
-/** @param {{title: string, subtitle?: string, products: Array<import('storefrontapi.generated').ProductItemFragment>}} */
+/** @param {{title: string, subtitle?: string, products: Array<import('~/lib/content-api').PictureCard & {priceRange: {minVariantPrice: {amount: string; currencyCode: string}}}>}} */
 export function ProductGrid({title, subtitle, products}) {
   return (
-    <section className="py-16 md:py-24 px-6 md:px-10">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
+    <section className="w-full">
+      <div className="text-center mb-12 px-6">
           {subtitle && (
             <p className="text-[10px] uppercase tracking-[0.4em] text-neutral-400 mb-3">{subtitle}</p>
           )}
@@ -42,12 +69,11 @@ export function ProductGrid({title, subtitle, products}) {
             {title}
           </h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="print-grid w-full">
           {products.map((product) => (
             <SpoilsProductCard key={product.id} product={product} />
           ))}
         </div>
-      </div>
     </section>
   );
 }
@@ -64,7 +90,7 @@ export function VideoSection() {
         <p className="text-[10px] uppercase tracking-[0.4em] text-white/70 mb-4">The Art of Living</p>
         <h2 className="text-[20px] md:text-[28px] font-light">Curated photography for your space</h2>
         <Link
-          to="/collections/all"
+          to={printsPath()}
           className="mt-8 inline-block border border-white/50 px-8 py-3 text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-neutral-900 transition-all duration-300"
         >
           Explore

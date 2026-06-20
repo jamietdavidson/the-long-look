@@ -1,4 +1,5 @@
 import {Link} from 'react-router';
+import {artistsPath, printsPath} from '~/lib/paths';
 
 export function SpoilsFooter() {
   return (
@@ -14,10 +15,8 @@ export function SpoilsFooter() {
           <div>
             <h4 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-4">Shop</h4>
             <nav className="space-y-3">
-              <FooterLink to="/collections/all">All Prints</FooterLink>
-              <FooterLink to="/collections/new-arrivals">New Arrivals</FooterLink>
-              <FooterLink to="/collections/best-sellers">Best Sellers</FooterLink>
-              <FooterLink to="/collections/artists">Artists</FooterLink>
+              <FooterLink to={printsPath()}>All Prints</FooterLink>
+              <FooterLink to={artistsPath()}>Artists</FooterLink>
             </nav>
           </div>
           <div>

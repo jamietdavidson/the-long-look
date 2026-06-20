@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-Runs at [http://localhost:3002](http://localhost:3002) using Shopify's mock store by default.
+Runs at [http://localhost:3002](http://localhost:3002). Link your Shopify store with `shopify hydrogen link` and `shopify hydrogen env pull` before developing.
 
 ## Connect your Shopify store
 
@@ -53,7 +53,7 @@ This builds the storefront and deploys it to Shopify Oxygen. Your store will be 
 app/
   components/spoils/   # Storefront UI (header, sidebar, footer, product grid)
   routes/              # Pages (home, collections, products, about, etc.)
-  lib/                 # Mock data, artist profiles, helpers
+  lib/                 # Content API, paths, helpers
 ```
 
 ## Checkout
@@ -74,5 +74,5 @@ Imports use the `~/components/ui/*` alias, for example `~/components/ui/button`.
 
 ```bash
 npm run test:unit   # Jest component tests
-npm run test:e2e    # Playwright tests (starts dev server with mock.shop via .env.test)
+npm run test:e2e    # Playwright tests (starts dev server against your linked store)
 ```

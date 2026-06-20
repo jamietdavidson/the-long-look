@@ -7,7 +7,6 @@
   "scripts": {
     "build": "shopify hydrogen build --codegen",
     "dev": "shopify hydrogen dev --codegen --port 3002",
-    "dev:e2e": "shopify hydrogen dev --codegen --port 3002 --env-file .env.test",
     "preview": "shopify hydrogen preview --build --port 3002",
     "lint": "eslint --no-error-on-unmatched-pattern .",
     "codegen": "shopify hydrogen codegen && react-router typegen",

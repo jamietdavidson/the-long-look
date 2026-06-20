@@ -1,9 +1,11 @@
 import {Link, NavLink} from 'react-router';
 import {Suspense, useState} from 'react';
-import {Await} from 'react-router';
+import {Await, useAsyncValue} from 'react-router';
+import {useOptimisticCart} from '@shopify/hydrogen';
 import {Menu, Search, ShoppingBag} from 'lucide-react';
 import {SpoilsSidebar} from '~/components/spoils/SpoilsSidebar';
 import {useAside} from '~/components/Aside';
+import {artistsPath, printsPath} from '~/lib/paths';
 
 /**
  * @param {{cart: Promise<import('storefrontapi.generated').CartApiQueryFragment|null>}}
@@ -29,14 +31,13 @@ export function SpoilsHeader({cart}) {
           </div>
 
           <nav className="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
-            <NavLink to="/collections/new-arrivals" className="spoils-nav-link">New Arrivals</NavLink>
-            <NavLink to="/collections/best-sellers" className="spoils-nav-link">Best Sellers</NavLink>
+            <NavLink to={printsPath()} className="spoils-nav-link">Shop All</NavLink>
+            <NavLink to={artistsPath()} className="spoils-nav-link">Artists</NavLink>
             <Link to="/" className="mx-6">
               <span className="text-[14px] font-semibold uppercase tracking-[0.3em] text-neutral-900">
                 The Long Look
               </span>
             </Link>
-            <NavLink to="/collections/artists" className="spoils-nav-link">Artists</NavLink>
             <NavLink to="/about" className="spoils-nav-link">About</NavLink>
           </nav>
 
@@ -52,12 +53,7 @@ export function SpoilsHeader({cart}) {
             </button>
             <Suspense fallback={<CartBadge count={0} onClick={() => openAside('cart')} />}>
               <Await resolve={cart}>
-                {(resolvedCart) => (
-                  <CartBadge
-                    count={resolvedCart?.totalQuantity ?? 0}
-                    onClick={() => openAside('cart')}
-                  />
-                )}
+                <CartBanner onClick={() => openAside('cart')} />
               </Await>
             </Suspense>
           </div>
@@ -67,6 +63,13 @@ export function SpoilsHeader({cart}) {
       <SpoilsSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </>
   );
+}
+
+/** @param {{onClick: () => void}} */
+function CartBanner({onClick}) {
+  const originalCart = useAsyncValue();
+  const cart = useOptimisticCart(originalCart);
+  return <CartBadge count={cart?.totalQuantity ?? 0} onClick={onClick} />;
 }
 
 /** @param {{count: number, onClick: () => void}} */

@@ -49,11 +49,19 @@ function CartCheckoutActions({checkoutUrl}) {
   if (!checkoutUrl) return null;
 
   return (
-    <div>
-      <a href={checkoutUrl} target="_self">
-        <p>Continue to Checkout &rarr;</p>
+    <div className="cart-checkout-actions">
+      <a
+        href={checkoutUrl}
+        className="cart-checkout-button"
+        target="_self"
+        rel="noopener noreferrer"
+      >
+        Checkout
       </a>
-      <br />
+      <p className="cart-checkout-note">
+        Secure checkout powered by Shopify. Shop Pay and other payment methods
+        available at checkout.
+      </p>
     </div>
   );
 }

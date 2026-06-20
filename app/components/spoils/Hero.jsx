@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
 import {Link} from 'react-router';
+import {printsPath} from '~/lib/paths';
 
 const heroImages = [
   'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80',
@@ -40,7 +41,7 @@ export function Hero() {
           ready-to-hang photography from the world&apos;s top artists
         </h2>
         <Link
-          to="/collections/all"
+          to={printsPath()}
           className="mt-10 inline-block border border-white/60 px-8 py-3 text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-neutral-900 transition-all duration-300"
         >
           Shop Collection

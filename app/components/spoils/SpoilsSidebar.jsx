@@ -1,20 +1,11 @@
-import {Link} from 'react-router';
+import {Link, useRouteLoaderData} from 'react-router';
 import {ChevronRight} from 'lucide-react';
 import {useState} from 'react';
 
-import {getMockCollectionNavItems} from '~/lib/collections-data';
+import {artistPath, artistsPath, collectionPath, printsPath} from '~/lib/paths';
 import {ScrollArea} from '~/components/ui/scroll-area';
 import {Separator} from '~/components/ui/separator';
 import {Sheet, SheetContent} from '~/components/ui/sheet';
-
-const collections = getMockCollectionNavItems();
-
-const artists = [
-  {name: "Brecht Van't Hof", handle: 'brecht-vant-hof', works: 16},
-  {name: 'Davide de Martis', handle: 'davide-de-martis', works: 11},
-  {name: 'Alex Lau', handle: 'alex-lau', works: 9},
-  {name: 'Tommy Murch', handle: 'tommy-murch', works: 13},
-];
 
 const infoLinks = [
   {title: 'About Us', href: '/about'},
@@ -28,6 +19,12 @@ const infoLinks = [
 /** @param {{open: boolean, onClose: () => void}} */
 export function SpoilsSidebar({open, onClose}) {
   const [expandedSections, setExpandedSections] = useState(new Set(['collections']));
+  const rootData = useRouteLoaderData('root');
+  const contentNav = rootData?.contentNav;
+
+  const collections = contentNav?.collections ?? [];
+  const artists = contentNav?.artists ?? [];
+  const totalPictures = contentNav?.totalPictures ?? 0;
 
   const toggleSection = (section) => {
     setExpandedSections((prev) => {
@@ -66,16 +63,14 @@ export function SpoilsSidebar({open, onClose}) {
             isOpen={isOpen('collections')}
             onToggle={() => toggleSection('collections')}
           >
-            <Link to="/collections/all" onClick={onClose} className="sidebar-link">
+            <Link to={printsPath()} onClick={onClose} className="sidebar-link">
               <span>Shop All</span>
-              <span className="text-muted-foreground">
-                {collections.reduce((n, c) => n + c.count, 0)}
-              </span>
+              <span className="text-muted-foreground">{totalPictures}</span>
             </Link>
             {collections.map((c) => (
               <Link
                 key={c.handle}
-                to={`/collections/${c.handle}`}
+                to={collectionPath(c.handle)}
                 onClick={onClose}
                 className="sidebar-link"
               >
@@ -95,7 +90,7 @@ export function SpoilsSidebar({open, onClose}) {
             {artists.map((a) => (
               <Link
                 key={a.handle}
-                to={`/collections/${a.handle}`}
+                to={artistPath(a.handle)}
                 onClick={onClose}
                 className="sidebar-link"
               >
@@ -104,7 +99,7 @@ export function SpoilsSidebar({open, onClose}) {
               </Link>
             ))}
             <Link
-              to="/collections/artists"
+              to={artistsPath()}
               onClick={onClose}
               className="block py-2.5 text-[11px] font-medium text-foreground"
             >

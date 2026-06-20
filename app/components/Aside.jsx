@@ -45,15 +45,21 @@ export function Aside({children, heading, type}) {
       role="dialog"
       aria-labelledby={id}
     >
-      <button className="close-outside" onClick={close} />
-      <aside className={type === 'cart' ? 'w-full sm:max-w-md' : 'w-full sm:max-w-sm'}>
-        <header>
+      <button className="close-outside" onClick={close} aria-label="Close panel" />
+      <aside
+        className={
+          type === 'cart'
+            ? 'w-full sm:max-w-md flex flex-col'
+            : 'w-full sm:max-w-sm flex flex-col'
+        }
+      >
+        <header className="cart-aside-header">
           <h3 id={id}>{heading}</h3>
           <button className="close reset" onClick={close} aria-label="Close">
             &times;
           </button>
         </header>
-        <main>{children}</main>
+        <main className="cart-aside-main">{children}</main>
       </aside>
     </div>
   );

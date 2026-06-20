@@ -3,6 +3,7 @@ import {Link} from 'react-router';
 import {useAside} from '~/components/Aside';
 import {CartLineItem} from '~/components/CartLineItem';
 import {CartSummary} from './CartSummary';
+import {printsPath} from '~/lib/paths';
 /**
  * Returns a map of all line items and their children.
  * @param {CartLine[]} lines
@@ -17,10 +18,10 @@ function getLineItemChildrenMap(lines) {
       children[parentId].push(line);
     }
     if ('lineComponents' in line) {
-      const children = getLineItemChildrenMap(line.lineComponents);
-      for (const [parentId, childIds] of Object.entries(children)) {
+      const nestedChildren = getLineItemChildrenMap(line.lineComponents);
+      for (const [parentId, childLines] of Object.entries(nestedChildren)) {
         if (!children[parentId]) children[parentId] = [];
-        children[parentId].push(...childIds);
+        children[parentId].push(...childLines);
       }
     }
   }
@@ -97,7 +98,7 @@ function CartEmpty({hidden = false}) {
         started!
       </p>
       <br />
-      <Link to="/collections" onClick={close} prefetch="viewport">
+      <Link to={printsPath()} onClick={close} prefetch="viewport">
         Continue shopping →
       </Link>
     </div>

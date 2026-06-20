@@ -11,6 +11,7 @@ import {
 } from 'react-router';
 import favicon from '~/assets/favicon.svg';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
+import {loadContentNav} from '~/lib/content-api';
 import globalsStyles from '~/styles/globals.css?url';
 import {PageLayout} from './components/spoils/SpoilsPageLayout';
 
@@ -68,10 +69,15 @@ export async function loader(args) {
   const criticalData = await loadCriticalData(args);
 
   const {storefront, env} = args.context;
+  const contentNav = await loadContentNav(storefront).catch((error) => {
+    console.error(error);
+    return null;
+  });
 
   return {
     ...deferredData,
     ...criticalData,
+    contentNav,
     publicStoreDomain: env.PUBLIC_STORE_DOMAIN,
     shop: getShopAnalytics({
       storefront,

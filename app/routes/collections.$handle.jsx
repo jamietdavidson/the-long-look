@@ -3,20 +3,18 @@ import {getPaginationVariables, Analytics} from '@shopify/hydrogen';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {SpoilsProductCard} from '~/components/spoils/ProductGrid';
-import {ArtistProfile, ArtistsIndex} from '~/components/spoils/ArtistProfile';
-import {getArtistByHandle, artists} from '~/lib/spoils-data';
-import {getMockCollectionByHandle} from '~/lib/collections-data';
+import {
+  loadArtistByHandle,
+  loadContentCollectionByHandle,
+  loadPicturesForCollection,
+  toProductConnection,
+} from '~/lib/content-api';
+import {artistPath, artistsPath, printsPath} from '~/lib/paths';
 
 /**
  * @type {Route.MetaFunction}
  */
 export const meta = ({data}) => {
-  if (data?.pageType === 'artist') {
-    return [{title: `${data.artist.name} | The Long Look`}];
-  }
-  if (data?.pageType === 'artists-index') {
-    return [{title: 'Artists | The Long Look'}];
-  }
   return [{title: `${data?.collection?.title ?? 'Collection'} | The Long Look`}];
 };
 
@@ -25,33 +23,43 @@ export const meta = ({data}) => {
  */
 export async function loader(args) {
   const {handle} = args.params;
+  const {storefront} = args.context;
 
   if (!handle) {
     throw redirect('/collections');
   }
 
   if (handle === 'artists') {
-    return {pageType: 'artists-index', artists};
+    throw redirect(artistsPath());
   }
 
-  const artist = getArtistByHandle(handle);
+  if (handle === 'all') {
+    throw redirect(printsPath());
+  }
+
+  const artist = await loadArtistByHandle(storefront, handle);
   if (artist) {
-    return {pageType: 'artist', artist};
+    throw redirect(artistPath(handle));
   }
 
-  const mockCollection = getMockCollectionByHandle(handle);
-  if (mockCollection) {
-    return {pageType: 'collection', collection: mockCollection};
+  const contentCollection = await loadContentCollectionByHandle(storefront, handle);
+  if (contentCollection) {
+    const pictures = await loadPicturesForCollection(storefront, handle);
+    return {
+      collection: {
+        ...contentCollection,
+        products: toProductConnection(pictures),
+      },
+    };
   }
 
-  const criticalData = await loadCriticalData(args);
-  return {pageType: 'collection', ...criticalData};
+  return loadShopifyCollection(args);
 }
 
 /**
  * @param {Route.LoaderArgs}
  */
-async function loadCriticalData({context, params, request}) {
+async function loadShopifyCollection({context, params, request}) {
   const {handle} = params;
   const {storefront} = context;
   const paginationVariables = getPaginationVariables(request, {pageBy: 8});
@@ -73,17 +81,7 @@ async function loadCriticalData({context, params, request}) {
 
 export default function CollectionRoute() {
   /** @type {LoaderReturnData} */
-  const data = useLoaderData();
-
-  if (data.pageType === 'artist') {
-    return <ArtistProfile artist={data.artist} />;
-  }
-
-  if (data.pageType === 'artists-index') {
-    return <ArtistsIndex artists={data.artists} />;
-  }
-
-  const {collection} = data;
+  const {collection} = useLoaderData();
 
   return (
     <div className="pt-20">
@@ -95,19 +93,25 @@ export default function CollectionRoute() {
           <p className="mt-4 text-[12px] text-neutral-500 max-w-xl mx-auto">{collection.description}</p>
         )}
       </div>
-      <section className="py-12 px-6 md:px-10 max-w-7xl mx-auto">
-        <PaginatedResourceSection
-          connection={collection.products}
-          resourcesClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
-        >
-          {({node: product, index}) => (
-            <SpoilsProductCard
-              key={product.id}
-              product={product}
-              loading={index < 8 ? 'eager' : undefined}
-            />
-          )}
-        </PaginatedResourceSection>
+      <section className="w-full">
+        {collection.products?.nodes?.length ? (
+          <PaginatedResourceSection
+            connection={collection.products}
+            resourcesClassName="print-grid w-full"
+          >
+            {({node: product, index}) => (
+              <SpoilsProductCard
+                key={product.id}
+                product={product}
+                loading={index < 8 ? 'eager' : undefined}
+              />
+            )}
+          </PaginatedResourceSection>
+        ) : (
+          <p className="text-center text-[12px] text-neutral-500">
+            No pictures in this collection yet.
+          </p>
+        )}
       </section>
       <Analytics.CollectionView
         data={{
