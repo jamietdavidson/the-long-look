@@ -1,12 +1,12 @@
-import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
+import {PageHero, PageContent} from '~/components/PageHero';
 
 export const meta = () => [{title: 'Shipping & Returns | The Long Look'}];
 
 export default function ShippingPage() {
   return (
     <>
-      <SpoilsPageHero title="Shipping & Returns" />
-      <SpoilsPageContent>
+      <PageHero title="Shipping & Returns" />
+      <PageContent>
         <section className="space-y-4 mb-10">
           <h2 className="text-[14px] uppercase tracking-[0.2em] font-semibold">Shipping</h2>
           <p className="text-[12px] text-neutral-600 leading-relaxed">
@@ -19,7 +19,7 @@ export default function ShippingPage() {
             Returns accepted within 30 days of delivery. Contact hello@thelonglook.com to initiate a return.
           </p>
         </section>
-      </SpoilsPageContent>
+      </PageContent>
     </>
   );
 }

@@ -13,7 +13,7 @@ import favicon from '~/assets/favicon.svg';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import {loadContentNav} from '~/lib/content-api';
 import globalsStyles from '~/styles/globals.css?url';
-import {PageLayout} from './components/spoils/SpoilsPageLayout';
+import {PageLayout} from './components/PageLayout';
 
 /**
  * This is important to avoid re-fetching root queries on sub-navigations
@@ -159,7 +159,7 @@ export function Layout({children}) {
         <Meta />
         <Links />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="h-full overflow-hidden">
         {children}
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />

@@ -1,5 +1,5 @@
 import {useLoaderData} from 'react-router';
-import {SpoilsProductCard} from '~/components/spoils/ProductGrid';
+import {ProductCard, printGridClassName} from '~/components/ProductGrid';
 import {loadAllPictures, toProductConnection} from '~/lib/content-api';
 
 /**
@@ -22,22 +22,18 @@ export default function PrintsIndex() {
   const {products} = useLoaderData();
 
   return (
-    <div className="pt-20">
+    <>
       <div className="text-center py-12 px-6 border-b border-neutral-100">
         <h1 className="text-[22px] md:text-[30px] uppercase tracking-[0.15em] font-semibold">
           All Prints
         </h1>
       </div>
       <section
-        className={
-          products.nodes.length > 0
-            ? 'print-grid w-full'
-            : 'w-full'
-        }
+        className={products.nodes.length > 0 ? printGridClassName : 'w-full'}
       >
         {products.nodes.length > 0 ? (
           products.nodes.map((product, index) => (
-            <SpoilsProductCard
+            <ProductCard
               key={product.id}
               product={product}
               loading={index < 8 ? 'eager' : undefined}
@@ -49,7 +45,7 @@ export default function PrintsIndex() {
           </p>
         )}
       </section>
-    </div>
+    </>
   );
 }
 

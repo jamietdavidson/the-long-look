@@ -18,13 +18,6 @@ test.describe('Header Navigation', () => {
     await expect(pageMain(page).locator('h1')).toContainText('Artists');
   });
 
-  test('clicking About loads the About page', async ({page}) => {
-    await page.goto(ROUTES.home);
-    await page.locator('header nav').getByText('About').click();
-    await expect(page).toHaveURL(ROUTES.about);
-    await expect(pageMain(page).locator('h1')).toContainText('The Long Look');
-  });
-
   test('clicking the logo navigates to home from another page', async ({page}) => {
     await page.goto(ROUTES.about);
     await page.locator('header').getByText('The Long Look').first().click();
@@ -59,21 +52,10 @@ test.describe('Sidebar Navigation', () => {
     await expect(pageMain(page).locator('h1')).toContainText('All Prints');
   });
 
-  test('clicking About Us in sidebar Info section loads the About page', async ({
-    page,
-  }) => {
-    const sheet = mobileNav(page);
-    await sheet.locator('button', {hasText: 'Info'}).click();
-    await sheet.getByText('About Us').click();
-    await expect(page).toHaveURL(ROUTES.about);
-    await expect(pageMain(page).locator('h1')).toContainText('The Long Look');
-  });
-
   test('sidebar closes after clicking a navigation link', async ({page}) => {
     const sheet = mobileNav(page);
-    await sheet.locator('button', {hasText: 'Info'}).click();
-    await sheet.getByText('About Us').click();
-    await expect(page).toHaveURL(ROUTES.about);
+    await sheet.getByText('Shop All').click();
+    await expect(page).toHaveURL(ROUTES.prints);
     await expect(sheet).not.toBeVisible();
   });
 });

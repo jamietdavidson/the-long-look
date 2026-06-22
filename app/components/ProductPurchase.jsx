@@ -9,15 +9,27 @@ import {ProductForm} from '~/components/ProductForm';
 
 /**
  * Size selection and add-to-cart for a Shopify product.
- * @param {{product: import('storefrontapi.generated').ProductFragment}}
+ * @param {{
+ *   product: import('storefrontapi.generated').ProductFragment;
+ *   selectedVariant?: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
+ *   formatOptionLabel?: (optionName: string, valueName: string) => string;
+ * }}
  */
-export function ProductPurchase({product}) {
-  const selectedVariant = useOptimisticVariant(
+export function ProductPurchase({
+  product,
+  selectedVariant: selectedVariantProp,
+  formatOptionLabel,
+}) {
+  const optimisticVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
     getAdjacentAndFirstAvailableVariants(product),
   );
 
-  useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
+  useSelectedOptionInUrlParam(
+    (selectedVariantProp ?? optimisticVariant)?.selectedOptions ?? [],
+  );
+
+  const selectedVariant = selectedVariantProp ?? optimisticVariant;
 
   const productOptions = getProductOptions({
     ...product,
@@ -34,6 +46,7 @@ export function ProductPurchase({product}) {
       <ProductForm
         productOptions={productOptions}
         selectedVariant={selectedVariant}
+        formatOptionLabel={formatOptionLabel}
         analytics={{
           products: [
             {

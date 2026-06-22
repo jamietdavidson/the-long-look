@@ -38,24 +38,20 @@ export function CartMain({layout, cart: originalCart}) {
   const cart = useOptimisticCart(originalCart);
 
   const linesCount = Boolean(cart?.lines?.nodes?.length || 0);
-  const withDiscount =
-    cart &&
-    Boolean(cart?.discountCodes?.filter((code) => code.applicable)?.length);
-  const className = `cart-main ${withDiscount ? 'with-discount' : ''}`;
   const cartHasItems = cart?.totalQuantity ? cart.totalQuantity > 0 : false;
   const childrenMap = getLineItemChildrenMap(cart?.lines?.nodes ?? []);
 
   return (
     <section
-      className={className}
+      className="flex h-full flex-col"
       aria-label={layout === 'page' ? 'Cart page' : 'Cart drawer'}
     >
       <CartEmpty hidden={linesCount} layout={layout} />
-      <div className="cart-details">
+      <div className="flex h-full flex-col">
         <p id="cart-lines" className="sr-only">
           Line items
         </p>
-        <div>
+        <div className="flex-1 overflow-y-auto pr-1">
           <ul aria-labelledby="cart-lines">
             {(cart?.lines?.nodes ?? []).map((line) => {
               // we do not render non-parent lines at the root of the cart

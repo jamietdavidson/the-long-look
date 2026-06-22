@@ -2,7 +2,7 @@ import {redirect, useLoaderData} from 'react-router';
 import {getPaginationVariables, Analytics} from '@shopify/hydrogen';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
-import {SpoilsProductCard} from '~/components/spoils/ProductGrid';
+import {ProductCard, printGridClassName} from '~/components/ProductGrid';
 import {
   loadArtistByHandle,
   loadContentCollectionByHandle,
@@ -84,7 +84,7 @@ export default function CollectionRoute() {
   const {collection} = useLoaderData();
 
   return (
-    <div className="pt-20">
+    <>
       <div className="text-center py-12 px-6 border-b border-neutral-100">
         <h1 className="text-[22px] md:text-[30px] uppercase tracking-[0.15em] font-semibold">
           {collection.title}
@@ -97,10 +97,10 @@ export default function CollectionRoute() {
         {collection.products?.nodes?.length ? (
           <PaginatedResourceSection
             connection={collection.products}
-            resourcesClassName="print-grid w-full"
+            resourcesClassName={printGridClassName}
           >
             {({node: product, index}) => (
-              <SpoilsProductCard
+              <ProductCard
                 key={product.id}
                 product={product}
                 loading={index < 8 ? 'eager' : undefined}
@@ -121,7 +121,7 @@ export default function CollectionRoute() {
           },
         }}
       />
-    </div>
+    </>
   );
 }
 

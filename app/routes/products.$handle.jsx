@@ -63,8 +63,7 @@ function ShopifyProductPage({product}) {
   const {title, descriptionHtml} = product;
 
   return (
-    <div className="pt-20">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 py-12">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16">
           <div className="aspect-[3/4] bg-neutral-100 overflow-hidden">
             {selectedVariant?.image && (
@@ -89,7 +88,6 @@ function ShopifyProductPage({product}) {
             )}
           </div>
         </div>
-      </div>
       <Analytics.ProductView
         data={{
           products: [

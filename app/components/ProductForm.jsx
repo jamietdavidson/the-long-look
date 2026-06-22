@@ -7,21 +7,29 @@ import {useAside} from './Aside';
  *   analytics?: unknown;
  *   productOptions: MappedProductOptions[];
  *   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
+ *   formatOptionLabel?: (optionName: string, valueName: string) => string;
  * }}
  */
-export function ProductForm({analytics, productOptions, selectedVariant}) {
+export function ProductForm({
+  analytics,
+  productOptions,
+  selectedVariant,
+  formatOptionLabel,
+}) {
   const navigate = useNavigate();
   const {open} = useAside();
   return (
-    <div className="product-form">
+    <div>
       {productOptions.map((option) => {
         // If there is only a single value in the option values, don't display the option
         if (option.optionValues.length === 1) return null;
 
         return (
-          <div className="product-options" key={option.name}>
-            <h5>{option.name}</h5>
-            <div className="product-options-grid">
+          <div key={option.name}>
+            <h5 className="mb-2 text-[10px] uppercase tracking-[0.2em] text-neutral-500">
+              {option.name}
+            </h5>
+            <div className="mb-4 flex flex-wrap gap-2">
               {option.optionValues.map((value) => {
                 const {
                   name,
@@ -41,7 +49,7 @@ export function ProductForm({analytics, productOptions, selectedVariant}) {
                   // as an anchor tag
                   return (
                     <Link
-                      className="product-options-item"
+                      className="border border-neutral-200 px-3 py-2 text-[11px] uppercase tracking-wider text-neutral-700 hover:border-neutral-900"
                       key={option.name + name}
                       prefetch="intent"
                       preventScrollReset
@@ -54,7 +62,10 @@ export function ProductForm({analytics, productOptions, selectedVariant}) {
                         opacity: available ? 1 : 0.3,
                       }}
                     >
-                      <ProductOptionSwatch swatch={swatch} name={name} />
+                      <ProductOptionSwatch
+                        swatch={swatch}
+                        name={formatOptionLabel?.(option.name, name) ?? name}
+                      />
                     </Link>
                   );
                 } else {
@@ -66,7 +77,7 @@ export function ProductForm({analytics, productOptions, selectedVariant}) {
                   return (
                     <button
                       type="button"
-                      className={`product-options-item${exists && !selected ? ' link' : ''}`}
+                      className={`border border-neutral-200 px-3 py-2 text-[11px] uppercase tracking-wider text-neutral-700 hover:border-neutral-900${exists && !selected ? ' link' : ''}`}
                       key={option.name + name}
                       style={{
                         border: selected
@@ -84,7 +95,10 @@ export function ProductForm({analytics, productOptions, selectedVariant}) {
                         }
                       }}
                     >
-                      <ProductOptionSwatch swatch={swatch} name={name} />
+                      <ProductOptionSwatch
+                        swatch={swatch}
+                        name={formatOptionLabel?.(option.name, name) ?? name}
+                      />
                     </button>
                   );
                 }

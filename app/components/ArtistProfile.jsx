@@ -1,5 +1,5 @@
 import {Link} from 'react-router';
-import {ProductGrid} from '~/components/spoils/ProductGrid';
+import {ProductGrid} from '~/components/ProductGrid';
 import {pictureToCard} from '~/lib/content-api';
 import {artistPath} from '~/lib/paths';
 
@@ -26,8 +26,7 @@ export function ArtistProfile({artist}) {
       : artist.portrait?.url;
 
   return (
-    <div className="pt-16">
-      <div className="max-w-7xl mx-auto px-6 md:px-10 py-12 md:py-16">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-10 md:gap-16">
           <div className="md:sticky md:top-24 md:self-start">
             {portraitUrl ? (
@@ -71,7 +70,6 @@ export function ArtistProfile({artist}) {
             <ProductGrid title={`Works by ${artist.name}`} products={products} />
           </div>
         </div>
-      </div>
     </div>
   );
 }
@@ -88,7 +86,7 @@ export function ArtistProfile({artist}) {
  */
 export function ArtistsIndex({artists: artistList}) {
   return (
-    <div className="pt-20">
+    <>
       <div className="text-center py-16 px-6 border-b border-neutral-100">
         <h1 className="text-[22px] md:text-[30px] uppercase tracking-[0.15em] font-semibold">Artists</h1>
       </div>
@@ -129,6 +127,6 @@ export function ArtistsIndex({artists: artistList}) {
           No artists published yet. Add artists in Shopify Admin → Content → Metaobjects.
         </p>
       )}
-    </div>
+    </>
   );
 }

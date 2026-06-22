@@ -1,6 +1,12 @@
-import {CartForm, Image} from '@shopify/hydrogen';
+import {CartForm} from '@shopify/hydrogen';
 import {useVariantUrl} from '~/lib/variants';
 import {Link} from 'react-router';
+import {FramedPicture} from '~/components/FramedPicture';
+import {
+  FRAMED_PICTURE_IMAGE_SIZES,
+  FramedPictureWall,
+} from '~/components/FramedPictureWall';
+import {resolveNamedFramedPictureSize} from '~/lib/framed-picture';
 import {ProductPrice} from './ProductPrice';
 import {useAside} from './Aside';
 
@@ -22,19 +28,25 @@ export function CartLineItem({layout, line, childrenMap}) {
   const {close} = useAside();
   const lineItemChildren = childrenMap[id];
   const childrenLabelId = `cart-line-children-${id}`;
+  const sizeOption = selectedOptions.find((option) => option.name === 'Size');
+  const printSize =
+    resolveNamedFramedPictureSize(sizeOption?.value) ??
+    resolveNamedFramedPictureSize(title) ??
+    'small';
 
   return (
-    <li key={id} className="cart-line">
-      <div className="cart-line-inner">
+    <li key={id} className="border-b border-neutral-100 py-4">
+      <div className="flex gap-4">
         {image && (
-          <Image
-            alt={title}
-            aspectRatio="1/1"
-            data={image}
-            height={100}
-            loading="lazy"
-            width={100}
-          />
+          <FramedPictureWall variant="compact">
+            <FramedPicture
+              image={image}
+              alt={title}
+              size={printSize}
+              sizes={FRAMED_PICTURE_IMAGE_SIZES.compact}
+              interactive={false}
+            />
+          </FramedPictureWall>
         )}
 
         <div>
@@ -99,7 +111,7 @@ function CartLineQuantity({line}) {
   const nextQuantity = Number((quantity + 1).toFixed(0));
 
   return (
-    <div className="cart-line-quantity">
+    <div className="mt-2 flex items-center gap-2 text-[12px] text-neutral-600 [&_button]:border [&_button]:border-neutral-200 [&_button]:px-2 [&_button]:py-0.5 [&_button]:text-neutral-700 [&_button]:hover:border-neutral-900">
       <small>Quantity: {quantity} &nbsp;&nbsp;</small>
       <CartLineUpdateButton lines={[{id: lineId, quantity: prevQuantity}]}>
         <button

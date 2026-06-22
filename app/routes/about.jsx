@@ -1,12 +1,12 @@
-import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
+import {PageHero, PageContent} from '~/components/PageHero';
 
 export const meta = () => [{title: 'About | The Long Look'}];
 
 export default function AboutPage() {
   return (
     <>
-      <SpoilsPageHero title="The Long Look" />
-      <SpoilsPageContent>
+      <PageHero title="The Long Look" />
+      <PageContent>
         <p className="text-[13px] text-neutral-600 leading-relaxed text-center mb-12">
           The Long Look curates stunning photography prints from a worldwide collective of artists.
           Each piece arrives framed and ready to hang.
@@ -27,7 +27,7 @@ export default function AboutPage() {
             </p>
           </div>
         </div>
-      </SpoilsPageContent>
+      </PageContent>
     </>
   );
 }

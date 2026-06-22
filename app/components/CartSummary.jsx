@@ -6,8 +6,6 @@ import {useFetcher} from 'react-router';
  * @param {CartSummaryProps}
  */
 export function CartSummary({cart, layout}) {
-  const className =
-    layout === 'page' ? 'cart-summary-page' : 'cart-summary-aside';
   const summaryId = useId();
   const discountsHeadingId = useId();
   const discountCodeInputId = useId();
@@ -15,9 +13,21 @@ export function CartSummary({cart, layout}) {
   const giftCardInputId = useId();
 
   return (
-    <div aria-labelledby={summaryId} className={className}>
-      <h4 id={summaryId}>Totals</h4>
-      <dl role="group" className="cart-subtotal">
+    <div
+      aria-labelledby={summaryId}
+      className={
+        layout === 'page'
+          ? 'mt-8 border-t border-neutral-200 pt-6'
+          : 'mt-4 shrink-0 border-t border-neutral-200 bg-white pt-4'
+      }
+    >
+      <h4
+        id={summaryId}
+        className="mb-3 text-[10px] uppercase tracking-[0.25em] text-neutral-500"
+      >
+        Totals
+      </h4>
+      <dl role="group" className="mb-4 flex items-center justify-between text-[13px]">
         <dt>Subtotal</dt>
         <dd>
           {cart?.cost?.subtotalAmount?.amount ? (
@@ -49,16 +59,16 @@ function CartCheckoutActions({checkoutUrl}) {
   if (!checkoutUrl) return null;
 
   return (
-    <div className="cart-checkout-actions">
+    <div className="mt-4 space-y-2">
       <a
         href={checkoutUrl}
-        className="cart-checkout-button"
+        className="block w-full border border-neutral-900 bg-neutral-900 px-4 py-3 text-center text-[10px] uppercase tracking-[0.25em] text-white transition-colors hover:bg-neutral-700"
         target="_self"
         rel="noopener noreferrer"
       >
         Checkout
       </a>
-      <p className="cart-checkout-note">
+      <p className="text-[11px] leading-relaxed text-neutral-500">
         Secure checkout powered by Shopify. Shop Pay and other payment methods
         available at checkout.
       </p>

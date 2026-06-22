@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "overlayscrollbars/styles/overlayscrollbars.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -50,331 +51,22 @@
 
 @layer base {
   html {
-    @apply scroll-smooth antialiased font-sans;
+    @apply antialiased font-sans;
+    height: 100%;
+    overflow: hidden;
   }
   body {
     @apply bg-background text-foreground;
-  }
-  .spoils-nav-link {
-    @apply text-[11px] uppercase tracking-[0.2em] text-neutral-800 hover:text-neutral-500 transition-colors;
-  }
-  .sidebar-link {
-    @apply flex items-center justify-between py-2.5 text-[11px] text-neutral-600 hover:text-neutral-900 transition-colors;
+    height: 100%;
+    overflow: hidden;
   }
   * {
     @apply border-border outline-ring/50;
   }
 }
 
-.overlay {
-  @apply fixed inset-0 z-50 bg-black/20 opacity-0 pointer-events-none transition-opacity duration-300;
-}
-.overlay.expanded {
-  @apply opacity-100 pointer-events-auto;
-}
-.overlay aside {
-  @apply fixed top-0 h-full bg-white shadow-xl transition-transform duration-300 flex flex-col;
-}
-.overlay.expanded aside {
-  @apply translate-x-0;
-}
-.overlay:not(.expanded) aside {
-  @apply -translate-x-full;
-}
-.overlay[data-type='cart'] aside,
-.overlay.cart-aside aside {
-  @apply right-0 left-auto;
-}
-.overlay:not(.expanded)[data-type='cart'] aside,
-.overlay.cart-aside:not(.expanded) aside {
-  @apply translate-x-full;
-}
-.overlay.expanded[data-type='cart'] aside,
-.overlay.cart-aside.expanded aside {
-  @apply translate-x-0;
-}
-
 :root {
-  --aside-width: 28rem;
-  --cart-aside-summary-height: 13rem;
-  --cart-aside-summary-height-with-discount: 16rem;
-}
-
-html:has(.overlay.expanded) {
-  overflow: hidden;
-}
-
-.overlay .close-outside {
-  position: absolute;
-  inset: 0;
-  right: min(var(--aside-width), 100vw);
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.cart-aside-header {
-  @apply flex items-center justify-between border-b border-neutral-200 px-5 py-4 shrink-0;
-}
-
-.cart-aside-header h3 {
-  @apply m-0 text-[11px] uppercase tracking-[0.25em] font-semibold text-neutral-900;
-}
-
-.cart-aside-header .close {
-  @apply text-2xl leading-none text-neutral-500 hover:text-neutral-900;
-}
-
-.cart-aside-main {
-  @apply flex-1 min-h-0 overflow-hidden relative p-5;
-}
-
-.cart-main {
-  @apply h-full flex flex-col;
-}
-
-.cart-details {
-  @apply flex h-full flex-col;
-}
-
-.cart-main > .cart-details > div:first-child {
-  @apply flex-1 overflow-y-auto pr-1;
-}
-
-.cart-line {
-  @apply border-b border-neutral-100 py-4;
-}
-
-.cart-line-inner {
-  @apply flex gap-4;
-}
-
-.cart-line img {
-  @apply h-24 w-24 shrink-0 rounded object-cover;
-}
-
-.cart-line-quantity {
-  @apply mt-2 flex items-center gap-2 text-[12px] text-neutral-600;
-}
-
-.cart-line-quantity button {
-  @apply border border-neutral-200 px-2 py-0.5 text-neutral-700 hover:border-neutral-900;
-}
-
-.cart-summary-aside {
-  @apply shrink-0 border-t border-neutral-200 bg-white pt-4 mt-4;
-}
-
-.cart-summary-page {
-  @apply mt-8 border-t border-neutral-200 pt-6;
-}
-
-.cart-summary-aside h4,
-.cart-summary-page h4 {
-  @apply mb-3 text-[10px] uppercase tracking-[0.25em] text-neutral-500;
-}
-
-.cart-subtotal {
-  @apply mb-4 flex items-center justify-between text-[13px];
-}
-
-.cart-checkout-actions {
-  @apply mt-4 space-y-2;
-}
-
-.cart-checkout-button {
-  @apply block w-full border border-neutral-900 bg-neutral-900 px-4 py-3 text-center text-[10px] uppercase tracking-[0.25em] text-white transition-colors hover:bg-neutral-700;
-}
-
-.cart-checkout-note {
-  @apply text-[11px] leading-relaxed text-neutral-500;
-}
-
-.product-form .product-options h5 {
-  @apply mb-2 text-[10px] uppercase tracking-[0.2em] text-neutral-500;
-}
-
-.product-form .product-options-grid {
-  @apply mb-4 flex flex-wrap gap-2;
-}
-
-.product-form .product-options-item {
-  @apply border border-neutral-200 px-3 py-2 text-[11px] uppercase tracking-wider text-neutral-700 hover:border-neutral-900;
-}
-
-.product-form button[type='submit'] {
-  @apply border border-neutral-900 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40;
-}
-
-/* Framed print cards */
-.print-grid {
-  display: grid;
-  width: 100%;
-  gap: 0.25rem;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-}
-
-@media (min-width: 48rem) {
-  .print-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 64rem) {
-  .print-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 100rem) {
-  .print-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.print-grid-item {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: #ececea;
-  padding: 3rem 1.25rem 2.25rem;
-}
-
-.print-grid-item-picture {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 0;
-}
-
-.print-grid-item-info {
-  flex-shrink: 0;
-  width: 100%;
-  padding-top: 1.5rem;
-  text-align: center;
-}
-
-.print-frame {
-  position: relative;
-  width: fit-content;
-  max-width: 100%;
-  background: #fff;
-  border: 1.2cqi solid #3d3d3d;
-  box-shadow:
-    0.6cqi 0.9cqi 1.2cqi rgba(0, 0, 0, 0.14),
-    1.5cqi 3cqi 4cqi rgba(0, 0, 0, 0.12),
-    2.4cqi 4.8cqi 6.6cqi rgba(0, 0, 0, 0.08);
-  transition: box-shadow 0.35s ease, transform 0.35s ease;
-}
-
-.group:hover .print-frame {
-  box-shadow:
-    0.9cqi 1.5cqi 1.8cqi rgba(0, 0, 0, 0.16),
-    2.1cqi 4.2cqi 5.4cqi rgba(0, 0, 0, 0.14),
-    3cqi 6cqi 8.4cqi rgba(0, 0, 0, 0.1);
-  transform: translateY(-0.5cqi);
-}
-
-.print-frame-mat {
-  position: relative;
-  padding: 4cqi;
-  background: #fff;
-  line-height: 0;
-  isolation: isolate;
-}
-
-/* Cast from bottom of top rail + right of left rail onto the mat */
-.print-frame-mat::before,
-.print-frame-mat::after {
-  content: '';
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-  transition: box-shadow 0.35s ease;
-}
-
-.print-frame-mat::before {
-  top: -0.6cqi;
-  left: 0;
-  right: 0;
-  height: 0.3cqi;
-  box-shadow: -0.3cqi 0.9cqi 1.2cqi rgba(0, 0, 0, 0.6);
-}
-
-.print-frame-mat::after {
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 0.3cqi;
-  box-shadow: 0.3cqi 0 1.2cqi rgba(0, 0, 0, 0.2);
-}
-
-.group:hover .print-frame-mat::before {
-  box-shadow: 0 0.3cqi 1.2cqi rgba(0, 0, 0, 0.26);
-}
-
-.group:hover .print-frame-mat::after {
-  box-shadow: 0.3cqi 0 1.2cqi rgba(0, 0, 0, 0.26);
-}
-
-.print-frame-image-wrap {
-  width: calc(sqrt(var(--area-k, 0.42) * var(--img-aspect, 0.75)) * 100cqi);
-  max-width: 100%;
-  aspect-ratio: var(--img-aspect, 0.75);
-}
-
-.print-frame-image,
-.print-frame-image img {
-  display: block;
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: auto;
-}
-
-.print-frame-placeholder {
-  background: #f5f5f4;
-}
-
-.print-frame-title {
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  font-weight: 500;
-  color: #262626;
-  margin: 0 0 0.2rem;
-}
-
-@media (min-width: 768px) {
-  .print-frame-title {
-    font-size: 0.875rem;
-  }
-}
-
-.print-frame-artist {
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  color: #737373;
-  margin: 0 0 0.15rem;
-}
-
-.print-frame-price {
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  color: #737373;
-  margin: 0;
-}
-
-@media (min-width: 768px) {
-  .print-frame-artist,
-  .print-frame-price {
-    font-size: 0.75rem;
-  }
-}
-
-:root {
+  --header-height: 3.375rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -407,6 +99,25 @@ html:has(.overlay.expanded) {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+.page-scroll,
+.page-scroll[data-overlayscrollbars] {
+  height: 100%;
+}
+
+.page-scroll[data-overlayscrollbars-viewport],
+.page-scroll [data-overlayscrollbars-viewport] {
+  scrollbar-width: none;
+}
+
+.page-scroll[data-overlayscrollbars-viewport]::-webkit-scrollbar,
+.page-scroll [data-overlayscrollbars-viewport]::-webkit-scrollbar {
+  display: none;
+}
+
+.page-scroll [data-overlayscrollbars-content] {
+  min-height: 100%;
 }
 
 .dark {

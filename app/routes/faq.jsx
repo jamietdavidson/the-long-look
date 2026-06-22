@@ -1,4 +1,4 @@
-import {SpoilsPageHero, SpoilsPageContent} from '~/components/spoils/SpoilsPageHero';
+import {PageHero, PageContent} from '~/components/PageHero';
 
 export const meta = () => [{title: 'FAQ | The Long Look'}];
 
@@ -11,8 +11,8 @@ const faqs = [
 export default function FAQPage() {
   return (
     <>
-      <SpoilsPageHero title="Frequently Asked Questions" />
-      <SpoilsPageContent>
+      <PageHero title="Frequently Asked Questions" />
+      <PageContent>
         <div className="space-y-6">
           {faqs.map((faq) => (
             <div key={faq.q} className="border-b border-neutral-100 pb-6">
@@ -21,7 +21,7 @@ export default function FAQPage() {
             </div>
           ))}
         </div>
-      </SpoilsPageContent>
+      </PageContent>
     </>
   );
 }

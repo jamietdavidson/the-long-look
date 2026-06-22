@@ -7,17 +7,11 @@ import {ScrollArea} from '~/components/ui/scroll-area';
 import {Separator} from '~/components/ui/separator';
 import {Sheet, SheetContent} from '~/components/ui/sheet';
 
-const infoLinks = [
-  {title: 'About Us', href: '/about'},
-  {title: 'Shipping & Returns', href: '/shipping'},
-  {title: 'FAQ', href: '/faq'},
-  {title: 'Contact', href: '/contact'},
-  {title: 'Privacy Policy', href: '/privacy'},
-  {title: 'Terms of Service', href: '/terms'},
-];
+const sidebarLinkClass =
+  'flex items-center justify-between py-2.5 text-[11px] text-neutral-600 transition-colors hover:text-neutral-900';
 
 /** @param {{open: boolean, onClose: () => void}} */
-export function SpoilsSidebar({open, onClose}) {
+export function Sidebar({open, onClose}) {
   const [expandedSections, setExpandedSections] = useState(new Set(['collections']));
   const rootData = useRouteLoaderData('root');
   const contentNav = rootData?.contentNav;
@@ -47,23 +41,18 @@ export function SpoilsSidebar({open, onClose}) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-full max-w-sm gap-0 border-r p-0"
+        className="flex w-full max-w-sm flex-col gap-0 border-r px-0 pb-0 pt-0"
       >
-        <div className="border-b border-border px-6 py-5">
-          <Link to="/" onClick={onClose}>
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.3em] text-foreground">
-              The Long Look
-            </h2>
-          </Link>
-        </div>
-
-        <ScrollArea className="flex-1">
+        <ScrollArea className="min-h-0 flex-1">
+          <div
+            className="pt-[var(--header-height,3.375rem)]"
+          >
           <SidebarSection
             title="Collections"
             isOpen={isOpen('collections')}
             onToggle={() => toggleSection('collections')}
           >
-            <Link to={printsPath()} onClick={onClose} className="sidebar-link">
+            <Link to={printsPath()} onClick={onClose} className={sidebarLinkClass}>
               <span>Shop All</span>
               <span className="text-muted-foreground">{totalPictures}</span>
             </Link>
@@ -72,7 +61,7 @@ export function SpoilsSidebar({open, onClose}) {
                 key={c.handle}
                 to={collectionPath(c.handle)}
                 onClick={onClose}
-                className="sidebar-link"
+                className={sidebarLinkClass}
               >
                 <span>{c.title}</span>
                 <span className="text-muted-foreground">{c.count}</span>
@@ -92,7 +81,7 @@ export function SpoilsSidebar({open, onClose}) {
                 key={a.handle}
                 to={artistPath(a.handle)}
                 onClick={onClose}
-                className="sidebar-link"
+                className={sidebarLinkClass}
               >
                 <span>{a.name}</span>
                 <span className="text-muted-foreground">{a.works} works</span>
@@ -106,25 +95,7 @@ export function SpoilsSidebar({open, onClose}) {
               View All Artists →
             </Link>
           </SidebarSection>
-
-          <Separator />
-
-          <SidebarSection
-            title="Info"
-            isOpen={isOpen('info')}
-            onToggle={() => toggleSection('info')}
-          >
-            {infoLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                onClick={onClose}
-                className="block py-2.5 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                {link.title}
-              </Link>
-            ))}
-          </SidebarSection>
+          </div>
         </ScrollArea>
 
         <div className="border-t border-border px-6 py-5">

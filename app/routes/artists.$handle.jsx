@@ -1,5 +1,5 @@
 import {useLoaderData} from 'react-router';
-import {ArtistProfile} from '~/components/spoils/ArtistProfile';
+import {ArtistProfile} from '~/components/ArtistProfile';
 import {loadArtistByHandle, loadPicturesForArtist} from '~/lib/content-api';
 
 /**

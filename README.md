@@ -51,7 +51,7 @@ This builds the storefront and deploys it to Shopify Oxygen. Your store will be 
 
 ```
 app/
-  components/spoils/   # Storefront UI (header, sidebar, footer, product grid)
+  components/           # Storefront UI (header, sidebar, footer, product grid)
   routes/              # Pages (home, collections, products, about, etc.)
   lib/                 # Content API, paths, helpers
 ```

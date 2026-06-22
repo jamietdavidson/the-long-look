@@ -1,7 +1,7 @@
 import {Await, useLoaderData} from 'react-router';
 import {Suspense} from 'react';
-import {Hero} from '~/components/spoils/Hero';
-import {ProductGrid, VideoSection} from '~/components/spoils/ProductGrid';
+import {Hero} from '~/components/Hero';
+import {ProductGrid, VideoSection} from '~/components/ProductGrid';
 import {loadAllPictures, picturesToCards} from '~/lib/content-api';
 
 /**
@@ -29,7 +29,7 @@ export default function Homepage() {
   const {newArrivals, bestSellers} = useLoaderData();
 
   return (
-    <div className="pt-16">
+    <>
       <Hero />
       <Suspense fallback={<SectionSkeleton title="Recent Works" />}>
         <Await resolve={newArrivals}>
@@ -50,7 +50,7 @@ export default function Homepage() {
           )}
         </Await>
       </Suspense>
-    </div>
+    </>
   );
 }
 

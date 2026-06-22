@@ -112,11 +112,9 @@ export default function Cart() {
   const cart = useLoaderData();
 
   return (
-    <div className="pt-20">
-      <div className="max-w-3xl mx-auto px-6 md:px-10 py-12">
+    <div className="max-w-3xl mx-auto px-6 md:px-10 py-12">
         <h1 className="text-[22px] uppercase tracking-[0.15em] font-semibold mb-8">Cart</h1>
         <CartMain layout="page" cart={cart} />
-      </div>
     </div>
   );
 }
