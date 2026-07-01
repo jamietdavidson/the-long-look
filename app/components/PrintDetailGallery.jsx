@@ -171,7 +171,7 @@ export function PrintDetailGallery({
     >
       <FramedPictureWall
         variant="detail"
-        className="min-h-[70vh] md:h-full md:min-h-0"
+        className="min-h-[70vh] w-full md:h-full md:min-h-0"
       >
         <div
           className="relative flex min-h-[70vh] w-full items-center justify-center overflow-hidden md:h-full md:min-h-0"
