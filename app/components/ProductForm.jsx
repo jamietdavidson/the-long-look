@@ -1,6 +1,7 @@
 import {Link, useNavigate} from 'react-router';
 import {AddToCartButton} from './AddToCartButton';
 import {useAside} from './Aside';
+import {getPrintHandleLineAttributes} from '~/lib/cart';
 
 /**
  * @param {{
@@ -8,6 +9,7 @@ import {useAside} from './Aside';
  *   productOptions: MappedProductOptions[];
  *   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
  *   formatOptionLabel?: (optionName: string, valueName: string) => string;
+ *   printHandle?: string;
  * }}
  */
 export function ProductForm({
@@ -15,9 +17,22 @@ export function ProductForm({
   productOptions,
   selectedVariant,
   formatOptionLabel,
+  printHandle,
 }) {
   const navigate = useNavigate();
   const {open} = useAside();
+  const cartLines =
+    selectedVariant
+      ? [
+          {
+            merchandiseId: selectedVariant.id,
+            quantity: 1,
+            selectedVariant,
+            attributes: getPrintHandleLineAttributes(printHandle),
+          },
+        ]
+      : [];
+
   return (
     <div>
       {productOptions.map((option) => {
@@ -108,26 +123,27 @@ export function ProductForm({
           </div>
         );
       })}
-      <AddToCartButton
-        analytics={analytics}
-        disabled={!selectedVariant || !selectedVariant.availableForSale}
-        onClick={() => {
-          open('cart');
-        }}
-        lines={
-          selectedVariant
-            ? [
-                {
-                  merchandiseId: selectedVariant.id,
-                  quantity: 1,
-                  selectedVariant,
-                },
-              ]
-            : []
-        }
-      >
-        {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
-      </AddToCartButton>
+      <div className="flex flex-wrap gap-3">
+        <AddToCartButton
+          analytics={analytics}
+          disabled={!selectedVariant || !selectedVariant.availableForSale}
+          onClick={() => {
+            open('cart');
+          }}
+          lines={cartLines}
+        >
+          {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
+        </AddToCartButton>
+        {selectedVariant?.availableForSale ? (
+          <AddToCartButton
+            analytics={analytics}
+            lines={cartLines}
+            redirectTo="checkout"
+          >
+            Buy now
+          </AddToCartButton>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import {useLoaderData} from 'react-router';
 import {getSelectedProductOptions} from '@shopify/hydrogen';
 import {PrintDetail} from '~/components/PrintDetail';
-import {loadPictureByHandle} from '~/lib/content-api';
+import {loadPictureByHandle, loadRecommendedPictures} from '~/lib/content-api';
 import {PRODUCT_QUERY} from '~/graphql/product';
 
 /**
@@ -27,25 +27,31 @@ export async function loader({context, request, params}) {
   }
 
   let product = null;
-  if (picture.product?.handle) {
-    const {product: loadedProduct} = await context.storefront.query(PRODUCT_QUERY, {
-      variables: {
-        handle: picture.product.handle,
-        selectedOptions: getSelectedProductOptions(request),
-      },
-    });
-    product = loadedProduct ?? null;
-  }
+  const productPromise = picture.product?.handle
+    ? context.storefront.query(PRODUCT_QUERY, {
+        variables: {
+          handle: picture.product.handle,
+          selectedOptions: getSelectedProductOptions(request),
+        },
+      })
+    : Promise.resolve({product: null});
 
-  return {picture, product};
+  const [{product: loadedProduct}, recommended] = await Promise.all([
+    productPromise,
+    loadRecommendedPictures(context.storefront, picture),
+  ]);
+
+  product = loadedProduct ?? null;
+
+  return {picture, product, recommended};
 }
 
 export default function PrintRoute() {
   /** @type {LoaderReturnData} */
-  const {picture, product} = useLoaderData();
+  const {picture, product, recommended} = useLoaderData();
 
   return (
-    <PrintDetail picture={picture} product={product} />
+    <PrintDetail picture={picture} product={product} recommended={recommended} />
   );
 }
 

@@ -1,51 +1,26 @@
 import {useLocation} from 'react-router';
 import {useMemo} from 'react';
+import {getLineItemUrl} from '~/lib/cart';
 
 /**
  * @param {string} handle
  * @param {SelectedOption[]} [selectedOptions]
+ * @param {string} [printHandle]
  */
-export function useVariantUrl(handle, selectedOptions) {
+export function useVariantUrl(handle, selectedOptions, printHandle) {
   const {pathname} = useLocation();
 
   return useMemo(() => {
-    return getVariantUrl({
-      handle,
-      pathname,
-      searchParams: new URLSearchParams(),
+    const match = /(\/[a-zA-Z]{2}-[a-zA-Z]{2}\/)/g.exec(pathname);
+    const localePrefix = match?.[0] ?? '';
+
+    return getLineItemUrl({
+      productHandle: handle,
       selectedOptions,
+      printHandle,
+      localePrefix,
     });
-  }, [handle, selectedOptions, pathname]);
-}
-
-/**
- * @param {{
- *   handle: string;
- *   pathname: string;
- *   searchParams: URLSearchParams;
- *   selectedOptions?: SelectedOption[];
- * }}
- */
-export function getVariantUrl({
-  handle,
-  pathname,
-  searchParams,
-  selectedOptions,
-}) {
-  const match = /(\/[a-zA-Z]{2}-[a-zA-Z]{2}\/)/g.exec(pathname);
-  const isLocalePathname = match && match.length > 0;
-
-  const path = isLocalePathname
-    ? `${match[0]}products/${handle}`
-    : `/products/${handle}`;
-
-  selectedOptions?.forEach((option) => {
-    searchParams.set(option.name, option.value);
-  });
-
-  const searchString = searchParams.toString();
-
-  return path + (searchString ? '?' + searchParams.toString() : '');
+  }, [handle, selectedOptions, printHandle, pathname]);
 }
 
 /** @typedef {import('@shopify/hydrogen/storefront-api-types').SelectedOption} SelectedOption */

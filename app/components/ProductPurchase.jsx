@@ -13,12 +13,14 @@ import {ProductForm} from '~/components/ProductForm';
  *   product: import('storefrontapi.generated').ProductFragment;
  *   selectedVariant?: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
  *   formatOptionLabel?: (optionName: string, valueName: string) => string;
+ *   printHandle?: string;
  * }}
  */
 export function ProductPurchase({
   product,
   selectedVariant: selectedVariantProp,
   formatOptionLabel,
+  printHandle,
 }) {
   const optimisticVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
@@ -47,6 +49,7 @@ export function ProductPurchase({
         productOptions={productOptions}
         selectedVariant={selectedVariant}
         formatOptionLabel={formatOptionLabel}
+        printHandle={printHandle}
         analytics={{
           products: [
             {

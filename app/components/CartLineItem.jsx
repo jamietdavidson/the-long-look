@@ -6,6 +6,7 @@ import {
   FRAMED_PICTURE_IMAGE_SIZES,
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
+import {getPrintHandleFromCartAttributes} from '~/lib/cart';
 import {resolveNamedFramedPictureSize} from '~/lib/framed-picture';
 import {ProductPrice} from './ProductPrice';
 import {useAside} from './Aside';
@@ -24,7 +25,12 @@ import {useAside} from './Aside';
 export function CartLineItem({layout, line, childrenMap}) {
   const {id, merchandise} = line;
   const {product, title, image, selectedOptions} = merchandise;
-  const lineItemUrl = useVariantUrl(product.handle, selectedOptions);
+  const printHandle = getPrintHandleFromCartAttributes(line.attributes);
+  const lineItemUrl = useVariantUrl(
+    product.handle,
+    selectedOptions,
+    printHandle,
+  );
   const {close} = useAside();
   const lineItemChildren = childrenMap[id];
   const childrenLabelId = `cart-line-children-${id}`;

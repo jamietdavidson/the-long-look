@@ -30,14 +30,6 @@ export type FramedPictureComputed = {
     frameMatJunction: string;
     matPictureJunction: string;
   };
-  shadows: {
-    frame: string;
-    frameHover: string;
-    matTop: string;
-    matLeft: string;
-    matTopHover: string;
-    matLeftHover: string;
-  };
 };
 
 /** Fixed mat and frame width in inches — same physical moulding at every tier. */
@@ -148,27 +140,6 @@ export function formatPrintDimensions(
   return `${width}" × ${height}"`;
 }
 
-function buildShadows(frameCqi: number, intensity: number) {
-  const f = frameCqi;
-
-  return {
-    frame: [
-      `${0.5 * f}cqi ${0.75 * f}cqi ${1 * f}cqi rgba(0,0,0,${0.14 * intensity})`,
-      `${1.25 * f}cqi ${2.5 * f}cqi ${3.3 * f}cqi rgba(0,0,0,${0.12 * intensity})`,
-      `${2 * f}cqi ${4 * f}cqi ${5.5 * f}cqi rgba(0,0,0,${0.08 * intensity})`,
-    ].join(', '),
-    frameHover: [
-      `${0.75 * f}cqi ${1.25 * f}cqi ${1.5 * f}cqi rgba(0,0,0,${0.16 * intensity})`,
-      `${1.75 * f}cqi ${3.5 * f}cqi ${4.5 * f}cqi rgba(0,0,0,${0.14 * intensity})`,
-      `${2.5 * f}cqi ${5 * f}cqi ${7 * f}cqi rgba(0,0,0,${0.1 * intensity})`,
-    ].join(', '),
-    matTop: `${-0.25 * f}cqi ${0.75 * f}cqi ${1 * f}cqi rgba(0,0,0,${0.6 * intensity})`,
-    matLeft: `${0.25 * f}cqi 0 ${1 * f}cqi rgba(0,0,0,${0.2 * intensity})`,
-    matTopHover: `0 ${0.25 * f}cqi ${1 * f}cqi rgba(0,0,0,${0.26 * intensity})`,
-    matLeftHover: `${0.25 * f}cqi 0 ${1 * f}cqi rgba(0,0,0,${0.26 * intensity})`,
-  };
-}
-
 function adjustHexColor(hex: string, amountPercent: number) {
   const normalized = hex.replace('#', '');
   const channels = [
@@ -261,7 +232,6 @@ export function computeFramedPictureSize(
     pictureWidthCqi,
   }));
 
-  const shadowIntensity = frameColor === 'white' ? 1.35 : 1;
   const baseColors =
     frameColor === 'white'
       ? {
@@ -270,7 +240,7 @@ export function computeFramedPictureSize(
           matFace: '#ffffff',
         }
       : {
-          frameBorder: '#3d3d3d',
+          frameBorder: '#2a2a2a',
           frameFace: '#ffffff',
           matFace: '#ffffff',
         };
@@ -295,7 +265,6 @@ export function computeFramedPictureSize(
     frameColor,
     orientation,
     colors,
-    shadows: buildShadows(frameCqi, shadowIntensity),
   };
 }
 

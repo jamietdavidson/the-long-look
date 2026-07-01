@@ -245,6 +245,35 @@ export function picturesToCards(pictures: Picture[]): PictureCard[] {
   return pictures.map(pictureToCard);
 }
 
+export function getRecommendedPictures(
+  picture: Picture,
+  allPictures: Picture[],
+  limit = 4,
+): Picture[] {
+  const others = allPictures.filter((candidate) => candidate.handle !== picture.handle);
+  const collectionHandles = new Set(picture.collections.map((collection) => collection.handle));
+
+  const score = (candidate: Picture) => {
+    let value = 0;
+    if (candidate.artist.handle === picture.artist.handle) value += 2;
+    for (const collection of candidate.collections) {
+      if (collectionHandles.has(collection.handle)) value += 1;
+    }
+    return value;
+  };
+
+  return [...others].sort((a, b) => score(b) - score(a)).slice(0, limit);
+}
+
+export async function loadRecommendedPictures(
+  storefront: Storefront,
+  picture: Picture,
+  limit = 4,
+): Promise<PictureCard[]> {
+  const allPictures = await loadAllPictures(storefront).catch(() => []);
+  return picturesToCards(getRecommendedPictures(picture, allPictures, limit));
+}
+
 export function toProductConnection(pictures: Picture[]) {
   return {
     nodes: picturesToCards(pictures),

@@ -7,6 +7,7 @@ import {CartForm} from '@shopify/hydrogen';
  *   disabled?: boolean;
  *   lines: Array<OptimisticCartLineInput>;
  *   onClick?: () => void;
+ *   redirectTo?: string;
  * }}
  */
 export function AddToCartButton({
@@ -15,6 +16,7 @@ export function AddToCartButton({
   disabled,
   lines,
   onClick,
+  redirectTo,
 }) {
   return (
     <CartForm route="/cart" inputs={{lines}} action={CartForm.ACTIONS.LinesAdd}>
@@ -25,6 +27,9 @@ export function AddToCartButton({
             type="hidden"
             value={JSON.stringify(analytics)}
           />
+          {redirectTo ? (
+            <input type="hidden" name="redirectTo" value={redirectTo} />
+          ) : null}
           <button
             type="submit"
             className="border border-neutral-900 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"

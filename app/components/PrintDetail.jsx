@@ -12,6 +12,7 @@ import {
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
 import {ProductPurchase} from '~/components/ProductPurchase';
+import {ProductGrid} from '~/components/ProductGrid';
 import {
   formatPrintDimensions,
   formatPrintSizeOptionLabel,
@@ -28,20 +29,30 @@ import {artistPath, printsPath} from '~/lib/paths';
  * @param {{
  *   picture: Picture;
  *   product: import('storefrontapi.generated').ProductFragment | null;
+ *   recommended?: Array<import('~/lib/content-api').PictureCard>;
  * }}
  */
-export function PrintDetail({picture, product}) {
+export function PrintDetail({picture, product, recommended = []}) {
   const image = picture.image?.url
     ? {id: picture.id, ...picture.image}
     : null;
 
-  if (product) {
-    return (
-      <PrintDetailWithProduct picture={picture} product={product} image={image} />
-    );
-  }
+  const detail = product ? (
+    <PrintDetailWithProduct picture={picture} product={product} image={image} />
+  ) : (
+    <PrintDetailPreview picture={picture} image={image} />
+  );
 
-  return <PrintDetailPreview picture={picture} image={image} />;
+  return (
+    <>
+      {detail}
+      {recommended.length > 0 ? (
+        <section className="border-t border-neutral-100 py-16">
+          <ProductGrid title="Recommended for you" products={recommended} />
+        </section>
+      ) : null}
+    </>
+  );
 }
 
 /**
@@ -78,6 +89,7 @@ function PrintDetailWithProduct({picture, product, image}) {
           <ProductPurchase
             product={product}
             selectedVariant={selectedVariant}
+            printHandle={picture.handle}
             formatOptionLabel={(optionName, valueName) =>
               formatPrintSizeOptionLabel(optionName, valueName, orientation)
             }
