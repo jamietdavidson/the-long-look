@@ -30,20 +30,8 @@ export function FramedPictureImage({
   loading = 'lazy',
   sizes,
 }) {
-  const junctionBorderCqi = 0.11 * computed.frameCqi;
-
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: 'fit-content',
-        lineHeight: 1,
-        backgroundColor: computed.colors.matFace,
-        borderWidth: `${junctionBorderCqi}cqi`,
-        borderStyle: 'solid',
-        borderColor: computed.colors.matPictureJunction,
-      }}
-    >
+    <>
       <FramedPictureInnerEdgeShadows edges={shadows.pictureEdges} />
       {image?.url ? (
         <div
@@ -82,6 +70,6 @@ export function FramedPictureImage({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

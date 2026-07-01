@@ -14,6 +14,8 @@ import {FramedPictureInnerEdgeShadows} from '~/components/FramedPictureInnerEdge
  * }}
  */
 export function FramedPictureBorder({computed, shadows, children}) {
+  const junctionBorderCqi = 0.11 * computed.frameCqi;
+
   return (
     <div
       style={{
@@ -27,7 +29,15 @@ export function FramedPictureBorder({computed, shadows, children}) {
       }}
     >
       <FramedPictureInnerEdgeShadows edges={shadows.matEdges} />
-      {children}
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          border: "3px solid " + "#dfdfdf",
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
