@@ -10,6 +10,8 @@ import {
   useRouteLoaderData,
 } from 'react-router';
 import favicon from '~/assets/favicon.svg';
+import interVariable from '~/assets/fonts/inter-variable.ttf?url';
+import interItalicVariable from '~/assets/fonts/inter-italic-variable.ttf?url';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import {loadContentNav} from '~/lib/content-api';
 import globalsStyles from '~/styles/globals.css?url';
@@ -53,6 +55,20 @@ export function links() {
     {
       rel: 'preconnect',
       href: 'https://shop.app',
+    },
+    {
+      rel: 'preload',
+      href: interVariable,
+      as: 'font',
+      type: 'font/ttf',
+      crossOrigin: 'anonymous',
+    },
+    {
+      rel: 'preload',
+      href: interItalicVariable,
+      as: 'font',
+      type: 'font/ttf',
+      crossOrigin: 'anonymous',
     },
     {rel: 'icon', type: 'image/svg+xml', href: favicon},
   ];

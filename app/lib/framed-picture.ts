@@ -1,4 +1,4 @@
-export type FrameColor = 'white' | 'black';
+export type FrameColor = 'white' | 'black' | 'natural';
 export type PictureOrientation = 'vertical' | 'horizontal';
 
 export type FramedPictureSizeSpec = {
@@ -239,11 +239,17 @@ export function computeFramedPictureSize(
           frameFace: '#ffffff',
           matFace: '#ffffff',
         }
-      : {
-          frameBorder: '#2a2a2a',
-          frameFace: '#ffffff',
-          matFace: '#ffffff',
-        };
+      : frameColor === 'natural'
+        ? {
+            frameBorder: '#8b7355',
+            frameFace: '#c4a574',
+            matFace: '#ffffff',
+          }
+        : {
+            frameBorder: '#2a2a2a',
+            frameFace: '#ffffff',
+            matFace: '#ffffff',
+          };
 
   const colors = {
     ...baseColors,
@@ -349,4 +355,87 @@ export function formatPrintSizeOptionLabel(
 
   const spec = FRAMED_PICTURE_SIZES[named];
   return `${FRAMED_PICTURE_SIZE_LABELS[named]} (${formatPrintDimensions(spec, orientation)})`;
+}
+
+/** Map a Shopify frame option label to a preview frame color. */
+export function resolveFrameColorFromOption(
+  value?: string | null,
+): FrameColor {
+  const normalized = value?.toLowerCase().trim() ?? '';
+  if (normalized.includes('white')) return 'white';
+  if (normalized.includes('natural') || normalized.includes('wood')) {
+    return 'natural';
+  }
+  return 'black';
+}
+
+/** Map a Shopify mount option label to border vs full bleed. */
+export function resolveMountFromOption(
+  value?: string | null,
+): 'border' | 'fullBleed' {
+  const normalized = value?.toLowerCase().trim() ?? '';
+  if (normalized.includes('full') || normalized.includes('bleed')) {
+    return 'fullBleed';
+  }
+  return 'border';
+}
+
+function getSelectedOptionValue(
+  variant: {selectedOptions?: Array<{name: string; value: string}>} | null | undefined,
+  optionName: string,
+) {
+  return variant?.selectedOptions?.find(
+    (option) => option.name.toLowerCase() === optionName.toLowerCase(),
+  )?.value;
+}
+
+/** @param {{selectedOptions?: Array<{name: string; value: string}>; title?: string | null}} variant */
+export function getFramedPictureSpecFromVariant(
+  variant: {selectedOptions?: Array<{name: string; value: string}>; title?: string | null} | null | undefined,
+  namedSize?: FramedPictureNamedSize,
+  overrides?: {frame?: string | null; mount?: string | null},
+): FramedPictureSizeSpec {
+  const sizeKey = namedSize ?? getFramedSizeFromVariant(variant ?? {});
+  const spec: FramedPictureSizeSpec = {...FRAMED_PICTURE_SIZES[sizeKey]};
+
+  const frameValue =
+    getSelectedOptionValue(variant, 'frame') ?? overrides?.frame ?? null;
+  const mountValue =
+    getSelectedOptionValue(variant, 'mount') ?? overrides?.mount ?? null;
+  const normalizedFrame = frameValue?.toLowerCase().trim() ?? '';
+
+  spec.frameColor = resolveFrameColorFromOption(frameValue);
+
+  if (resolveMountFromOption(mountValue) === 'fullBleed') {
+    spec.padding = 0;
+  }
+
+  if (
+    normalizedFrame.includes('no frame') ||
+    normalizedFrame.includes('unframed') ||
+    normalizedFrame.includes('none')
+  ) {
+    spec.frame = 0;
+  }
+
+  return spec;
+}
+
+/** Sort Shopify size option values in catalog order (Small → Exhibition). */
+export function sortSizeOptionValues<
+  T extends {name: string},
+>(values: T[]): T[] {
+  const order = Object.keys(FRAMED_PICTURE_SIZES);
+
+  return [...values].sort((a, b) => {
+    const aKey = resolveNamedFramedPictureSize(a.name) ?? a.name;
+    const bKey = resolveNamedFramedPictureSize(b.name) ?? b.name;
+    const aIndex = order.indexOf(aKey);
+    const bIndex = order.indexOf(bKey);
+
+    if (aIndex === -1 && bIndex === -1) return a.name.localeCompare(b.name);
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
 }

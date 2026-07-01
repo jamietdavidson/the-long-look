@@ -1,5 +1,7 @@
 import {useState} from 'react';
-import {Image} from '@shopify/hydrogen';
+import {FramedPictureBorder} from '~/components/FramedPictureBorder';
+import {FramedPictureFrame} from '~/components/FramedPictureFrame';
+import {FramedPictureImage} from '~/components/FramedPictureImage';
 import {FRAMED_PICTURE_IMAGE_SIZES} from '~/components/FramedPictureWall';
 import {
   computeFramedPictureSize,
@@ -111,52 +113,9 @@ function buildFramedPictureShadows(
 
   return {
     frame: shadowProfile(1),
-    matEdges: buildEdgeOverlays(),
-    pictureEdges: buildEdgeOverlays({depthScale: 0.18, alphaScale: 0.22}),
+    matEdges: buildEdgeOverlays({alphaScale: 0.44}),
+    pictureEdges: buildEdgeOverlays({depthScale: 0.18, alphaScale: 0.28}),
   };
-}
-
-/**
- * @param {{
- *   top: { depthCqi: number; color: string } | null;
- *   left: { depthCqi: number; color: string } | null;
- * }} edges
- */
-function InnerEdgeShadows({edges}) {
-  return (
-    <>
-      {edges.top ? (
-        <span
-          aria-hidden
-          style={{
-            pointerEvents: 'none',
-            position: 'absolute',
-            zIndex: 2,
-            top: 0,
-            left: 0,
-            right: 0,
-            height: `${edges.top.depthCqi}cqi`,
-            background: `linear-gradient(to bottom, ${edges.top.color}, transparent)`,
-          }}
-        />
-      ) : null}
-      {edges.left ? (
-        <span
-          aria-hidden
-          style={{
-            pointerEvents: 'none',
-            position: 'absolute',
-            zIndex: 2,
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: `${edges.left.depthCqi}cqi`,
-            background: `linear-gradient(to right, ${edges.left.color}, transparent)`,
-          }}
-        />
-      ) : null}
-    </>
-  );
 }
 
 /**
@@ -201,7 +160,6 @@ export function FramedPicture({
     imageAspect: getImageAspectRatio(image),
   });
 
-  const junctionBorderCqi = 0.11 * computed.frameCqi;
   const shadows = buildFramedPictureShadows(computed.frameCqi, lighting, {
     frameColor: computed.frameColor,
   });
@@ -219,95 +177,23 @@ export function FramedPicture({
       onMouseEnter={interactive ? () => setHovered(true) : undefined}
       onMouseLeave={interactive ? () => setHovered(false) : undefined}
     >
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          width: 'fit-content',
-          maxWidth: '100%',
-          borderWidth: `${computed.frameCqi}cqi`,
-          borderStyle: 'solid',
-          borderColor: computed.colors.frameBorder,
-          backgroundColor: computed.colors.frameFace,
-          boxShadow: shadows.frame,
-          ...(interactive
-            ? {
-                transform: hovered ? 'translateY(-0.25rem)' : undefined,
-                willChange: 'transform',
-                transition: 'transform 300ms ease-out',
-              }
-            : {}),
-        }}
+      <FramedPictureFrame
+        computed={computed}
+        shadows={shadows}
+        interactive={interactive}
+        hovered={hovered}
       >
-        <div
-          style={{
-            width: 'fit-content',
-            lineHeight: 1,
-            borderWidth: `${junctionBorderCqi}cqi`,
-            borderStyle: 'solid',
-            borderColor: computed.colors.frameMatJunction,
-          }}
-        >
-          <div
-            style={{
-              position: 'relative',
-              isolation: 'isolate',
-              lineHeight: 1,
-              padding: `${computed.paddingCqi}cqi`,
-              backgroundColor: computed.colors.matFace,
-            }}
-          >
-            <InnerEdgeShadows edges={shadows.matEdges} />
-            <div
-              style={{
-                position: 'relative',
-                lineHeight: 1,
-                borderWidth: `${junctionBorderCqi}cqi`,
-                borderStyle: 'solid',
-                borderColor: computed.colors.matPictureJunction,
-              }}
-            >
-              <InnerEdgeShadows edges={shadows.pictureEdges} />
-              {image?.url ? (
-                <div
-                  style={{
-                    position: 'relative',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    width: `${computed.pictureWidthCqi}cqi`,
-                    aspectRatio: computed.pictureAspect,
-                  }}
-                >
-                  <Image
-                    alt={image.altText || alt}
-                    data={image}
-                    loading={loading}
-                    sizes={sizes}
-                    className="[&_img]:block [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
-                    style={{
-                      position: 'relative',
-                      zIndex: 1,
-                      display: 'block',
-                      height: '100%',
-                      width: '100%',
-                    }}
-                  />
-                </div>
-              ) : (
-                <div
-                  aria-hidden
-                  style={{
-                    maxWidth: '100%',
-                    backgroundColor: '#f5f5f5',
-                    width: `${computed.pictureWidthCqi}cqi`,
-                    aspectRatio: computed.pictureAspect,
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+        <FramedPictureBorder computed={computed} shadows={shadows}>
+          <FramedPictureImage
+            image={image}
+            alt={alt}
+            computed={computed}
+            shadows={shadows}
+            loading={loading}
+            sizes={sizes}
+          />
+        </FramedPictureBorder>
+      </FramedPictureFrame>
     </div>
   );
 }

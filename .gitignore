@@ -1,5 +1,6 @@
 # added by us
 content/
+drive/
 
 node_modules
 /.cache
