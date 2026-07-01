@@ -214,7 +214,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
 /** @param {{children: import('react').ReactNode}} */
 function PrintDetailAside({children}) {
   return (
-    <div className="flex w-full flex-1 justify-center px-6 py-28 md:px-10 md:py-40">
+    <div className="flex w-full flex-1 justify-center px-4 py-6 md:px-10 md:py-40">
       <div className="w-full max-w-md text-left">{children}</div>
     </div>
   );
@@ -234,7 +234,7 @@ function PrintDetailHeader({picture, minPrice}) {
     null;
 
   return (
-    <header className="mb-8">
+    <header className="mb-6 md:mb-8">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 uppercase md:text-[1.75rem]">
         {picture.title}
       </h1>

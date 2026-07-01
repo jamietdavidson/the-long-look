@@ -167,14 +167,14 @@ export function PrintDetailGallery({
   return (
     <div
       ref={containerRef}
-      className="relative w-full shrink-0 md:sticky md:top-0 md:h-screen md:w-1/2"
+      className="relative w-full shrink-0 min-h-[70vh] md:sticky md:top-0 md:h-screen md:min-h-0 md:w-1/2"
     >
       <FramedPictureWall
         variant="detail"
-        className="h-full min-h-[70vh] md:h-full! md:w-full!"
+        className="min-h-[70vh] md:h-full md:min-h-0"
       >
         <div
-          className="relative flex h-full w-full items-center justify-center overflow-hidden"
+          className="relative flex min-h-[70vh] w-full items-center justify-center overflow-hidden md:h-full md:min-h-0"
           aria-live="polite"
           aria-label={`Image gallery, ${activeSlide.label}`}
         >
