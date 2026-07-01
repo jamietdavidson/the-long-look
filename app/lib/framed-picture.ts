@@ -48,9 +48,9 @@ export const FRAMED_PICTURE_CATALOG_DISPLAY_SIZE = 'collector' as const;
 /** Default size on print detail when no variant is selected in the URL. */
 export const FRAMED_PICTURE_DEFAULT_NAMED_SIZE = 'large' as const;
 
-/** Detail gallery — min/max outer frame width (cqi); tiers step evenly between. */
-export const FRAMED_PICTURE_DETAIL_MIN_WIDTH_CQI = 50;
-export const FRAMED_PICTURE_DETAIL_MAX_WIDTH_CQI = 88;
+/** Detail gallery — min/max outer frame long edge (% of @container width); tiers step evenly. */
+export const FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI = 50;
+export const FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI = 88;
 
 /** Detail gallery — min/max long-edge height fill; tiers step evenly between. */
 export const FRAMED_PICTURE_DETAIL_MIN_HEIGHT_FILL = 0.5;
@@ -131,13 +131,13 @@ function lerpDetailTierValue(
   return min + (index / steps) * (max - min);
 }
 
-export function getDetailMaxWidthCqiForNamedSize(
+export function getDetailMaxLongSideCqiForNamedSize(
   namedSize: FramedPictureNamedSize,
 ) {
   return lerpDetailTierValue(
     namedSize,
-    FRAMED_PICTURE_DETAIL_MIN_WIDTH_CQI,
-    FRAMED_PICTURE_DETAIL_MAX_WIDTH_CQI,
+    FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI,
+    FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI,
   );
 }
 
@@ -213,6 +213,42 @@ function getLayoutOuterAspectForTierCap(
   return verticalLayout.width / verticalLayout.height;
 }
 
+/** Mobile detail gallery height — keep in sync with PrintDetailGallery Tailwind classes. */
+export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO = 0.7;
+
+/** Best-effort @container dimensions before layout measurement (client only). */
+export function getDetailGalleryViewportEstimate() {
+  if (typeof window === 'undefined') return null;
+
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight * FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO,
+  };
+}
+
+/** Max outer long edge (cqi) for a detail gallery @container. */
+export function getDetailFitLongSideCqi(
+  spec: FramedPictureSizeSpec,
+  namedSize: FramedPictureNamedSize | undefined,
+  containerWidth: number,
+  containerHeight: number,
+) {
+  if (containerWidth <= 0 || containerHeight <= 0) return undefined;
+
+  const tierLongSide = namedSize
+    ? getDetailMaxLongSideCqiForNamedSize(namedSize)
+    : (FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI +
+        FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI) /
+      2;
+  const heightFill = namedSize
+    ? getDetailMaxHeightFillForNamedSize(namedSize)
+    : FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL;
+  const heightLongSideCap =
+    (containerHeight / containerWidth) * 100 * heightFill;
+
+  return Math.min(tierLongSide, heightLongSideCap);
+}
+
 /** Cap outer width (cqi) so the frame fits within a detail gallery viewport. */
 export function getDetailFitMaxWidthCqi(
   spec: FramedPictureSizeSpec,
@@ -220,7 +256,13 @@ export function getDetailFitMaxWidthCqi(
   containerWidth: number,
   containerHeight: number,
 ) {
-  if (containerWidth <= 0 || containerHeight <= 0) return undefined;
+  const targetLongSide = getDetailFitLongSideCqi(
+    spec,
+    namedSize,
+    containerWidth,
+    containerHeight,
+  );
+  if (targetLongSide === undefined) return undefined;
 
   const isFullBleed = spec.padding === 0;
   const isUnframed = spec.frame === 0;
@@ -231,19 +273,6 @@ export function getDetailFitMaxWidthCqi(
     layoutPadding,
     layoutFrame,
   );
-
-  const tierMax = namedSize
-    ? getDetailMaxWidthCqiForNamedSize(namedSize)
-    : (FRAMED_PICTURE_DETAIL_MIN_WIDTH_CQI +
-        FRAMED_PICTURE_DETAIL_MAX_WIDTH_CQI) /
-      2;
-  const tierLongSide = tierMax / verticalOuterAspect;
-  const heightFill = namedSize
-    ? getDetailMaxHeightFillForNamedSize(namedSize)
-    : FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL;
-  const heightLongSideCap =
-    (containerHeight / containerWidth) * 100 * heightFill;
-  const targetLongSide = Math.min(tierLongSide, heightLongSideCap);
 
   return targetLongSide * verticalOuterAspect;
 }
@@ -410,6 +439,33 @@ function scaleToOuterContainerFill(
  * `maxWidthCqi` is the max outer width for vertical orientation; horizontal
  * prints use the same long-edge budget so both orientations read at the same size.
  */
+function scaleFramedPictureDimensions(
+  dimensions: {
+    frameCqi: number;
+    paddingCqi: number;
+    pictureWidthCqi: number;
+    pictureAspect: number;
+  },
+  targetLongSideCqi: number,
+) {
+  const {outerWidthCqi, outerHeightCqi} = getOuterDimensionsCqi(
+    dimensions.frameCqi,
+    dimensions.paddingCqi,
+    dimensions.pictureWidthCqi,
+    dimensions.pictureAspect,
+  );
+  const longSideCqi = Math.max(outerWidthCqi, outerHeightCqi);
+
+  if (longSideCqi === 0 || longSideCqi <= targetLongSideCqi) return dimensions;
+
+  const scale = targetLongSideCqi / longSideCqi;
+  return {
+    frameCqi: dimensions.frameCqi * scale,
+    paddingCqi: dimensions.paddingCqi * scale,
+    pictureWidthCqi: dimensions.pictureWidthCqi * scale,
+  };
+}
+
 function fitFramedPictureToContainer(
   dimensions: {
     frameCqi: number;
@@ -420,23 +476,10 @@ function fitFramedPictureToContainer(
   maxWidthCqi = DEFAULT_MAX_FRAME_WIDTH_CQI,
   verticalOuterAspect = 1,
 ) {
-  const {outerWidthCqi, outerHeightCqi} = getOuterDimensionsCqi(
-    dimensions.frameCqi,
-    dimensions.paddingCqi,
-    dimensions.pictureWidthCqi,
-    dimensions.pictureAspect,
+  return scaleFramedPictureDimensions(
+    dimensions,
+    maxWidthCqi / verticalOuterAspect,
   );
-  const longSideCqi = Math.max(outerWidthCqi, outerHeightCqi);
-  const targetLongSideCqi = maxWidthCqi / verticalOuterAspect;
-
-  if (longSideCqi === 0 || longSideCqi === targetLongSideCqi) return dimensions;
-
-  const scale = targetLongSideCqi / longSideCqi;
-  return {
-    frameCqi: dimensions.frameCqi * scale,
-    paddingCqi: dimensions.paddingCqi * scale,
-    pictureWidthCqi: dimensions.pictureWidthCqi * scale,
-  };
 }
 
 export function computeFramedPictureSize(
@@ -446,6 +489,7 @@ export function computeFramedPictureSize(
     containerFill?: number;
     namedSize?: FramedPictureNamedSize;
     maxWidthCqi?: number;
+    maxLongSideCqi?: number;
   },
 ): FramedPictureComputed {
   const {width: pictureWidth, height: pictureHeight} = getPictureDimensions(
@@ -491,6 +535,13 @@ export function computeFramedPictureSize(
     maxWidthCqi,
     verticalOuterAspect,
   ));
+
+  if (options?.maxLongSideCqi !== undefined) {
+    ({frameCqi, paddingCqi, pictureWidthCqi} = scaleFramedPictureDimensions(
+      {frameCqi, paddingCqi, pictureWidthCqi, pictureAspect},
+      options.maxLongSideCqi,
+    ));
+  }
 
   if (isFullBleed) {
     paddingCqi = 0;

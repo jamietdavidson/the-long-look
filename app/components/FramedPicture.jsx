@@ -160,6 +160,7 @@ function buildFramedPictureShadows(
  * @description Fraction of the @container width for the outer frame long edge (e.g. 0.9 = 90%). Default 1 leaves sizing unchanged.
  *   lighting?: FramedPictureLighting;
  *   maxWidthCqi?: number;
+ *   maxLongSideCqi?: number;
  * }}
  */
 export function FramedPicture({
@@ -174,6 +175,7 @@ export function FramedPicture({
   containerFill,
   lighting = FRAMED_PICTURE_LIGHTING_DEFAULT,
   maxWidthCqi,
+  maxLongSideCqi,
 }) {
   const [hoveredState, setHoveredState] = useState(false);
   const hovered = controlledHovered ?? hoveredState;
@@ -187,6 +189,7 @@ export function FramedPicture({
     containerFill,
     namedSize,
     maxWidthCqi,
+    maxLongSideCqi,
   });
 
   const shadows = buildFramedPictureShadows(computed.frameCqi, lighting, {

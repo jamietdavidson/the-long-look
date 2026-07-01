@@ -22,16 +22,21 @@ export const FRAMED_PICTURE_IMAGE_SIZES = {
  * @param {{
  *   variant?: 'default' | 'detail' | 'gridCard' | 'compact';
  *   className?: string;
+ *   containerRef?: import('react').Ref<HTMLDivElement>;
  *   children: import('react').ReactNode;
  * }}
  */
 export function FramedPictureWall({
   variant = 'default',
   className = '',
+  containerRef,
   children,
 }) {
   return (
-    <div className={cn(FRAMED_PICTURE_WALL[variant], className)}>
+    <div
+      ref={containerRef}
+      className={cn(FRAMED_PICTURE_WALL[variant], className)}
+    >
       {children}
     </div>
   );

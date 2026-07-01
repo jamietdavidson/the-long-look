@@ -7,7 +7,9 @@ import {
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
 import {
+  getDetailFitLongSideCqi,
   getDetailFitMaxWidthCqi,
+  getDetailGalleryViewportEstimate,
   getFramedSizeFromVariant,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
@@ -88,11 +90,14 @@ export function PrintDetailGallery({
   namedSize,
   selectedVariant,
 }) {
-  const containerRef = useRef(null);
+  const galleryRef = useRef(null);
+  const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [containerSize, setContainerSize] = useState(
-    /** @type {{width: number; height: number} | null} */ (null),
+    /** @type {{width: number; height: number} | null} */ (
+      getDetailGalleryViewportEstimate()
+    ),
   );
 
   const resolvedNamedSize =
@@ -104,18 +109,32 @@ export function PrintDetailGallery({
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
-  const slideFitWidths = useMemo(() => {
-    if (!containerSize) return slides.map(() => undefined);
+  const measuredContainerSize =
+    containerSize ?? getDetailGalleryViewportEstimate();
 
-    return slides.map((slide) =>
-      getDetailFitMaxWidthCqi(
+  const slideFitCaps = useMemo(() => {
+    if (!measuredContainerSize) {
+      return slides.map(() => ({
+        maxWidthCqi: undefined,
+        maxLongSideCqi: undefined,
+      }));
+    }
+
+    return slides.map((slide) => ({
+      maxWidthCqi: getDetailFitMaxWidthCqi(
         slide.spec,
         resolvedNamedSize,
-        containerSize.width,
-        containerSize.height,
+        measuredContainerSize.width,
+        measuredContainerSize.height,
       ),
-    );
-  }, [slides, resolvedNamedSize, containerSize]);
+      maxLongSideCqi: getDetailFitLongSideCqi(
+        slide.spec,
+        resolvedNamedSize,
+        measuredContainerSize.width,
+        measuredContainerSize.height,
+      ),
+    }));
+  }, [slides, resolvedNamedSize, measuredContainerSize]);
 
   useEffect(() => {
     setSlideIndex(0);
@@ -123,7 +142,7 @@ export function PrintDetailGallery({
   }, [framedSpec.shortSide, framedSpec.longSide, framedSpec.frame, framedSpec.padding]);
 
   useEffect(() => {
-    const element = containerRef.current;
+    const element = wallRef.current;
     if (!element) return;
 
     const updateSize = () => {
@@ -166,15 +185,16 @@ export function PrintDetailGallery({
 
   return (
     <div
-      ref={containerRef}
-      className="relative w-full shrink-0 min-h-[70vh] md:sticky md:top-0 md:h-screen md:min-h-0 md:w-1/2"
+      ref={galleryRef}
+      className="relative h-[70dvh] w-full shrink-0 md:sticky md:top-0 md:h-screen md:w-1/2"
     >
       <FramedPictureWall
         variant="detail"
-        className="min-h-[70vh] w-full md:h-full md:min-h-0"
+        containerRef={wallRef}
+        className="h-full w-full"
       >
         <div
-          className="relative flex min-h-[70vh] w-full items-center justify-center overflow-hidden md:h-full md:min-h-0"
+          className="relative flex h-full w-full items-center justify-center overflow-hidden"
           aria-live="polite"
           aria-label={`Image gallery, ${activeSlide.label}`}
         >
@@ -201,14 +221,15 @@ export function PrintDetailGallery({
                 hasMultipleSlides && 'cursor-grab active:cursor-grabbing',
               )}
             >
-              <div className="pointer-events-none select-none [&_*]:pointer-events-none [&_img]:drag-none">
+              <div className="pointer-events-none flex max-h-full max-w-full items-center justify-center select-none [&_*]:pointer-events-none [&_img]:drag-none">
                 <FramedPicture
                   image={image}
                   alt={alt}
                   size={activeSlide.spec}
                   loading="eager"
                   sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
-                  maxWidthCqi={slideFitWidths[slideIndex]}
+                  maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
+                  maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
                   interactive={false}
                 />
               </div>
