@@ -2,7 +2,7 @@ import {redirect, useLoaderData} from 'react-router';
 import {getPaginationVariables, Analytics} from '@shopify/hydrogen';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
-import {ProductCard, printGridClassName} from '~/components/ProductGrid';
+import {ProductCard, printGridClassName, printGridWallClassName, FRAMED_PICTURE_GRID_CONTAINER_FILL} from '~/components/ProductGrid';
 import {
   loadArtistByHandle,
   loadContentCollectionByHandle,
@@ -104,6 +104,8 @@ export default function CollectionRoute() {
                 key={product.id}
                 product={product}
                 loading={index < 8 ? 'eager' : undefined}
+                containerFill={FRAMED_PICTURE_GRID_CONTAINER_FILL}
+                wallClassName={printGridWallClassName}
               />
             )}
           </PaginatedResourceSection>

@@ -6,8 +6,9 @@ import {getLineItemUrl} from '~/lib/cart';
  * @param {string} handle
  * @param {SelectedOption[]} [selectedOptions]
  * @param {string} [printHandle]
+ * @param {Array<{key: string; value?: string | null}> | null} [attributes]
  */
-export function useVariantUrl(handle, selectedOptions, printHandle) {
+export function useVariantUrl(handle, selectedOptions, printHandle, attributes) {
   const {pathname} = useLocation();
 
   return useMemo(() => {
@@ -19,8 +20,9 @@ export function useVariantUrl(handle, selectedOptions, printHandle) {
       selectedOptions,
       printHandle,
       localePrefix,
+      attributes,
     });
-  }, [handle, selectedOptions, printHandle, pathname]);
+  }, [handle, selectedOptions, printHandle, attributes, pathname]);
 }
 
 /** @typedef {import('@shopify/hydrogen/storefront-api-types').SelectedOption} SelectedOption */

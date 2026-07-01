@@ -7,11 +7,8 @@ import {
   useSelectedOptionInUrlParam,
 } from '@shopify/hydrogen';
 import {DisplaysWellWith} from '~/components/DisplaysWellWith';
-import {FramedPicture} from '~/components/FramedPicture';
-import {
-  FRAMED_PICTURE_IMAGE_SIZES,
-  FramedPictureWall,
-} from '~/components/FramedPictureWall';
+import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
+import {PrintDetailGallery} from '~/components/PrintDetailGallery';
 import {
   PrintFeatureList,
   PrintFulfillmentNotes,
@@ -21,10 +18,11 @@ import {
 } from '~/components/PrintPurchasePanel';
 import {SizeOptionTable} from '~/components/SizeOptionTable';
 import {
-  formatPrintDimensions,
+  formatOuterDimensions,
   FRAMED_PICTURE_SIZE_LABELS,
   FRAMED_PICTURE_SIZES,
   getFramedPictureSpecFromVariant,
+  getFramedSizeFromVariant,
   getOrientationFromImage,
   resolveFrameColorFromOption,
   resolveMountFromOption,
@@ -87,29 +85,31 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
     picture.product?.priceRange?.minVariantPrice ?? selectedVariant?.price;
 
   return (
-    <div className="flex w-full flex-col md:flex-row md:items-start">
-      <FramedPictureWall variant="detail">
-        <FramedPicture
+    <>
+      <div className="flex w-full flex-col md:flex-row md:items-start">
+        <PrintDetailGallery
           image={image}
           alt={picture.title}
-          size={framedSpec}
-          loading="eager"
-          sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
+          framedSpec={framedSpec}
+          namedSize={getFramedSizeFromVariant(selectedVariant)}
+          selectedVariant={selectedVariant}
         />
-      </FramedPictureWall>
-      <PrintDetailAside>
-        <PrintDetailHeader picture={picture} minPrice={minPrice} />
-        <div className="space-y-6">
-          <PrintPurchasePanel
-            product={product}
-            selectedVariant={selectedVariant}
-            printHandle={picture.handle}
-            orientation={orientation}
-            relatedProducts={recommended}
-          />
-        </div>
-      </PrintDetailAside>
-    </div>
+        <PrintDetailAside>
+          <PrintDetailHeader picture={picture} minPrice={minPrice} />
+          <div className="space-y-6">
+            <PrintPurchasePanel
+              product={product}
+              selectedVariant={selectedVariant}
+              printHandle={picture.handle}
+              artistName={picture.artist?.name}
+              orientation={orientation}
+              relatedProducts={recommended}
+            />
+          </div>
+        </PrintDetailAside>
+      </div>
+      <RecommendedForYou products={recommended} />
+    </>
   );
 }
 
@@ -136,80 +136,82 @@ function PrintDetailPreview({picture, image, recommended = []}) {
   };
 
   return (
-    <div className="flex w-full flex-col md:flex-row md:items-start">
-      <FramedPictureWall variant="detail">
-        <FramedPicture
+    <>
+      <div className="flex w-full flex-col md:flex-row md:items-start">
+        <PrintDetailGallery
           image={image}
           alt={picture.title}
-          size={framedSpec}
-          loading="eager"
-          sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
+          framedSpec={framedSpec}
+          namedSize={selectedSize}
         />
-      </FramedPictureWall>
-      <PrintDetailAside>
-        <PrintDetailHeader picture={picture} minPrice={price} />
-        <div className="space-y-6">
-          <PrintFeatureList />
-          <div className="overflow-hidden">
-            <button
-              type="button"
-              className={
-                expanded
-                  ? 'flex w-full items-center justify-center gap-2 bg-neutral-100 px-4 py-4 text-sm font-medium text-neutral-900'
-                  : 'flex w-full items-center justify-center gap-2 bg-neutral-900 px-4 py-4 text-sm font-medium text-white hover:bg-neutral-800'
-              }
-              onClick={() => setExpanded((open) => !open)}
-            >
-              {!expanded ? (
-                <span
-                  aria-hidden
-                  className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
-                />
+        <PrintDetailAside>
+          <PrintDetailHeader picture={picture} minPrice={price} />
+          <div className="space-y-6">
+            <PrintFeatureList />
+            <div className="overflow-hidden">
+              <button
+                type="button"
+                className={
+                  expanded
+                    ? 'flex w-full items-center justify-center gap-2 bg-neutral-100 px-4 py-4 text-sm font-medium text-neutral-900'
+                    : 'flex w-full items-center justify-center gap-2 bg-neutral-900 px-4 py-4 text-sm font-medium text-white hover:bg-neutral-800'
+                }
+                onClick={() => setExpanded((open) => !open)}
+              >
+                {!expanded ? (
+                  <span
+                    aria-hidden
+                    className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
+                  />
+                ) : null}
+                <span>Select Size, Frame &amp; Mount</span>
+              </button>
+              {expanded ? (
+                <div className="space-y-8 bg-white pt-6 pb-8">
+                  <PreviewSizeTable
+                    selectedSize={selectedSize}
+                    onSelect={setSelectedSize}
+                    orientation={orientation}
+                    frame={selectedFrame}
+                    mount={selectedMount}
+                  />
+                  <FrameSwatches
+                    selectedFrame={selectedFrame}
+                    onSelectShopify={() => {}}
+                    onSelectFallback={setSelectedFrame}
+                  />
+                  <MountToggle
+                    selectedMount={selectedMount}
+                    onSelectShopify={() => {}}
+                    onSelectFallback={setSelectedMount}
+                  />
+                </div>
               ) : null}
-              <span>Select Size, Frame &amp; Mount</span>
-            </button>
-            {expanded ? (
-              <div className="space-y-8 bg-white pt-6 pb-8">
-                <PreviewSizeTable
-                  selectedSize={selectedSize}
-                  onSelect={setSelectedSize}
-                  orientation={orientation}
-                />
-                <FrameSwatches
-                  selectedFrame={selectedFrame}
-                  onSelectShopify={() => {}}
-                  onSelectFallback={setSelectedFrame}
-                />
-                <MountToggle
-                  selectedMount={selectedMount}
-                  onSelectShopify={() => {}}
-                  onSelectFallback={setSelectedMount}
-                />
-              </div>
-            ) : null}
+            </div>
+            <div className="space-y-4">
+              <PrintFulfillmentNotes />
+              <DisplaysWellWith products={recommended} />
+            </div>
+            {price && Number(price.amount) > 0 ? null : (
+              <Link
+                to={printsPath()}
+                className="inline-block border border-neutral-900 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-colors hover:bg-neutral-900 hover:text-white"
+              >
+                Continue Shopping
+              </Link>
+            )}
           </div>
-          <div className="space-y-4">
-            <PrintFulfillmentNotes />
-            <DisplaysWellWith products={recommended} />
-          </div>
-          {price && Number(price.amount) > 0 ? null : (
-            <Link
-              to={printsPath()}
-              className="inline-block border border-neutral-900 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-colors hover:bg-neutral-900 hover:text-white"
-            >
-              Continue Shopping
-            </Link>
-          )}
-        </div>
-      </PrintDetailAside>
-    </div>
+        </PrintDetailAside>
+      </div>
+      <RecommendedForYou products={recommended} />
+    </>
   );
 }
 
 /** @param {{children: import('react').ReactNode}} */
 function PrintDetailAside({children}) {
   return (
-    <div className="flex w-full flex-1 justify-center px-6 py-10 md:px-10 md:py-14">
+    <div className="flex w-full flex-1 justify-center px-6 py-28 md:px-10 md:py-40">
       <div className="w-full max-w-md text-left">{children}</div>
     </div>
   );
@@ -267,26 +269,50 @@ function PrintDetailHeader({picture, minPrice}) {
  *   selectedSize: import('~/lib/framed-picture').FramedPictureNamedSize;
  *   onSelect: (size: import('~/lib/framed-picture').FramedPictureNamedSize) => void;
  *   orientation: import('~/lib/framed-picture').PictureOrientation;
+ *   frame: string;
+ *   mount: string;
  * }}
  */
-function PreviewSizeTable({selectedSize, onSelect, orientation}) {
+function PreviewSizeTable({selectedSize, onSelect, orientation, frame, mount}) {
   return (
     <SizeOptionTable
       rows={
         /** @type {Array<import('~/lib/framed-picture').FramedPictureNamedSize>} */ (
           Object.keys(FRAMED_PICTURE_SIZES)
         ).map((sizeKey) => {
-          const spec = FRAMED_PICTURE_SIZES[sizeKey];
-
           return {
             key: sizeKey,
             label: FRAMED_PICTURE_SIZE_LABELS[sizeKey],
-            dimensions: formatPrintDimensions(spec, orientation),
+            dimensions: formatOuterDimensions(
+              getFramedPictureSpecFromVariant(null, sizeKey, {frame, mount}),
+              orientation,
+            ),
             selected: selectedSize === sizeKey,
             onSelect: () => onSelect(sizeKey),
           };
         })
       }
     />
+  );
+}
+
+/**
+ * @param {{
+ *   products: Array<import('~/lib/content-api').PictureCard & {
+ *     priceRange: {minVariantPrice: {amount: string; currencyCode: string}};
+ *   }>;
+ * }}
+ */
+function RecommendedForYou({products}) {
+  if (products.length === 0) return null;
+
+  return (
+    <div className="border-t border-neutral-100 py-12 md:py-16">
+      <ProductGrid
+        title="More like this"
+        products={products}
+        {...printCatalogGridProps}
+      />
+    </div>
   );
 }

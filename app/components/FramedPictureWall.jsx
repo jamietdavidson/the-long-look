@@ -9,7 +9,7 @@ export const FRAMED_PICTURE_WALL = {
   gridCard:
     '@container flex h-full w-full flex-col items-stretch bg-[#ececea] px-5 pt-10 pb-6',
   compact:
-    '@container flex w-28 shrink-0 items-center justify-center bg-[#ececea] px-2 pt-5 pb-3',
+    '@container flex w-28 shrink-0 items-center justify-center bg-[#ececea] px-2 pt-3.5 pb-2.5',
 };
 
 export const FRAMED_PICTURE_IMAGE_SIZES = {

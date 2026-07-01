@@ -44,6 +44,12 @@ const GRID_EQUAL_AREA_K = 0.42;
 const GRID_EQUAL_FRAME_CQI = 1.2;
 const GRID_EQUAL_MAT_CQI = 4;
 
+/** Default scale for how much of the @container the outer frame may occupy (1 = no adjustment). */
+export const FRAMED_PICTURE_DEFAULT_CONTAINER_FILL = 1;
+
+/** Grid listings — outer frame long edge as a fraction of the @container width. */
+export const FRAMED_PICTURE_GRID_CONTAINER_FILL = 0.85;
+
 /**
  * Named print sizes. Inch values define proportions only; the parent
  * @container (FramedPictureWall) controls how large the frame renders on screen.
@@ -104,6 +110,87 @@ export const FRAMED_PICTURE_SIZE_LABELS: Record<FramedPictureNamedSize, string> 
   exhibition: 'Exhibition',
 };
 
+/** Max outer frame width (% of @container) per named print size. */
+export const FRAMED_PICTURE_MAX_WIDTH_CQI: Record<
+  FramedPictureNamedSize,
+  number
+> = {
+  small: 50,
+  medium: 65,
+  large: 78,
+  giant: 88,
+  collector: 92,
+  exhibition: 92,
+};
+
+/** Resolve catalog tier from print inch dimensions (ignores frame/mount overrides). */
+export function resolveNamedSizeFromSpec(
+  spec: Pick<FramedPictureSizeSpec, 'shortSide' | 'longSide'>,
+): FramedPictureNamedSize | undefined {
+  for (const key of Object.keys(
+    FRAMED_PICTURE_SIZES,
+  ) as FramedPictureNamedSize[]) {
+    const template = FRAMED_PICTURE_SIZES[key];
+    if (
+      spec.shortSide === template.shortSide &&
+      spec.longSide === template.longSide
+    ) {
+      return key;
+    }
+  }
+
+  return undefined;
+}
+
+export function getMaxWidthCqiForNamedSize(
+  namedSize?: FramedPictureNamedSize,
+): number {
+  if (namedSize) return FRAMED_PICTURE_MAX_WIDTH_CQI[namedSize];
+  return DEFAULT_MAX_FRAME_WIDTH_CQI;
+}
+
+function getLayoutOuterAspectForTierCap(
+  spec: FramedPictureSizeSpec,
+  layoutPadding: number,
+  layoutFrame: number,
+) {
+  const verticalLayout = getLayoutOuterDimensions(
+    {shortSide: spec.shortSide, longSide: spec.longSide, frame: layoutFrame},
+    'vertical',
+    layoutPadding,
+  );
+
+  return verticalLayout.width / verticalLayout.height;
+}
+
+/** Cap outer width (cqi) so the frame fits within a detail gallery viewport. */
+export function getDetailFitMaxWidthCqi(
+  spec: FramedPictureSizeSpec,
+  namedSize: FramedPictureNamedSize | undefined,
+  containerWidth: number,
+  containerHeight: number,
+) {
+  if (containerWidth <= 0 || containerHeight <= 0) return undefined;
+
+  const isFullBleed = spec.padding === 0;
+  const isUnframed = spec.frame === 0;
+  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : spec.padding;
+  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : spec.frame;
+  const verticalOuterAspect = getLayoutOuterAspectForTierCap(
+    spec,
+    layoutPadding,
+    layoutFrame,
+  );
+
+  const tierMax = getMaxWidthCqiForNamedSize(namedSize);
+  const tierLongSide = tierMax / verticalOuterAspect;
+  const viewportLongSide =
+    (Math.min(containerWidth, containerHeight) / containerWidth) * 100;
+  const targetLongSide = Math.min(tierLongSide, viewportLongSide);
+
+  return targetLongSide * verticalOuterAspect;
+}
+
 /** @param {{width?: number | null; height?: number | null} | null | undefined} image */
 export function getOrientationFromImage(image): PictureOrientation {
   if (image?.width && image?.height) {
@@ -137,7 +224,38 @@ export function formatPrintDimensions(
   orientation: PictureOrientation,
 ) {
   const {width, height} = getPictureDimensions(spec, orientation);
-  return `${width}" × ${height}"`;
+  return `${formatInches(width)}" × ${formatInches(height)}"`;
+}
+
+export function getOuterDimensions(
+  spec: FramedPictureSizeSpec,
+  orientation: PictureOrientation,
+) {
+  const {width: pictureWidth, height: pictureHeight} = getPictureDimensions(
+    spec,
+    orientation,
+  );
+  const {padding, frame} = spec;
+
+  return {
+    width: pictureWidth + 2 * padding + 2 * frame,
+    height: pictureHeight + 2 * padding + 2 * frame,
+  };
+}
+
+/** Total outer width × height including mat and frame moulding. */
+export function formatOuterDimensions(
+  spec: FramedPictureSizeSpec,
+  orientation: PictureOrientation,
+) {
+  const {width, height} = getOuterDimensions(spec, orientation);
+  return `${formatInches(width)}" × ${formatInches(height)}"`;
+}
+
+function formatInches(value: number) {
+  const rounded = Math.round(value * 100) / 100;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
 function adjustHexColor(hex: string, amountPercent: number) {
@@ -162,36 +280,94 @@ function adjustHexColor(hex: string, amountPercent: number) {
     .join('')}`;
 }
 
-/** Max outer width as a fraction of the @container inline size. */
-const MAX_FRAME_WIDTH_CQI = 92;
+/** Default max outer width when size tier is unknown. */
+const DEFAULT_MAX_FRAME_WIDTH_CQI = 92;
 
-function getOuterWidthCqi(
+function getLayoutOuterDimensions(
+  spec: Pick<FramedPictureSizeSpec, 'shortSide' | 'longSide' | 'frame'>,
+  orientation: PictureOrientation,
+  layoutPadding: number,
+) {
+  const {width, height} = getPictureDimensions(spec, orientation);
+  const {frame} = spec;
+
+  return {
+    width: width + 2 * layoutPadding + 2 * frame,
+    height: height + 2 * layoutPadding + 2 * frame,
+  };
+}
+
+function getOuterDimensionsCqi(
   frameCqi: number,
   paddingCqi: number,
   pictureWidthCqi: number,
+  pictureAspect: number,
 ) {
   const junctionCqi = 0.11 * frameCqi;
-  return (
-    pictureWidthCqi + 2 * frameCqi + 2 * paddingCqi + 4 * junctionCqi
-  );
+  const outerWidthCqi =
+    pictureWidthCqi + 2 * frameCqi + 2 * paddingCqi + 2 * junctionCqi;
+  const pictureHeightCqi = pictureWidthCqi / pictureAspect;
+  const outerHeightCqi =
+    pictureHeightCqi + 2 * frameCqi + 2 * paddingCqi + 2 * junctionCqi;
+
+  return {outerWidthCqi, outerHeightCqi};
 }
 
+/** Scale all cqi so the outer frame long edge matches `fillRatio` × container width. */
+function scaleToOuterContainerFill(
+  dimensions: {
+    frameCqi: number;
+    paddingCqi: number;
+    pictureWidthCqi: number;
+    pictureAspect: number;
+  },
+  fillRatio: number,
+) {
+  const targetLongSideCqi = Math.min(fillRatio, 1) * 100;
+  const {outerWidthCqi, outerHeightCqi} = getOuterDimensionsCqi(
+    dimensions.frameCqi,
+    dimensions.paddingCqi,
+    dimensions.pictureWidthCqi,
+    dimensions.pictureAspect,
+  );
+  const longSideCqi = Math.max(outerWidthCqi, outerHeightCqi);
+  if (longSideCqi === 0 || longSideCqi === targetLongSideCqi) return dimensions;
+
+  const scale = targetLongSideCqi / longSideCqi;
+  return {
+    frameCqi: dimensions.frameCqi * scale,
+    paddingCqi: dimensions.paddingCqi * scale,
+    pictureWidthCqi: dimensions.pictureWidthCqi * scale,
+  };
+}
+
+/**
+ * Scale frame/mat/picture cqi so the long outer edge fits the tier cap.
+ * `maxWidthCqi` is the max outer width for vertical orientation; horizontal
+ * prints use the same long-edge budget so both orientations read at the same size.
+ */
 function fitFramedPictureToContainer(
   dimensions: {
     frameCqi: number;
     paddingCqi: number;
     pictureWidthCqi: number;
+    pictureAspect: number;
   },
-  maxWidthCqi = MAX_FRAME_WIDTH_CQI,
+  maxWidthCqi = DEFAULT_MAX_FRAME_WIDTH_CQI,
+  verticalOuterAspect = 1,
 ) {
-  const total = getOuterWidthCqi(
+  const {outerWidthCqi, outerHeightCqi} = getOuterDimensionsCqi(
     dimensions.frameCqi,
     dimensions.paddingCqi,
     dimensions.pictureWidthCqi,
+    dimensions.pictureAspect,
   );
-  if (total <= maxWidthCqi) return dimensions;
+  const longSideCqi = Math.max(outerWidthCqi, outerHeightCqi);
+  const targetLongSideCqi = maxWidthCqi / verticalOuterAspect;
 
-  const scale = maxWidthCqi / total;
+  if (longSideCqi <= targetLongSideCqi) return dimensions;
+
+  const scale = targetLongSideCqi / longSideCqi;
   return {
     frameCqi: dimensions.frameCqi * scale,
     paddingCqi: dimensions.paddingCqi * scale,
@@ -202,7 +378,14 @@ function fitFramedPictureToContainer(
 export function computeFramedPictureSize(
   spec: FramedPictureSizeSpec,
   orientation: PictureOrientation,
-  options?: {equalizePictureArea?: boolean; imageAspect?: number},
+  options?: {
+    equalizePictureArea?: boolean;
+    equalAreaK?: number;
+    containerFill?: number;
+    imageAspect?: number;
+    namedSize?: FramedPictureNamedSize;
+    maxWidthCqi?: number;
+  },
 ): FramedPictureComputed {
   const {width: pictureWidth, height: pictureHeight} = getPictureDimensions(
     spec,
@@ -210,27 +393,67 @@ export function computeFramedPictureSize(
   );
   const {padding, frame} = spec;
   const frameColor = spec.frameColor ?? 'black';
+  const isFullBleed = padding === 0;
+  const isUnframed = frame === 0;
+  /** Border-mount padding used to lock picture scale when mat is removed. */
+  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : padding;
+  /** Framed width used to lock picture scale when moulding is removed. */
+  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : frame;
 
   const outerWidth = pictureWidth + 2 * padding + 2 * frame;
   const outerHeight = pictureHeight + 2 * padding + 2 * frame;
 
-  let frameCqi = (frame / outerWidth) * 100;
-  let paddingCqi = (padding / outerWidth) * 100;
-  let pictureWidthCqi = (pictureWidth / outerWidth) * 100;
+  const layoutOuterWidth = pictureWidth + 2 * layoutPadding + 2 * layoutFrame;
+  const verticalLayout = getLayoutOuterDimensions(
+    {shortSide: spec.shortSide, longSide: spec.longSide, frame: layoutFrame},
+    'vertical',
+    layoutPadding,
+  );
+  const verticalOuterAspect = verticalLayout.width / verticalLayout.height;
+
+  let frameCqi = (layoutFrame / layoutOuterWidth) * 100;
+  let paddingCqi = (layoutPadding / layoutOuterWidth) * 100;
+  let pictureWidthCqi = (pictureWidth / layoutOuterWidth) * 100;
   let pictureAspect = pictureWidth / pictureHeight;
 
   if (options?.equalizePictureArea) {
+    const equalAreaK = options.equalAreaK ?? GRID_EQUAL_AREA_K;
     pictureAspect = options.imageAspect ?? 0.75;
-    pictureWidthCqi = Math.sqrt(GRID_EQUAL_AREA_K * pictureAspect) * 100;
+    pictureWidthCqi = Math.sqrt(equalAreaK * pictureAspect) * 100;
     frameCqi = GRID_EQUAL_FRAME_CQI;
     paddingCqi = GRID_EQUAL_MAT_CQI;
   }
 
-  ({frameCqi, paddingCqi, pictureWidthCqi} = fitFramedPictureToContainer({
-    frameCqi,
-    paddingCqi,
-    pictureWidthCqi,
-  }));
+  const maxWidthCqi =
+    options?.maxWidthCqi ??
+    getMaxWidthCqiForNamedSize(options?.namedSize);
+
+  ({frameCqi, paddingCqi, pictureWidthCqi} = fitFramedPictureToContainer(
+    {
+      frameCqi,
+      paddingCqi,
+      pictureWidthCqi,
+      pictureAspect,
+    },
+    maxWidthCqi,
+    verticalOuterAspect,
+  ));
+
+  if (isFullBleed) {
+    paddingCqi = 0;
+  }
+
+  if (isUnframed) {
+    frameCqi = 0;
+  }
+
+  const containerFill = options?.containerFill ?? FRAMED_PICTURE_DEFAULT_CONTAINER_FILL;
+  if (containerFill !== FRAMED_PICTURE_DEFAULT_CONTAINER_FILL) {
+    ({frameCqi, paddingCqi, pictureWidthCqi} = scaleToOuterContainerFill(
+      {frameCqi, paddingCqi, pictureWidthCqi, pictureAspect},
+      containerFill,
+    ));
+  }
 
   const baseColors =
     frameColor === 'white'

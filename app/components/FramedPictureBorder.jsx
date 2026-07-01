@@ -5,6 +5,7 @@ import {FramedPictureInnerEdgeShadows} from '~/components/FramedPictureInnerEdge
  * @param {{
  *   computed: import('~/lib/framed-picture').FramedPictureComputed;
  *   shadows: {
+ *     frame: string;
  *     matEdges: {
  *       top: { depthCqi: number; color: string } | null;
  *       left: { depthCqi: number; color: string } | null;
@@ -14,7 +15,9 @@ import {FramedPictureInnerEdgeShadows} from '~/components/FramedPictureInnerEdge
  * }}
  */
 export function FramedPictureBorder({computed, shadows, children}) {
-  const junctionBorderCqi = 0.11 * computed.frameCqi;
+  const hasMat = computed.paddingCqi > 0;
+  const isUnframed = computed.frameCqi === 0;
+  const showInnerWell = hasMat && !isUnframed;
 
   return (
     <div
@@ -26,18 +29,28 @@ export function FramedPictureBorder({computed, shadows, children}) {
         backgroundImage: `url(${matPaperTexture})`,
         backgroundRepeat: 'repeat',
         backgroundSize: '48px 48px',
+        ...(isUnframed
+          ? {
+              boxShadow: shadows.frame,
+              borderRadius: '0.1cqi',
+            }
+          : {}),
       }}
     >
-      <FramedPictureInnerEdgeShadows edges={shadows.matEdges} />
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          border: "3px solid " + "#dfdfdf",
-        }}
-      >
-        {children}
-      </div>
+      {showInnerWell ? <FramedPictureInnerEdgeShadows edges={shadows.matEdges} /> : null}
+      {showInnerWell ? (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            border: `${computed.paddingCqi * 0.08}cqi solid #dfdfdf`,
+          }}
+        >
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

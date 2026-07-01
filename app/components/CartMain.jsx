@@ -1,7 +1,8 @@
+import {Fragment} from 'react';
 import {useOptimisticCart} from '@shopify/hydrogen';
 import {Link} from 'react-router';
 import {useAside} from '~/components/Aside';
-import {CartLineItem} from '~/components/CartLineItem';
+import {CartLineDivider, CartLineItem} from '~/components/CartLineItem';
 import {CartSummary} from './CartSummary';
 import {printsPath} from '~/lib/paths';
 /**
@@ -40,6 +41,10 @@ export function CartMain({layout, cart: originalCart}) {
   const linesCount = Boolean(cart?.lines?.nodes?.length || 0);
   const cartHasItems = cart?.totalQuantity ? cart.totalQuantity > 0 : false;
   const childrenMap = getLineItemChildrenMap(cart?.lines?.nodes ?? []);
+  const rootLines = (cart?.lines?.nodes ?? []).filter(
+    (line) =>
+      !('parentRelationship' in line && line.parentRelationship?.parent),
+  );
 
   return (
     <section
@@ -52,24 +57,17 @@ export function CartMain({layout, cart: originalCart}) {
           Line items
         </p>
         <div className="flex-1 overflow-y-auto pr-1">
-          <ul aria-labelledby="cart-lines">
-            {(cart?.lines?.nodes ?? []).map((line) => {
-              // we do not render non-parent lines at the root of the cart
-              if (
-                'parentRelationship' in line &&
-                line.parentRelationship?.parent
-              ) {
-                return null;
-              }
-              return (
+          <ul aria-labelledby="cart-lines" className="flex flex-col gap-3">
+            {rootLines.map((line, index) => (
+              <Fragment key={line.id}>
+                {index > 0 ? <CartLineDivider /> : null}
                 <CartLineItem
-                  key={line.id}
                   line={line}
                   layout={layout}
                   childrenMap={childrenMap}
                 />
-              );
-            })}
+              </Fragment>
+            ))}
           </ul>
         </div>
         {cartHasItems && <CartSummary cart={cart} layout={layout} />}

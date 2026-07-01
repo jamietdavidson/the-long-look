@@ -14,11 +14,11 @@ import {DisplaysWellWith} from '~/components/DisplaysWellWith';
 import {SizeOptionTable} from '~/components/SizeOptionTable';
 import {AddToCartButton} from '~/components/AddToCartButton';
 import {useAside} from '~/components/Aside';
-import {getPrintHandleLineAttributes} from '~/lib/cart';
+import {getPrintLineAttributes} from '~/lib/cart';
 import {
-  formatPrintDimensions,
-  FRAMED_PICTURE_SIZES,
+  formatOuterDimensions,
   FRAMED_PICTURE_SIZE_LABELS,
+  getFramedPictureSpecFromVariant,
   resolveNamedFramedPictureSize,
   sortSizeOptionValues,
 } from '~/lib/framed-picture';
@@ -36,6 +36,7 @@ import {cn} from '~/lib/utils';
  *   product: import('storefrontapi.generated').ProductFragment;
  *   selectedVariant: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
  *   printHandle?: string;
+ *   artistName?: string | null;
  *   orientation?: import('~/lib/framed-picture').PictureOrientation;
  *   relatedProducts?: Array<import('~/lib/content-api').PictureCard>;
  * }}
@@ -44,6 +45,7 @@ export function PrintPurchasePanel({
   product,
   selectedVariant,
   printHandle,
+  artistName,
   orientation = 'vertical',
   relatedProducts = [],
 }) {
@@ -67,6 +69,9 @@ export function PrintPurchasePanel({
     (option) => option.name.toLowerCase() === 'mount',
   );
 
+  const selectedFrame = getResolvedFrameValue(selectedVariant, searchParams);
+  const selectedMount = getResolvedMountValue(selectedVariant, searchParams);
+
   const cartLines =
     selectedVariant
       ? [
@@ -74,7 +79,13 @@ export function PrintPurchasePanel({
             merchandiseId: selectedVariant.id,
             quantity: 1,
             selectedVariant,
-            attributes: getPrintHandleLineAttributes(printHandle),
+            attributes: getPrintLineAttributes({
+              printHandle,
+              artistName,
+              frame: selectedFrame,
+              mount: selectedMount,
+              variant: selectedVariant,
+            }),
           },
         ]
       : [];
@@ -117,9 +128,6 @@ export function PrintPurchasePanel({
     });
   };
 
-  const selectedFrame = getResolvedFrameValue(selectedVariant, searchParams);
-  const selectedMount = getResolvedMountValue(selectedVariant, searchParams);
-
   return (
     <div className="space-y-6">
       <PrintFeatureList />
@@ -156,6 +164,8 @@ export function PrintPurchasePanel({
               <SizeTable
                 option={sizeOption}
                 orientation={orientation}
+                frame={selectedFrame}
+                mount={selectedMount}
                 onSelect={selectOptionValue}
               />
             ) : null}
@@ -176,7 +186,7 @@ export function PrintPurchasePanel({
 
             <AddToCartButton
               analytics={analytics}
-              className="w-full bg-neutral-500 px-6 py-4 text-center text-xs font-medium tracking-[0.2em] text-white uppercase transition-colors hover:bg-neutral-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full bg-neutral-900 px-6 py-4 text-center text-xs font-medium tracking-[0.2em] text-white uppercase transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!selectedVariant || !selectedVariant.availableForSale}
               onClick={() => {
                 open('cart');
@@ -239,22 +249,26 @@ export function PrintFulfillmentNotes() {
  * @param {{
  *   option: import('@shopify/hydrogen').MappedProductOptions;
  *   orientation: import('~/lib/framed-picture').PictureOrientation;
+ *   frame: string;
+ *   mount: string;
  *   onSelect: (variantUriQuery: string, selected: boolean) => void;
  * }}
  */
-function SizeTable({option, orientation, onSelect}) {
+function SizeTable({option, orientation, frame, mount, onSelect}) {
   const values = sortSizeOptionValues(option.optionValues);
 
   return (
     <SizeOptionTable
       rows={values.map((value) => {
         const namedSize = resolveNamedFramedPictureSize(value.name);
-        const spec = namedSize ? FRAMED_PICTURE_SIZES[namedSize] : null;
         const label = namedSize
           ? FRAMED_PICTURE_SIZE_LABELS[namedSize]
           : value.name;
-        const dimensions = spec
-          ? formatPrintDimensions(spec, orientation)
+        const dimensions = namedSize
+          ? formatOuterDimensions(
+              getFramedPictureSpecFromVariant(null, namedSize, {frame, mount}),
+              orientation,
+            )
           : null;
 
         return {

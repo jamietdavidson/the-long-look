@@ -1,11 +1,11 @@
 import {Link, NavLink} from 'react-router';
-import {Suspense, useEffect, useRef, useState} from 'react';
-import {Await, useAsyncValue} from 'react-router';
+import {useEffect, useRef, useState} from 'react';
 import {useOptimisticCart} from '@shopify/hydrogen';
 import {motion} from 'framer-motion';
 import {Search, ShoppingBag} from 'lucide-react';
 import {Sidebar} from '~/components/Sidebar';
 import {useAside} from '~/components/Aside';
+import {useDeferredCart} from '~/components/DeferredCart';
 import {artistsPath, printsPath} from '~/lib/paths';
 import {getPageScrollTop, subscribePageScroll} from '~/lib/page-scroll';
 
@@ -170,14 +170,16 @@ function useScrollDirectionHeader({forceVisible = false} = {}) {
 }
 
 /**
- * @param {{cart: Promise<import('storefrontapi.generated').CartApiQueryFragment|null>}}
+ * @param {{cart?: never}}
  */
-export function Header({cart}) {
+export function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const shopSpacerRef = useRef(/** @type {HTMLSpanElement | null} */ (null));
   const shopButtonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
   const headerRef = useRef(/** @type {HTMLElement | null} */ (null));
   const {open: openAside} = useAside();
+  const {cart: resolvedCart} = useDeferredCart();
+  const cart = useOptimisticCart(resolvedCart);
   const {isVisible, backgroundProgress} = useScrollDirectionHeader({forceVisible: sidebarOpen});
 
   useShopButtonPosition(shopSpacerRef, shopButtonRef);
@@ -251,11 +253,10 @@ export function Header({cart}) {
             >
               <Search size={20} strokeWidth={1.5} />
             </button>
-            <Suspense fallback={<CartBadge count={0} onClick={() => openAside('cart')} />}>
-              <Await resolve={cart}>
-                <CartBanner onClick={() => openAside('cart')} />
-              </Await>
-            </Suspense>
+            <CartBadge
+              count={cart?.totalQuantity ?? 0}
+              onClick={() => openAside('cart')}
+            />
           </div>
         </div>
       </motion.header>
@@ -263,13 +264,6 @@ export function Header({cart}) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </>
   );
-}
-
-/** @param {{onClick: () => void}} */
-function CartBanner({onClick}) {
-  const originalCart = useAsyncValue();
-  const cart = useOptimisticCart(originalCart);
-  return <CartBadge count={cart?.totalQuantity ?? 0} onClick={onClick} />;
 }
 
 /** @param {{count: number, onClick: () => void}} */

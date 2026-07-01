@@ -1,6 +1,5 @@
-import {Suspense} from 'react';
-import {Await} from 'react-router';
-import {Aside} from '~/components/Aside';
+import {Aside, useAside} from '~/components/Aside';
+import {DeferredCart, useDeferredCart} from '~/components/DeferredCart';
 import {OverlayScrollbarsRoot} from '~/components/OverlayScrollbarsRoot';
 import {Header} from '~/components/Header';
 import {Footer} from '~/components/Footer';
@@ -22,29 +21,36 @@ import {useId} from 'react';
 export function PageLayout({cart, children = null}) {
   return (
     <Aside.Provider>
-      <div className="flex h-screen flex-col overflow-hidden">
-        <CartAside cart={cart} />
-        <SearchAside />
-        <Header cart={cart} />
-        <OverlayScrollbarsRoot className="page-scroll flex-1 min-h-0 overflow-hidden">
-          <div className="flex min-h-full flex-col">
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
-        </OverlayScrollbarsRoot>
-      </div>
+      <DeferredCart cart={cart}>
+        <div className="flex h-screen flex-col overflow-hidden">
+          <CartAside />
+          <SearchAside />
+          <Header />
+          <OverlayScrollbarsRoot className="page-scroll flex-1 min-h-0 overflow-hidden">
+            <div className="flex min-h-full flex-col">
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+          </OverlayScrollbarsRoot>
+        </div>
+      </DeferredCart>
     </Aside.Provider>
   );
 }
 
 
-/** @param {{cart: Promise<import('storefrontapi.generated').CartApiQueryFragment|null>}} */
-function CartAside({cart}) {
+function CartAside() {
+  const {type} = useAside();
+  const {cart, loading} = useDeferredCart();
+  const isOpen = type === 'cart';
+
   return (
     <Aside type="cart" heading="Cart">
-      <Suspense fallback={<p className="text-sm text-neutral-500 p-6">Loading cart...</p>}>
-        <Await resolve={cart}>{(resolvedCart) => <CartMain cart={resolvedCart} layout="aside" />}</Await>
-      </Suspense>
+      {!isOpen ? null : loading ? (
+        <p className="text-sm text-neutral-500">Loading cart...</p>
+      ) : (
+        <CartMain cart={cart} layout="aside" />
+      )}
     </Aside>
   );
 }

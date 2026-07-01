@@ -32,7 +32,9 @@ export function FramedPictureImage({
 }) {
   return (
     <>
-      <FramedPictureInnerEdgeShadows edges={shadows.pictureEdges} />
+      {computed.frameCqi > 0 ? (
+        <FramedPictureInnerEdgeShadows edges={shadows.pictureEdges} />
+      ) : null}
       {image?.url ? (
         <div
           style={{

@@ -22,6 +22,14 @@ export function Aside({children, heading, type}) {
   const expanded = type === activeType;
   const id = useId();
   const isCart = type === 'cart';
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setAnimate(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     if (!expanded) {
@@ -50,8 +58,10 @@ export function Aside({children, heading, type}) {
   return (
     <div
       aria-modal
+      aria-hidden={!expanded}
       className={cn(
-        'fixed inset-0 z-50 bg-black/20 transition-opacity duration-300',
+        'fixed inset-0 z-50 bg-black/20',
+        animate && 'transition-opacity duration-300',
         expanded ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}
       data-type={type}
@@ -66,8 +76,9 @@ export function Aside({children, heading, type}) {
       />
       <aside
         className={cn(
-          'fixed top-0 z-10 flex h-full flex-col bg-white shadow-xl transition-transform duration-300',
-          isCart ? 'right-0 left-auto w-full sm:max-w-md' : 'w-full sm:max-w-sm',
+          'fixed top-0 z-10 flex h-full flex-col bg-white shadow-xl',
+          animate && 'transition-transform duration-300',
+          isCart ? 'right-0 left-auto w-full sm:max-w-md' : 'left-0 w-full sm:max-w-sm',
           expanded
             ? 'translate-x-0'
             : isCart
@@ -90,7 +101,7 @@ export function Aside({children, heading, type}) {
             &times;
           </button>
         </header>
-        <main className="relative min-h-0 flex-1 overflow-hidden p-5">{children}</main>
+        <main className="relative min-h-0 flex-1 overflow-hidden p-4">{children}</main>
       </aside>
     </div>
   );

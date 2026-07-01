@@ -38,7 +38,7 @@ export async function loader({context, request, params}) {
 
   const [{product: loadedProduct}, recommended] = await Promise.all([
     productPromise,
-    loadRecommendedPictures(context.storefront, picture),
+    loadRecommendedPictures(context.storefront, picture, 12),
   ]);
 
   product = loadedProduct ?? null;

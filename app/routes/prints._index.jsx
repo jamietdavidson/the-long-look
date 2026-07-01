@@ -1,5 +1,5 @@
 import {useLoaderData} from 'react-router';
-import {ProductCard, printGridClassName} from '~/components/ProductGrid';
+import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
 import {loadAllPictures, toProductConnection} from '~/lib/content-api';
 
 /**
@@ -28,23 +28,12 @@ export default function PrintsIndex() {
           All Prints
         </h1>
       </div>
-      <section
-        className={products.nodes.length > 0 ? printGridClassName : 'w-full'}
-      >
-        {products.nodes.length > 0 ? (
-          products.nodes.map((product, index) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              loading={index < 8 ? 'eager' : undefined}
-            />
-          ))
-        ) : (
-          <p className="col-span-full text-center text-[12px] text-neutral-500">
-            No pictures published yet. Add pictures in Shopify Admin → Content → Metaobjects.
-          </p>
-        )}
-      </section>
+      <ProductGrid
+        products={products.nodes}
+        {...printCatalogGridProps}
+        eagerCount={8}
+        emptyMessage="No pictures published yet. Add pictures in Shopify Admin → Content → Metaobjects."
+      />
     </>
   );
 }

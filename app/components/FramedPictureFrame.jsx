@@ -27,12 +27,13 @@ export function FramedPictureFrame({
         borderStyle: 'solid',
         borderColor: computed.colors.frameBorder,
         backgroundColor: computed.colors.frameFace,
-        boxShadow: shadows.frame,
+        boxShadow: computed.frameCqi > 0 ? shadows.frame : undefined,
+        borderRadius: computed.frameCqi > 0 ? '0.1cqi' : undefined,
         ...(interactive
           ? {
-              transform: hovered ? 'translateY(-0.25rem)' : undefined,
+              transform: hovered ? 'translateY(-0.5rem)' : undefined,
               willChange: 'transform',
-              transition: 'transform 300ms ease-out',
+              transition: 'transform 180ms ease-out',
             }
           : {}),
       }}
