@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
 import {FramedPicture} from '~/components/FramedPicture';
 import {
@@ -11,6 +12,8 @@ import {
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
 import {cn} from '~/lib/utils';
+
+const SWIPE_CONFIDENCE_THRESHOLD = 8000;
 
 /**
  * @typedef {{
@@ -43,6 +46,26 @@ function buildGallerySlides(framedSpec) {
   ];
 }
 
+/** @param {number} offset @param {number} velocity */
+function swipePower(offset, velocity) {
+  return Math.abs(offset) * velocity;
+}
+
+const slideVariants = {
+  enter: (direction) => ({
+    x: direction > 0 ? '100%' : '-100%',
+    opacity: 0.5,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction) => ({
+    x: direction < 0 ? '100%' : '-100%',
+    opacity: 0.5,
+  }),
+};
+
 /**
  * @param {{
  *   image: {
@@ -67,7 +90,10 @@ export function PrintDetailGallery({
 }) {
   const containerRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [fitMaxWidthCqi, setFitMaxWidthCqi] = useState(undefined);
+  const [direction, setDirection] = useState(0);
+  const [containerSize, setContainerSize] = useState(
+    /** @type {{width: number; height: number} | null} */ (null),
+  );
 
   const resolvedNamedSize =
     namedSize ??
@@ -78,40 +104,64 @@ export function PrintDetailGallery({
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
+  const slideFitWidths = useMemo(() => {
+    if (!containerSize) return slides.map(() => undefined);
+
+    return slides.map((slide) =>
+      getDetailFitMaxWidthCqi(
+        slide.spec,
+        resolvedNamedSize,
+        containerSize.width,
+        containerSize.height,
+      ),
+    );
+  }, [slides, resolvedNamedSize, containerSize]);
+
   useEffect(() => {
     setSlideIndex(0);
+    setDirection(0);
   }, [framedSpec.shortSide, framedSpec.longSide, framedSpec.frame, framedSpec.padding]);
 
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
 
-    const updateFit = () => {
+    const updateSize = () => {
       const {width, height} = element.getBoundingClientRect();
-      setFitMaxWidthCqi(
-        getDetailFitMaxWidthCqi(
-          activeSlide.spec,
-          resolvedNamedSize,
-          width,
-          height,
-        ),
-      );
+      setContainerSize({width, height});
     };
 
-    updateFit();
+    updateSize();
 
-    const observer = new ResizeObserver(updateFit);
+    const observer = new ResizeObserver(updateSize);
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, [activeSlide.spec, resolvedNamedSize]);
+  }, []);
 
-  const goToPrevious = () => {
-    setSlideIndex((index) => (index === 0 ? slides.length - 1 : index - 1));
+  /** @param {number} step */
+  const paginate = (step) => {
+    setDirection(step);
+    setSlideIndex((index) => {
+      const next = index + step;
+      if (next < 0) return slides.length - 1;
+      if (next >= slides.length) return 0;
+      return next;
+    });
   };
 
-  const goToNext = () => {
-    setSlideIndex((index) => (index === slides.length - 1 ? 0 : index + 1));
+  /** @param {import('framer-motion').PanInfo} info */
+  const handleDragEnd = (_, info) => {
+    const swipe = swipePower(info.offset.x, info.velocity.x);
+
+    if (swipe < -SWIPE_CONFIDENCE_THRESHOLD) {
+      paginate(1);
+      return;
+    }
+
+    if (swipe > SWIPE_CONFIDENCE_THRESHOLD) {
+      paginate(-1);
+    }
   };
 
   return (
@@ -123,16 +173,48 @@ export function PrintDetailGallery({
         variant="detail"
         className="h-full min-h-[70vh] md:h-full! md:w-full!"
       >
-        <FramedPicture
-          key={activeSlide.key}
-          image={image}
-          alt={alt}
-          size={activeSlide.spec}
-          loading="eager"
-          sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
-          maxWidthCqi={fitMaxWidthCqi}
-          interactive={false}
-        />
+        <div
+          className="relative flex h-full w-full items-center justify-center overflow-hidden"
+          aria-live="polite"
+          aria-label={`Image gallery, ${activeSlide.label}`}
+        >
+          <AnimatePresence initial={false} custom={direction} mode="popLayout">
+            <motion.div
+              key={activeSlide.key}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: {type: 'spring', stiffness: 320, damping: 34},
+                opacity: {duration: 0.18},
+              }}
+              drag={hasMultipleSlides ? 'x' : false}
+              dragConstraints={{left: 0, right: 0}}
+              dragElastic={0.85}
+              dragDirectionLock
+              onDragEnd={handleDragEnd}
+              onDragStart={(event) => event.preventDefault()}
+              className={cn(
+                'absolute inset-0 flex items-center justify-center touch-pan-y',
+                hasMultipleSlides && 'cursor-grab active:cursor-grabbing',
+              )}
+            >
+              <div className="pointer-events-none select-none [&_*]:pointer-events-none [&_img]:drag-none">
+                <FramedPicture
+                  image={image}
+                  alt={alt}
+                  size={activeSlide.spec}
+                  loading="eager"
+                  sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
+                  maxWidthCqi={slideFitWidths[slideIndex]}
+                  interactive={false}
+                />
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </FramedPictureWall>
 
       {hasMultipleSlides ? (
@@ -140,12 +222,12 @@ export function PrintDetailGallery({
           <GalleryNavButton
             direction="left"
             label="Previous image"
-            onClick={goToPrevious}
+            onClick={() => paginate(-1)}
           />
           <GalleryNavButton
             direction="right"
             label="Next image"
-            onClick={goToNext}
+            onClick={() => paginate(1)}
           />
         </>
       ) : null}
@@ -169,11 +251,11 @@ function GalleryNavButton({direction, label, onClick}) {
       onClick={onClick}
       aria-label={label}
       className={cn(
-        'absolute top-1/2 z-10 -translate-y-1/2 p-2 text-neutral-500 transition-colors hover:text-neutral-900',
+        'absolute top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 bg-white/95 text-neutral-600 backdrop-blur-sm transition-colors hover:border-neutral-300 hover:bg-white hover:text-neutral-900',
         direction === 'left' ? 'left-4' : 'right-4',
       )}
     >
-      <Icon className="size-8" strokeWidth={1.5} />
+      <Icon className="size-5" strokeWidth={1.75} />
     </button>
   );
 }

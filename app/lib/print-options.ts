@@ -1,9 +1,13 @@
 import type {FrameColor} from '~/lib/framed-picture';
 import {
+  formatPrintSizeShopifyLabel,
+  FRAMED_PICTURE_DEFAULT_NAMED_SIZE,
+  FRAMED_PICTURE_SIZES,
   getFramedSizeFromVariant,
   resolveFrameColorFromOption,
   resolveMountFromOption,
 } from '~/lib/framed-picture';
+import {getSelectedProductOptions} from '@shopify/hydrogen';
 
 export const DEFAULT_FRAME_OPTIONS = [
   'Black',
@@ -65,4 +69,26 @@ export function frameValueToColor(value: string): FrameColor {
 
 export function mountValueToStyle(value: string) {
   return resolveMountFromOption(value);
+}
+
+/** Selected product options for print detail — defaults Size to Large. */
+export function getPrintDetailSelectedOptions(request: Request) {
+  const selected = getSelectedProductOptions(request);
+  const hasSize = selected.some(
+    (option) => option.name?.toLowerCase() === 'size' && option.value,
+  );
+
+  if (!hasSize) {
+    return [
+      ...selected,
+      {
+        name: 'Size',
+        value: formatPrintSizeShopifyLabel(
+          FRAMED_PICTURE_SIZES[FRAMED_PICTURE_DEFAULT_NAMED_SIZE],
+        ),
+      },
+    ];
+  }
+
+  return selected;
 }

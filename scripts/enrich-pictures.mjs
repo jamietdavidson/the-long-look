@@ -6,17 +6,13 @@
  * - Links product to picture and publishes to storefront channels
  */
 import {execFileSync} from 'node:child_process';
+import {PRINT_SIZES} from './print-catalog.mjs';
 
 const STORE = process.env.SHOPIFY_STORE ?? 'qdgy1c-iu.myshopify.com';
 const CLI_PREFIX = {SHOPIFY_CLI_AGENT_INFO: 'n:composer|v:1.0|p:cursor'};
 const HYDROGEN_PUBLICATION = 'gid://shopify/Publication/191112446178';
 const ONLINE_STORE_PUBLICATION = 'gid://shopify/Publication/187030733026';
 const VENDOR = 'Thomas Beardmore';
-const PRINT_SIZES = [
-  {name: '8" x 10"', price: 65},
-  {name: '11" x 14"', price: 95},
-  {name: '16" x 20"', price: 145},
-];
 
 /** @type {Record<string, {handle: string, title: string, description: string}>} */
 const CATALOG = {
@@ -171,6 +167,7 @@ function buildProductInput({title, description, imageUrl}) {
     variants: PRINT_SIZES.map((size) => ({
       optionValues: [{optionName: 'Size', name: size.name}],
       price: size.price,
+      inventoryPolicy: 'CONTINUE',
     })),
   };
 }

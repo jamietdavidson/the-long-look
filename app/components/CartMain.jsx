@@ -2,7 +2,7 @@ import {Fragment} from 'react';
 import {useOptimisticCart} from '@shopify/hydrogen';
 import {Link} from 'react-router';
 import {useAside} from '~/components/Aside';
-import {CartLineDivider, CartLineItem} from '~/components/CartLineItem';
+import {CartLineDivider, CartLineItem, CartLineItemsSkeleton} from '~/components/CartLineItem';
 import {CartSummary} from './CartSummary';
 import {printsPath} from '~/lib/paths';
 /**
@@ -33,7 +33,7 @@ function getLineItemChildrenMap(lines) {
  * It is used by both the /cart route and the cart aside dialog.
  * @param {CartMainProps}
  */
-export function CartMain({layout, cart: originalCart}) {
+export function CartMain({layout, cart: originalCart, loading = false}) {
   // The useOptimisticCart hook applies pending actions to the cart
   // so the user immediately sees feedback when they modify the cart.
   const cart = useOptimisticCart(originalCart);
@@ -51,26 +51,30 @@ export function CartMain({layout, cart: originalCart}) {
       className="flex h-full flex-col"
       aria-label={layout === 'page' ? 'Cart page' : 'Cart drawer'}
     >
-      <CartEmpty hidden={linesCount} layout={layout} />
+      <CartEmpty hidden={linesCount || loading} layout={layout} />
       <div className="flex h-full flex-col">
         <p id="cart-lines" className="sr-only">
           Line items
         </p>
         <div className="flex-1 overflow-y-auto pr-1">
-          <ul aria-labelledby="cart-lines" className="flex flex-col gap-3">
-            {rootLines.map((line, index) => (
-              <Fragment key={line.id}>
-                {index > 0 ? <CartLineDivider /> : null}
-                <CartLineItem
-                  line={line}
-                  layout={layout}
-                  childrenMap={childrenMap}
-                />
-              </Fragment>
-            ))}
-          </ul>
+          {loading ? (
+            <CartLineItemsSkeleton count={3} />
+          ) : (
+            <ul aria-labelledby="cart-lines" className="flex flex-col gap-3">
+              {rootLines.map((line, index) => (
+                <Fragment key={line.id}>
+                  {index > 0 ? <CartLineDivider /> : null}
+                  <CartLineItem
+                    line={line}
+                    layout={layout}
+                    childrenMap={childrenMap}
+                  />
+                </Fragment>
+              ))}
+            </ul>
+          )}
         </div>
-        {cartHasItems && <CartSummary cart={cart} layout={layout} />}
+        {cartHasItems && !loading && <CartSummary cart={cart} layout={layout} />}
       </div>
     </section>
   );
@@ -104,6 +108,7 @@ function CartEmpty({hidden = false}) {
  * @typedef {{
  *   cart: CartApiQueryFragment | null;
  *   layout: CartLayout;
+ *   loading?: boolean;
  * }} CartMainProps
  */
 /** @typedef {{[parentId: string]: CartLine[]}} LineItemChildrenMap */

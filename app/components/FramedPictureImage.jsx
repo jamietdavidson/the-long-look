@@ -51,7 +51,8 @@ export function FramedPictureImage({
             data={image}
             loading={loading}
             sizes={sizes}
-            className="[&_img]:block [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
+            draggable={false}
+            className="[&_img]:block [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:pointer-events-none [&_img]:select-none"
             style={{
               position: 'relative',
               zIndex: 1,

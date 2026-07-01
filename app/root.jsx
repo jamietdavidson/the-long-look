@@ -16,6 +16,7 @@ import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import {loadContentNav} from '~/lib/content-api';
 import globalsStyles from '~/styles/globals.css?url';
 import {PageLayout} from './components/PageLayout';
+import {AppPageLayout} from './components/AppPageLayout';
 
 /**
  * This is important to avoid re-fetching root queries on sub-navigations
@@ -218,15 +219,17 @@ export function ErrorBoundary() {
   }
 
   return (
-    <div className="route-error">
-      <h1>Oops</h1>
-      <h2>{errorStatus}</h2>
-      {errorMessage && (
-        <fieldset>
-          <pre>{errorMessage}</pre>
-        </fieldset>
-      )}
-    </div>
+    <AppPageLayout compensateForTopbar>
+      <div className="route-error">
+        <h1>Oops</h1>
+        <h2>{errorStatus}</h2>
+        {errorMessage && (
+          <fieldset>
+            <pre>{errorMessage}</pre>
+          </fieldset>
+        )}
+      </div>
+    </AppPageLayout>
   );
 }
 

@@ -1,7 +1,7 @@
 import {Await, useLoaderData} from 'react-router';
 import {Suspense} from 'react';
 import {Hero} from '~/components/Hero';
-import {ProductGrid, VideoSection} from '~/components/ProductGrid';
+import {ProductGrid, VideoSection, printCatalogGridProps} from '~/components/ProductGrid';
 import {loadAllPictures, picturesToCards} from '~/lib/content-api';
 
 /**
@@ -10,6 +10,9 @@ import {loadAllPictures, picturesToCards} from '~/lib/content-api';
 export const meta = () => {
   return [{title: 'The Long Look | The Art of Living'}];
 };
+
+/** @type {import('~/components/AppPageLayout').AppRouteHandle} */
+export const handle = {compensateForTopbar: false};
 
 /** @param {Route.LoaderArgs} args */
 export async function loader({context}) {
@@ -38,6 +41,8 @@ export default function Homepage() {
               title="Recent Works"
               subtitle="The Art of Living"
               products={data?.products?.nodes ?? []}
+              {...printCatalogGridProps}
+              eagerCount={8}
             />
           )}
         </Await>
@@ -46,7 +51,11 @@ export default function Homepage() {
       <Suspense fallback={<SectionSkeleton title="Featured Works" />}>
         <Await resolve={bestSellers}>
           {(data) => (
-            <ProductGrid title="Featured Works" products={data?.products?.nodes ?? []} />
+            <ProductGrid
+              title="Featured Works"
+              products={data?.products?.nodes ?? []}
+              {...printCatalogGridProps}
+            />
           )}
         </Await>
       </Suspense>

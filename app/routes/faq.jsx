@@ -4,7 +4,7 @@ export const meta = () => [{title: 'FAQ | The Long Look'}];
 
 const faqs = [
   {q: 'How long does shipping take?', a: 'Orders ship within 5–7 business days.'},
-  {q: 'What sizes are available?', a: '16x20, 20x30, 24x36, 30x40, and 40x60 inches.'},
+  {q: 'What sizes are available?', a: '8×12, 12×18, 16×24, 20×30, 30×45, and 40×60 inches (2:3 aspect ratio).'},
   {q: 'What frame options do you offer?', a: 'Black, white, and natural wood frames.'},
 ];
 

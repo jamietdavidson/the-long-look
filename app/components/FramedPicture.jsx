@@ -5,7 +5,6 @@ import {FramedPictureImage} from '~/components/FramedPictureImage';
 import {FRAMED_PICTURE_IMAGE_SIZES} from '~/components/FramedPictureWall';
 import {
   computeFramedPictureSize,
-  getImageAspectRatio,
   getOrientationFromImage,
   resolveFramedPictureSize,
   resolveNamedSizeFromSpec,
@@ -157,8 +156,6 @@ function buildFramedPictureShadows(
  *   className?: string;
  *   interactive?: boolean;
  *   hovered?: boolean;
- *   equalizePictureArea?: boolean;
- *   equalAreaK?: number;
  *   containerFill?: number;
  * @description Fraction of the @container width for the outer frame long edge (e.g. 0.9 = 90%). Default 1 leaves sizing unchanged.
  *   lighting?: FramedPictureLighting;
@@ -174,8 +171,6 @@ export function FramedPicture({
   className = '',
   interactive = true,
   hovered: controlledHovered,
-  equalizePictureArea = false,
-  equalAreaK,
   containerFill,
   lighting = FRAMED_PICTURE_LIGHTING_DEFAULT,
   maxWidthCqi,
@@ -189,10 +184,7 @@ export function FramedPicture({
   const namedSize =
     typeof size === 'string' ? size : resolveNamedSizeFromSpec(sizeSpec);
   const computed = computeFramedPictureSize(sizeSpec, orientation, {
-    equalizePictureArea,
-    equalAreaK,
     containerFill,
-    imageAspect: getImageAspectRatio(image),
     namedSize,
     maxWidthCqi,
   });

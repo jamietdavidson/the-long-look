@@ -36,48 +36,54 @@ export type FramedPictureComputed = {
 const STANDARD_MAT_INCHES = 1.25;
 const STANDARD_FRAME_INCHES = 0.625;
 
-/**
- * Grid equal-area constants from the legacy print grid CSS
- * (width = sqrt(k × aspect) × 100cqi; area = k × (100cqi)²).
- */
-const GRID_EQUAL_AREA_K = 0.42;
-const GRID_EQUAL_FRAME_CQI = 1.2;
-const GRID_EQUAL_MAT_CQI = 4;
-
 /** Default scale for how much of the @container the outer frame may occupy (1 = no adjustment). */
 export const FRAMED_PICTURE_DEFAULT_CONTAINER_FILL = 1;
 
 /** Grid listings — outer frame long edge as a fraction of the @container width. */
 export const FRAMED_PICTURE_GRID_CONTAINER_FILL = 0.85;
 
+/** Catalog cards use the collector tier with physical inch proportions. */
+export const FRAMED_PICTURE_CATALOG_DISPLAY_SIZE = 'collector' as const;
+
+/** Default size on print detail when no variant is selected in the URL. */
+export const FRAMED_PICTURE_DEFAULT_NAMED_SIZE = 'large' as const;
+
+/** Detail gallery — min/max outer frame width (cqi); tiers step evenly between. */
+export const FRAMED_PICTURE_DETAIL_MIN_WIDTH_CQI = 50;
+export const FRAMED_PICTURE_DETAIL_MAX_WIDTH_CQI = 88;
+
+/** Detail gallery — min/max long-edge height fill; tiers step evenly between. */
+export const FRAMED_PICTURE_DETAIL_MIN_HEIGHT_FILL = 0.5;
+export const FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL = 0.88;
+
 /**
- * Named print sizes. Inch values define proportions only; the parent
- * @container (FramedPictureWall) controls how large the frame renders on screen.
+ * Named print sizes — standard 2:3 aspect ratio (short × long) at every tier.
+ * Inch values define proportions only; the parent @container controls on-screen scale.
  */
 export const FRAMED_PICTURE_SIZES = {
   small: {
     shortSide: 8,
-    longSide: 10,
+    longSide: 12,
     padding: STANDARD_MAT_INCHES,
     frame: STANDARD_FRAME_INCHES,
     frameColor: 'black',
   },
   medium: {
-    shortSide: 11,
-    longSide: 14,
+    shortSide: 12,
+    longSide: 18,
     padding: STANDARD_MAT_INCHES,
     frame: STANDARD_FRAME_INCHES,
     frameColor: 'black',
   },
   large: {
     shortSide: 16,
-    longSide: 20,
+    longSide: 24,
     padding: STANDARD_MAT_INCHES,
     frame: STANDARD_FRAME_INCHES,
     frameColor: 'black',
   },
   giant: {
-    shortSide: 24,
+    shortSide: 20,
     longSide: 30,
     padding: STANDARD_MAT_INCHES,
     frame: STANDARD_FRAME_INCHES,
@@ -85,7 +91,7 @@ export const FRAMED_PICTURE_SIZES = {
   },
   collector: {
     shortSide: 30,
-    longSide: 40,
+    longSide: 45,
     padding: STANDARD_MAT_INCHES,
     frame: STANDARD_FRAME_INCHES,
     frameColor: 'black',
@@ -100,6 +106,50 @@ export const FRAMED_PICTURE_SIZES = {
 } satisfies Record<string, FramedPictureSizeSpec>;
 
 export type FramedPictureNamedSize = keyof typeof FRAMED_PICTURE_SIZES;
+
+/** Print tiers in ascending size order for detail-page interpolation. */
+export const FRAMED_PICTURE_NAMED_SIZE_ORDER = [
+  'small',
+  'medium',
+  'large',
+  'giant',
+  'collector',
+  'exhibition',
+] as const satisfies readonly FramedPictureNamedSize[];
+
+function lerpDetailTierValue(
+  namedSize: FramedPictureNamedSize,
+  min: number,
+  max: number,
+) {
+  const index = FRAMED_PICTURE_NAMED_SIZE_ORDER.indexOf(namedSize);
+  if (index < 0) return max;
+
+  const steps = FRAMED_PICTURE_NAMED_SIZE_ORDER.length - 1;
+  if (steps === 0) return max;
+
+  return min + (index / steps) * (max - min);
+}
+
+export function getDetailMaxWidthCqiForNamedSize(
+  namedSize: FramedPictureNamedSize,
+) {
+  return lerpDetailTierValue(
+    namedSize,
+    FRAMED_PICTURE_DETAIL_MIN_WIDTH_CQI,
+    FRAMED_PICTURE_DETAIL_MAX_WIDTH_CQI,
+  );
+}
+
+export function getDetailMaxHeightFillForNamedSize(
+  namedSize: FramedPictureNamedSize,
+) {
+  return lerpDetailTierValue(
+    namedSize,
+    FRAMED_PICTURE_DETAIL_MIN_HEIGHT_FILL,
+    FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL,
+  );
+}
 
 export const FRAMED_PICTURE_SIZE_LABELS: Record<FramedPictureNamedSize, string> = {
   small: 'Small',
@@ -182,11 +232,18 @@ export function getDetailFitMaxWidthCqi(
     layoutFrame,
   );
 
-  const tierMax = getMaxWidthCqiForNamedSize(namedSize);
+  const tierMax = namedSize
+    ? getDetailMaxWidthCqiForNamedSize(namedSize)
+    : (FRAMED_PICTURE_DETAIL_MIN_WIDTH_CQI +
+        FRAMED_PICTURE_DETAIL_MAX_WIDTH_CQI) /
+      2;
   const tierLongSide = tierMax / verticalOuterAspect;
-  const viewportLongSide =
-    (Math.min(containerWidth, containerHeight) / containerWidth) * 100;
-  const targetLongSide = Math.min(tierLongSide, viewportLongSide);
+  const heightFill = namedSize
+    ? getDetailMaxHeightFillForNamedSize(namedSize)
+    : FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL;
+  const heightLongSideCap =
+    (containerHeight / containerWidth) * 100 * heightFill;
+  const targetLongSide = Math.min(tierLongSide, heightLongSideCap);
 
   return targetLongSide * verticalOuterAspect;
 }
@@ -225,6 +282,13 @@ export function formatPrintDimensions(
 ) {
   const {width, height} = getPictureDimensions(spec, orientation);
   return `${formatInches(width)}" × ${formatInches(height)}"`;
+}
+
+/** Shopify Size option label (short × long, portrait order). */
+export function formatPrintSizeShopifyLabel(
+  spec: Pick<FramedPictureSizeSpec, 'shortSide' | 'longSide'>,
+) {
+  return `${formatInches(spec.shortSide)}" x ${formatInches(spec.longSide)}"`;
 }
 
 export function getOuterDimensions(
@@ -365,7 +429,7 @@ function fitFramedPictureToContainer(
   const longSideCqi = Math.max(outerWidthCqi, outerHeightCqi);
   const targetLongSideCqi = maxWidthCqi / verticalOuterAspect;
 
-  if (longSideCqi <= targetLongSideCqi) return dimensions;
+  if (longSideCqi === 0 || longSideCqi === targetLongSideCqi) return dimensions;
 
   const scale = targetLongSideCqi / longSideCqi;
   return {
@@ -379,10 +443,7 @@ export function computeFramedPictureSize(
   spec: FramedPictureSizeSpec,
   orientation: PictureOrientation,
   options?: {
-    equalizePictureArea?: boolean;
-    equalAreaK?: number;
     containerFill?: number;
-    imageAspect?: number;
     namedSize?: FramedPictureNamedSize;
     maxWidthCqi?: number;
   },
@@ -414,15 +475,7 @@ export function computeFramedPictureSize(
   let frameCqi = (layoutFrame / layoutOuterWidth) * 100;
   let paddingCqi = (layoutPadding / layoutOuterWidth) * 100;
   let pictureWidthCqi = (pictureWidth / layoutOuterWidth) * 100;
-  let pictureAspect = pictureWidth / pictureHeight;
-
-  if (options?.equalizePictureArea) {
-    const equalAreaK = options.equalAreaK ?? GRID_EQUAL_AREA_K;
-    pictureAspect = options.imageAspect ?? 0.75;
-    pictureWidthCqi = Math.sqrt(equalAreaK * pictureAspect) * 100;
-    frameCqi = GRID_EQUAL_FRAME_CQI;
-    paddingCqi = GRID_EQUAL_MAT_CQI;
-  }
+  const pictureAspect = pictureWidth / pictureHeight;
 
   const maxWidthCqi =
     options?.maxWidthCqi ??
@@ -521,7 +574,7 @@ function matchesDimensionPair(
   return sides[0] === shortSide && sides[1] === longSide;
 }
 
-/** Map a variant label (e.g. `11" x 14"` or `Medium`) to a named print size. */
+/** Map a variant label (e.g. `12" x 18"` or `Medium`) to a named print size. */
 export function resolveNamedFramedPictureSize(
   label: string | null | undefined,
 ): FramedPictureNamedSize | undefined {
@@ -561,7 +614,7 @@ export function getFramedSizeFromVariant(variant): FramedPictureNamedSize {
   return (
     resolveNamedFramedPictureSize(sizeOption?.value) ??
     resolveNamedFramedPictureSize(variant?.title) ??
-    'medium'
+    FRAMED_PICTURE_DEFAULT_NAMED_SIZE
   );
 }
 

@@ -1,5 +1,5 @@
 import {useLoaderData} from 'react-router';
-import {getSelectedProductOptions} from '@shopify/hydrogen';
+import {getPrintDetailSelectedOptions} from '~/lib/print-options';
 import {PrintDetail} from '~/components/PrintDetail';
 import {loadPictureByHandle, loadRecommendedPictures} from '~/lib/content-api';
 import {PRODUCT_QUERY} from '~/graphql/product';
@@ -10,6 +10,9 @@ import {PRODUCT_QUERY} from '~/graphql/product';
 export const meta = ({data}) => {
   return [{title: `${data?.picture?.title ?? 'Print'} | The Long Look`}];
 };
+
+/** @type {import('~/components/AppPageLayout').AppRouteHandle} */
+export const handle = {compensateForTopbar: false};
 
 /**
  * @param {Route.LoaderArgs} args
@@ -31,7 +34,7 @@ export async function loader({context, request, params}) {
     ? context.storefront.query(PRODUCT_QUERY, {
         variables: {
           handle: picture.product.handle,
-          selectedOptions: getSelectedProductOptions(request),
+          selectedOptions: getPrintDetailSelectedOptions(request),
         },
       })
     : Promise.resolve({product: null});

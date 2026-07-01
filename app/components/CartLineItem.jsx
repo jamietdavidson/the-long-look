@@ -21,6 +21,73 @@ export function CartLineDivider() {
   return <li aria-hidden="true" className="border-t border-neutral-100" />;
 }
 
+function skeletonBarClassName(width) {
+  return cn('h-3 animate-pulse rounded-sm bg-neutral-200', width);
+}
+
+/**
+ * Loading placeholder matching {@link CartLineItem} layout.
+ */
+export function CartLineItemSkeleton() {
+  return (
+    <li aria-hidden="true">
+      <div className="flex gap-3">
+        <div className="w-28 shrink-0">
+          <div className="flex aspect-square animate-pulse items-center justify-center bg-[#ececea] px-2 pt-3.5 pb-2.5">
+            <div className="h-[72%] w-[72%] bg-neutral-200" />
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-baseline gap-2">
+            <div className={cn(skeletonBarClassName('min-w-0 flex-1'), 'h-3.5')} />
+            <div className={skeletonBarClassName('w-12')} />
+          </div>
+          <div className={cn(skeletonBarClassName('mt-1 w-24'), 'h-2.5')} />
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <div className="inline-grid w-fit grid-cols-3 border border-neutral-200">
+              <div className="size-5 bg-neutral-100" />
+              <div className="size-5 border-x border-neutral-200 bg-neutral-50" />
+              <div className="size-5 bg-neutral-100" />
+            </div>
+            <div className={skeletonBarClassName('w-14')} />
+          </div>
+          <ul className="mt-2 space-y-1.5 border-t border-neutral-100 pt-2">
+            <li className="grid grid-cols-[4rem_1fr] gap-2">
+              <div className={skeletonBarClassName('w-10')} />
+              <div className={skeletonBarClassName('w-16')} />
+            </li>
+            <li className="grid grid-cols-[4rem_1fr] gap-2">
+              <div className={skeletonBarClassName('w-10')} />
+              <div className={skeletonBarClassName('w-12')} />
+            </li>
+            <li className="grid grid-cols-[4rem_1fr] gap-2">
+              <div className={skeletonBarClassName('w-10')} />
+              <div className={skeletonBarClassName('w-14')} />
+            </li>
+          </ul>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * @param {{count?: number}}
+ */
+export function CartLineItemsSkeleton({count = 3}) {
+  return (
+    <ul aria-busy="true" aria-label="Loading cart" className="flex flex-col gap-3">
+      {Array.from({length: count}, (_, index) => (
+        <Fragment key={index}>
+          {index > 0 ? <CartLineDivider /> : null}
+          <CartLineItemSkeleton />
+        </Fragment>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * A single line item in the cart. It displays the product image, title, price.
  * It also provides controls to update the quantity or remove the line item.

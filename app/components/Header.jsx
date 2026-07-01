@@ -16,7 +16,7 @@ const HIDE_DELAY_MS = 280;
 const SHOW_DELAY_MS = 280;
 
 const navLinkClass =
-  'cursor-pointer text-[12px] uppercase tracking-[0.2em] text-neutral-800 transition-colors hover:text-neutral-500';
+  'cursor-pointer text-[13px] uppercase tracking-[0.2em] text-neutral-800 transition-colors hover:text-neutral-500';
 
 function useHeaderHeightSync(headerRef) {
   useEffect(() => {
@@ -217,7 +217,7 @@ export function Header() {
           WebkitBackdropFilter: `blur(${backgroundProgress * 10}px)`,
         }}
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4 py-5 md:px-6">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 py-7 md:px-8">
           <div className="flex min-w-0 items-center justify-self-start gap-6">
             <span
               ref={shopSpacerRef}
@@ -240,7 +240,7 @@ export function Header() {
             to="/"
             className="col-start-2 row-start-1 justify-self-center text-center"
           >
-            <span className="block whitespace-nowrap text-[14px] font-semibold uppercase tracking-[0.3em] text-neutral-900 lg:text-[15px]">
+            <span className="block whitespace-nowrap text-[15px] font-semibold uppercase tracking-[0.3em] text-neutral-900 lg:text-[17px]">
               The Long Look
             </span>
           </Link>
@@ -251,7 +251,7 @@ export function Header() {
               aria-label="Search"
               onClick={() => openAside('search')}
             >
-              <Search size={20} strokeWidth={1.5} />
+              <Search size={22} strokeWidth={1.5} />
             </button>
             <CartBadge
               count={cart?.totalQuantity ?? 0}
@@ -270,7 +270,7 @@ export function Header() {
 function CartBadge({count, onClick}) {
   return (
     <button onClick={onClick} className="relative cursor-pointer" aria-label="Open cart">
-      <ShoppingBag size={20} strokeWidth={1.5} />
+      <ShoppingBag size={22} strokeWidth={1.5} />
       {count > 0 && (
         <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-neutral-900 text-white text-[9px] rounded-full flex items-center justify-center">
           {count}

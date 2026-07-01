@@ -19,6 +19,7 @@ import {
 import {SizeOptionTable} from '~/components/SizeOptionTable';
 import {
   formatOuterDimensions,
+  FRAMED_PICTURE_DEFAULT_NAMED_SIZE,
   FRAMED_PICTURE_SIZE_LABELS,
   FRAMED_PICTURE_SIZES,
   getFramedPictureSpecFromVariant,
@@ -116,7 +117,9 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
 /** @param {{picture: Picture; image: {id?: string; url: string; altText?: string | null; width?: number | null; height?: number | null} | null; recommended?: Array<import('~/lib/content-api').PictureCard>}} */
 function PrintDetailPreview({picture, image, recommended = []}) {
   const [selectedSize, setSelectedSize] = useState(
-    /** @type {import('~/lib/framed-picture').FramedPictureNamedSize} */ ('medium'),
+    /** @type {import('~/lib/framed-picture').FramedPictureNamedSize} */ (
+      FRAMED_PICTURE_DEFAULT_NAMED_SIZE
+    ),
   );
   const [selectedFrame, setSelectedFrame] = useState('Black');
   const [selectedMount, setSelectedMount] = useState('Border');

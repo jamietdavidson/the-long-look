@@ -45,7 +45,7 @@ export function Sidebar({open, onClose}) {
       >
         <ScrollArea className="min-h-0 flex-1">
           <div
-            className="pt-[var(--header-height,3.375rem)]"
+            className="pt-[var(--header-height,4.25rem)]"
           >
           <SidebarSection
             title="Collections"

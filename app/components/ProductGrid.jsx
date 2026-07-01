@@ -6,7 +6,10 @@ import {
   FRAMED_PICTURE_IMAGE_SIZES,
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
-import {FRAMED_PICTURE_GRID_CONTAINER_FILL} from '~/lib/framed-picture';
+import {
+  FRAMED_PICTURE_CATALOG_DISPLAY_SIZE,
+  FRAMED_PICTURE_GRID_CONTAINER_FILL,
+} from '~/lib/framed-picture';
 import {cn} from '~/lib/utils';
 import {printPath, printsPath} from '~/lib/paths';
 
@@ -58,7 +61,7 @@ export function ProductCard({
   showPrice = true,
   size = 'default',
   layout = 'integrated',
-  containerFill,
+  containerFill = FRAMED_PICTURE_GRID_CONTAINER_FILL,
 }) {
   if (layout === 'split') {
     return (
@@ -95,10 +98,9 @@ export function ProductCard({
           <FramedPicture
             image={product.featuredImage}
             alt={product.title}
-            size="small"
+            size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
             loading={loading}
             sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-            equalizePictureArea
             containerFill={containerFill}
             hovered={hovered}
             interactive
@@ -151,10 +153,9 @@ function SplitProductCard({
             <FramedPicture
               image={product.featuredImage}
               alt={product.title}
-              size="small"
+              size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
               loading={loading}
               sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-              equalizePictureArea
               containerFill={containerFill}
               hovered={hovered}
               interactive
@@ -216,18 +217,18 @@ function ProductCardContent({product, showPrice = true, size = 'default'}) {
         </p>
       ) : null}
       {showPrice && Number(product.priceRange.minVariantPrice.amount) > 0 ? (
-        <p
+        <div
           className={cn(
-            'm-0 leading-snug text-neutral-500',
+            'inline-flex items-baseline gap-1 whitespace-nowrap leading-snug text-neutral-500',
             isCompact ? 'text-[0.625rem]' : 'text-[0.6875rem] md:text-xs',
           )}
         >
-          From{' '}
+          <span>From</span>
           <Money
             data={product.priceRange.minVariantPrice}
             withoutTrailingZeros
           />
-        </p>
+        </div>
       ) : null}
     </>
   );
@@ -314,4 +315,7 @@ export function VideoSection() {
   );
 }
 
-export {FRAMED_PICTURE_GRID_CONTAINER_FILL};
+export {
+  FRAMED_PICTURE_CATALOG_DISPLAY_SIZE,
+  FRAMED_PICTURE_GRID_CONTAINER_FILL,
+};

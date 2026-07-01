@@ -31,9 +31,10 @@ export function FramedPictureFrame({
         borderRadius: computed.frameCqi > 0 ? '0.1cqi' : undefined,
         ...(interactive
           ? {
-              transform: hovered ? 'translateY(-0.5rem)' : undefined,
+              transform: hovered ? 'scale(1.03)' : 'scale(1)',
+              transformOrigin: 'center center',
               willChange: 'transform',
-              transition: 'transform 180ms ease-out',
+              transition: 'transform 200ms ease-out',
             }
           : {}),
       }}

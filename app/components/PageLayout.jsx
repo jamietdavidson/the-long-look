@@ -1,4 +1,5 @@
 import {Aside, useAside} from '~/components/Aside';
+import {RoutedAppPageLayout} from '~/components/AppPageLayout';
 import {DeferredCart, useDeferredCart} from '~/components/DeferredCart';
 import {OverlayScrollbarsRoot} from '~/components/OverlayScrollbarsRoot';
 import {Header} from '~/components/Header';
@@ -28,7 +29,9 @@ export function PageLayout({cart, children = null}) {
           <Header />
           <OverlayScrollbarsRoot className="page-scroll flex-1 min-h-0 overflow-hidden">
             <div className="flex min-h-full flex-col">
-              <main className="flex-1">{children}</main>
+              <main className="flex-1">
+                <RoutedAppPageLayout>{children}</RoutedAppPageLayout>
+              </main>
               <Footer />
             </div>
           </OverlayScrollbarsRoot>
@@ -46,10 +49,8 @@ function CartAside() {
 
   return (
     <Aside type="cart" heading="Cart">
-      {!isOpen ? null : loading ? (
-        <p className="text-sm text-neutral-500">Loading cart...</p>
-      ) : (
-        <CartMain cart={cart} layout="aside" />
+      {!isOpen ? null : (
+        <CartMain cart={cart} layout="aside" loading={loading} />
       )}
     </Aside>
   );

@@ -17,10 +17,14 @@ import {cn} from '~/lib/utils';
  * }}
  */
 export function SizeOptionTable({rows, className}) {
+  const selectedLabel = rows.find((row) => row.selected)?.label;
+
   return (
     <div className={className}>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-neutral-900">Size:</h3>
+        <h3 className="text-sm font-medium text-neutral-900">
+          Size:{selectedLabel ? ` ${selectedLabel}` : null}
+        </h3>
         <Link
           to="/faq"
           className="text-sm text-neutral-600 underline underline-offset-2"
