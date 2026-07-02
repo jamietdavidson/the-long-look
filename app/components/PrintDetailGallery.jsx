@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
 import {FramedPicture} from '~/components/FramedPicture';
@@ -9,7 +9,6 @@ import {
 import {
   getDetailFitLongSideCqi,
   getDetailFitMaxWidthCqi,
-  getDetailGalleryViewportEstimate,
   getFramedSizeFromVariant,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
@@ -83,21 +82,21 @@ const slideVariants = {
  *   selectedVariant?: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
  * }}
  */
-export function PrintDetailGallery({
-  image,
-  alt,
-  framedSpec,
-  namedSize,
-  selectedVariant,
-}) {
-  const galleryRef = useRef(null);
+export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
+  {
+    image,
+    alt,
+    framedSpec,
+    namedSize,
+    selectedVariant,
+  },
+  ref,
+) {
   const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [containerSize, setContainerSize] = useState(
-    /** @type {{width: number; height: number} | null} */ (
-      getDetailGalleryViewportEstimate()
-    ),
+    /** @type {{width: number; height: number} | null} */ (null),
   );
 
   const resolvedNamedSize =
@@ -109,11 +108,8 @@ export function PrintDetailGallery({
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
-  const measuredContainerSize =
-    containerSize ?? getDetailGalleryViewportEstimate();
-
   const slideFitCaps = useMemo(() => {
-    if (!measuredContainerSize) {
+    if (!containerSize) {
       return slides.map(() => ({
         maxWidthCqi: undefined,
         maxLongSideCqi: undefined,
@@ -124,24 +120,24 @@ export function PrintDetailGallery({
       maxWidthCqi: getDetailFitMaxWidthCqi(
         slide.spec,
         resolvedNamedSize,
-        measuredContainerSize.width,
-        measuredContainerSize.height,
+        containerSize.width,
+        containerSize.height,
       ),
       maxLongSideCqi: getDetailFitLongSideCqi(
         slide.spec,
         resolvedNamedSize,
-        measuredContainerSize.width,
-        measuredContainerSize.height,
+        containerSize.width,
+        containerSize.height,
       ),
     }));
-  }, [slides, resolvedNamedSize, measuredContainerSize]);
+  }, [slides, resolvedNamedSize, containerSize]);
 
   useEffect(() => {
     setSlideIndex(0);
     setDirection(0);
   }, [framedSpec.shortSide, framedSpec.longSide, framedSpec.frame, framedSpec.padding]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = wallRef.current;
     if (!element) return;
 
@@ -185,8 +181,8 @@ export function PrintDetailGallery({
 
   return (
     <div
-      ref={galleryRef}
-      className="relative h-[70dvh] w-full shrink-0 md:sticky md:top-0 md:h-screen md:w-1/2"
+      ref={ref}
+      className="relative h-[62.5dvh] w-full shrink-0 md:sticky md:top-0 md:h-screen md:w-1/2"
     >
       <FramedPictureWall
         variant="detail"
@@ -254,7 +250,7 @@ export function PrintDetailGallery({
       ) : null}
     </div>
   );
-}
+});
 
 /**
  * @param {{

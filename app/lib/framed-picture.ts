@@ -213,8 +213,8 @@ function getLayoutOuterAspectForTierCap(
   return verticalLayout.width / verticalLayout.height;
 }
 
-/** Mobile detail gallery height — keep in sync with PrintDetailGallery Tailwind classes. */
-export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO = 0.7;
+/** Mobile detail gallery height — 5/8 viewport; keep in sync with PrintDetailGallery Tailwind classes. */
+export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO = 5 / 8;
 
 /** Best-effort @container dimensions before layout measurement (client only). */
 export function getDetailGalleryViewportEstimate() {
@@ -275,6 +275,31 @@ export function getDetailFitMaxWidthCqi(
   );
 
   return targetLongSide * verticalOuterAspect;
+}
+
+/** Cap outer long edge for summary-strip / compact thumbnails. */
+export function getSummaryStripFitLongSideCqi(
+  spec: FramedPictureSizeSpec,
+  namedSize: FramedPictureNamedSize,
+  containerWidth: number,
+  containerHeight: number,
+) {
+  if (containerWidth <= 0 || containerHeight <= 0) return undefined;
+
+  const maxWidthCqi = getMaxWidthCqiForNamedSize(namedSize);
+  const isFullBleed = spec.padding === 0;
+  const isUnframed = spec.frame === 0;
+  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : spec.padding;
+  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : spec.frame;
+  const verticalOuterAspect = getLayoutOuterAspectForTierCap(
+    spec,
+    layoutPadding,
+    layoutFrame,
+  );
+  const tierLongSideCap = maxWidthCqi / verticalOuterAspect;
+  const heightLongSideCap = (containerHeight / containerWidth) * 100;
+
+  return Math.min(tierLongSideCap, heightLongSideCap, 100);
 }
 
 /** @param {{width?: number | null; height?: number | null} | null | undefined} image */

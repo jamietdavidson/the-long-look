@@ -1,17 +1,18 @@
-import {useState} from 'react';
+import {useCallback, useRef, useState} from 'react';
 import {Link, useSearchParams} from 'react-router';
+import {useInView} from 'framer-motion';
 import {
   getAdjacentAndFirstAvailableVariants,
   Money,
   useOptimisticVariant,
   useSelectedOptionInUrlParam,
 } from '@shopify/hydrogen';
-import {DisplaysWellWith} from '~/components/DisplaysWellWith';
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
 import {PrintDetailGallery} from '~/components/PrintDetailGallery';
 import {
   PrintFeatureList,
   PrintFulfillmentNotes,
+  PrintPurchaseDock,
   PrintPurchasePanel,
   FrameSwatches,
   MountToggle,
@@ -29,6 +30,7 @@ import {
   resolveMountFromOption,
 } from '~/lib/framed-picture';
 import {artistPath, printsPath} from '~/lib/paths';
+import {scrollPageToTop} from '~/lib/page-scroll';
 
 /** @typedef {import('~/lib/content-model').Picture} Picture */
 
@@ -69,6 +71,8 @@ export function PrintDetail({picture, product, recommended = []}) {
  * }}
  */
 function PrintDetailWithProduct({picture, product, image, recommended = []}) {
+  const galleryRef = useRef(null);
+  const galleryInView = useInView(galleryRef, {amount: 0.15});
   const [searchParams] = useSearchParams();
   const selectedVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
@@ -89,6 +93,7 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
     <>
       <div className="flex w-full flex-col md:flex-row md:items-start">
         <PrintDetailGallery
+          ref={galleryRef}
           image={image}
           alt={picture.title}
           framedSpec={framedSpec}
@@ -104,7 +109,11 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
               printHandle={picture.handle}
               artistName={picture.artist?.name}
               orientation={orientation}
-              relatedProducts={recommended}
+              galleryInView={galleryInView}
+              title={picture.title}
+              image={image}
+              framedSpec={framedSpec}
+              minPrice={minPrice}
             />
           </div>
         </PrintDetailAside>
@@ -116,6 +125,8 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
 
 /** @param {{picture: Picture; image: {id?: string; url: string; altText?: string | null; width?: number | null; height?: number | null} | null; recommended?: Array<import('~/lib/content-api').PictureCard>}} */
 function PrintDetailPreview({picture, image, recommended = []}) {
+  const galleryRef = useRef(null);
+  const galleryInView = useInView(galleryRef, {amount: 0.15});
   const [selectedSize, setSelectedSize] = useState(
     /** @type {import('~/lib/framed-picture').FramedPictureNamedSize} */ (
       FRAMED_PICTURE_DEFAULT_NAMED_SIZE
@@ -124,6 +135,10 @@ function PrintDetailPreview({picture, image, recommended = []}) {
   const [selectedFrame, setSelectedFrame] = useState('Black');
   const [selectedMount, setSelectedMount] = useState('Border');
   const [expanded, setExpanded] = useState(false);
+  const handleSummaryExpand = useCallback(async () => {
+    setExpanded(true);
+    await scrollPageToTop({behavior: 'smooth'});
+  }, []);
   const orientation = getOrientationFromImage(image);
   const price = picture.product?.priceRange?.minVariantPrice;
   const spec = FRAMED_PICTURE_SIZES[selectedSize];
@@ -142,6 +157,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
     <>
       <div className="flex w-full flex-col md:flex-row md:items-start">
         <PrintDetailGallery
+          ref={galleryRef}
           image={image}
           alt={picture.title}
           framedSpec={framedSpec}
@@ -151,50 +167,39 @@ function PrintDetailPreview({picture, image, recommended = []}) {
           <PrintDetailHeader picture={picture} minPrice={price} />
           <div className="space-y-6">
             <PrintFeatureList />
-            <div className="overflow-hidden">
-              <button
-                type="button"
-                className={
-                  expanded
-                    ? 'flex w-full items-center justify-center gap-2 bg-neutral-100 px-4 py-4 text-sm font-medium text-neutral-900'
-                    : 'flex w-full items-center justify-center gap-2 bg-neutral-900 px-4 py-4 text-sm font-medium text-white hover:bg-neutral-800'
-                }
-                onClick={() => setExpanded((open) => !open)}
-              >
-                {!expanded ? (
-                  <span
-                    aria-hidden
-                    className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
-                  />
-                ) : null}
-                <span>Select Size, Frame &amp; Mount</span>
-              </button>
-              {expanded ? (
-                <div className="space-y-8 bg-white pt-6 pb-8">
-                  <PreviewSizeTable
-                    selectedSize={selectedSize}
-                    onSelect={setSelectedSize}
-                    orientation={orientation}
-                    frame={selectedFrame}
-                    mount={selectedMount}
-                  />
-                  <FrameSwatches
-                    selectedFrame={selectedFrame}
-                    onSelectShopify={() => {}}
-                    onSelectFallback={setSelectedFrame}
-                  />
-                  <MountToggle
-                    selectedMount={selectedMount}
-                    onSelectShopify={() => {}}
-                    onSelectFallback={setSelectedMount}
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="space-y-4">
-              <PrintFulfillmentNotes />
-              <DisplaysWellWith products={recommended} />
-            </div>
+            <PrintFulfillmentNotes />
+            <PrintPurchaseDock
+              expanded={expanded}
+              onToggle={() => setExpanded((open) => !open)}
+              onSummaryExpand={handleSummaryExpand}
+              galleryInView={galleryInView}
+              summary={{
+                title: picture.title,
+                artistName: picture.artist?.name,
+                image,
+                framedSpec,
+                price: price ?? null,
+                showFromPrefix: true,
+              }}
+            >
+              <PreviewSizeTable
+                selectedSize={selectedSize}
+                onSelect={setSelectedSize}
+                orientation={orientation}
+                frame={selectedFrame}
+                mount={selectedMount}
+              />
+              <FrameSwatches
+                selectedFrame={selectedFrame}
+                onSelectShopify={() => {}}
+                onSelectFallback={setSelectedFrame}
+              />
+              <MountToggle
+                selectedMount={selectedMount}
+                onSelectShopify={() => {}}
+                onSelectFallback={setSelectedMount}
+              />
+            </PrintPurchaseDock>
             {price && Number(price.amount) > 0 ? null : (
               <Link
                 to={printsPath()}
@@ -254,9 +259,9 @@ function PrintDetailHeader({picture, minPrice}) {
         )}
       </p>
       {minPrice && Number(minPrice.amount) > 0 ? (
-        <p className="mt-4 text-sm text-neutral-700">
+        <div className="mt-4 text-sm text-neutral-700">
           Starting at <Money data={minPrice} withoutTrailingZeros />
-        </p>
+        </div>
       ) : null}
       {picture.description ? (
         <p className="mt-4 text-sm leading-relaxed text-neutral-600">

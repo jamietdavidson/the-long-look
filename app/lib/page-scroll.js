@@ -45,6 +45,42 @@ export function syncPageScroll() {
   notifyPageScroll();
 }
 
+/**
+ * @param {{behavior?: ScrollBehavior}} [options]
+ * @returns {Promise<void>}
+ */
+export function scrollPageToTop({behavior = 'smooth'} = {}) {
+  return new Promise((resolve) => {
+    if (getPageScrollTop() === 0) {
+      resolve();
+      return;
+    }
+
+    const target = resolveScrollTarget();
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      target?.removeEventListener('scrollend', finish);
+      window.removeEventListener('scrollend', finish);
+      window.clearTimeout(timer);
+      resolve();
+    };
+
+    const timer = window.setTimeout(finish, behavior === 'smooth' ? 500 : 0);
+
+    if (target) {
+      target.addEventListener('scrollend', finish, {once: true});
+      target.scrollTo({top: 0, left: 0, behavior});
+      return;
+    }
+
+    window.addEventListener('scrollend', finish, {once: true});
+    window.scrollTo({top: 0, left: 0, behavior});
+  });
+}
+
 /** @param {() => void} listener */
 export function subscribePageScroll(listener) {
   /** @type {HTMLElement | null} */
