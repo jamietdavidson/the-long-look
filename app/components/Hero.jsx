@@ -33,12 +33,18 @@ export function Hero() {
         </div>
       ))}
       <div className="absolute inset-0 bg-black/30" />
+      <p
+        aria-live="polite"
+        className="absolute bottom-6 left-6 z-10 text-xs font-medium text-white"
+      >
+        {currentImage + 1}/{heroImages.length}
+      </p>
       <div className="relative z-10 flex flex-col items-center justify-center h-full text-white text-center px-6">
         <p className="text-[10px] md:text-[11px] uppercase tracking-[0.4em] text-white/80 mb-4">
           The Art of Living
         </p>
         <h2 className="text-[22px] md:text-[32px] lg:text-[40px] font-light leading-tight max-w-3xl">
-          ready-to-hang photography from the world&apos;s top artists
+          Take a long look — Curated art meant to inspire.
         </h2>
         <Link
           to={printsPath()}

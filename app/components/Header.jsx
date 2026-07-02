@@ -217,7 +217,7 @@ export function Header() {
           WebkitBackdropFilter: `blur(${backgroundProgress * 10}px)`,
         }}
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 py-7 md:px-8">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 py-5 md:px-8">
           <div className="flex min-w-0 items-center justify-self-start gap-6">
             <span
               ref={shopSpacerRef}

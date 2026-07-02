@@ -9,9 +9,9 @@ import {
 } from '@shopify/hydrogen';
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
 import {PrintDetailGallery} from '~/components/PrintDetailGallery';
+import {PrintProductInfoAside} from '~/components/PrintProductInfoTabs';
 import {
   PrintFeatureList,
-  PrintFulfillmentNotes,
   PrintPurchaseDock,
   PrintPurchasePanel,
   FrameSwatches,
@@ -102,7 +102,7 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
         />
         <PrintDetailAside>
           <PrintDetailHeader picture={picture} minPrice={minPrice} />
-          <div className="space-y-6">
+          <div className="space-y-4">
             <PrintPurchasePanel
               product={product}
               selectedVariant={selectedVariant}
@@ -165,9 +165,8 @@ function PrintDetailPreview({picture, image, recommended = []}) {
         />
         <PrintDetailAside>
           <PrintDetailHeader picture={picture} minPrice={price} />
-          <div className="space-y-6">
+          <div className="space-y-4">
             <PrintFeatureList />
-            <PrintFulfillmentNotes />
             <PrintPurchaseDock
               expanded={expanded}
               onToggle={() => setExpanded((open) => !open)}
@@ -200,6 +199,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
                 onSelectFallback={setSelectedMount}
               />
             </PrintPurchaseDock>
+            <PrintProductInfoAside selectedFrame={selectedFrame} />
             {price && Number(price.amount) > 0 ? null : (
               <Link
                 to={printsPath()}
@@ -219,7 +219,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
 /** @param {{children: import('react').ReactNode}} */
 function PrintDetailAside({children}) {
   return (
-    <div className="flex w-full flex-1 justify-center px-4 py-6 md:px-10 md:py-40">
+    <div className="flex w-full flex-1 justify-center px-4 py-6 md:px-10 md:pt-24 md:pb-6">
       <div className="w-full max-w-md text-left">{children}</div>
     </div>
   );
@@ -259,8 +259,9 @@ function PrintDetailHeader({picture, minPrice}) {
         )}
       </p>
       {minPrice && Number(minPrice.amount) > 0 ? (
-        <div className="mt-4 text-sm text-neutral-700">
-          Starting at <Money data={minPrice} withoutTrailingZeros />
+        <div className="mt-4 flex items-baseline gap-1 text-sm text-neutral-700">
+          <span>Starting at</span>
+          <Money data={minPrice} withoutTrailingZeros />
         </div>
       ) : null}
       {picture.description ? (

@@ -1,25 +1,5 @@
-import {PageHero, PageContent} from '~/components/PageHero';
+import {redirect} from 'react-router';
 
-export const meta = () => [{title: 'Shipping & Returns | The Long Look'}];
-
-export default function ShippingPage() {
-  return (
-    <>
-      <PageHero title="Shipping & Returns" />
-      <PageContent>
-        <section className="space-y-4 mb-10">
-          <h2 className="text-[14px] uppercase tracking-[0.2em] font-semibold">Shipping</h2>
-          <p className="text-[12px] text-neutral-600 leading-relaxed">
-            All orders ship within 5–7 business days. Free shipping on orders over $200.
-          </p>
-        </section>
-        <section className="space-y-4">
-          <h2 className="text-[14px] uppercase tracking-[0.2em] font-semibold">Returns</h2>
-          <p className="text-[12px] text-neutral-600 leading-relaxed">
-            Returns accepted within 30 days of delivery. Contact hello@thelonglook.com to initiate a return.
-          </p>
-        </section>
-      </PageContent>
-    </>
-  );
+export function loader() {
+  return redirect('/faq#shipping');
 }

@@ -9,7 +9,7 @@ export function Footer() {
           <div>
             <h3 className="text-[11px] uppercase tracking-[0.2em] font-semibold mb-6">The Long Look</h3>
             <p className="text-[11px] text-neutral-400 leading-relaxed">
-              Ready-to-hang photography from the world&apos;s top artists. The art of living.
+              Take a long look — Curated art meant to inspire.
             </p>
           </div>
           <div>
@@ -23,7 +23,6 @@ export function Footer() {
             <h4 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-4">Info</h4>
             <nav className="space-y-3">
               <FooterLink to="/about">About Us</FooterLink>
-              <FooterLink to="/shipping">Shipping & Returns</FooterLink>
               <FooterLink to="/faq">FAQ</FooterLink>
               <FooterLink to="/contact">Contact</FooterLink>
             </nav>
@@ -31,9 +30,7 @@ export function Footer() {
           <div>
             <h4 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-4">Connect</h4>
             <nav className="space-y-3">
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="block text-[11px] text-neutral-300 hover:text-white">Instagram</a>
-              <a href="https://pinterest.com" target="_blank" rel="noopener noreferrer" className="block text-[11px] text-neutral-300 hover:text-white">Pinterest</a>
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="block text-[11px] text-neutral-300 hover:text-white">Facebook</a>
+              <a href="https://instagram.com/the_long_look" target="_blank" rel="noopener noreferrer" className="block text-[11px] text-neutral-300 hover:text-white">Instagram</a>
             </nav>
           </div>
         </div>

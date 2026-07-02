@@ -236,6 +236,12 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
 
       {hasMultipleSlides ? (
         <>
+          <p
+            aria-live="polite"
+            className="absolute bottom-4 left-4 z-10 text-xs font-medium text-neutral-600"
+          >
+            {slideIndex + 1}/{slides.length}
+          </p>
           <GalleryNavButton
             direction="left"
             label="Previous image"

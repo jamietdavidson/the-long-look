@@ -23,10 +23,16 @@ export function SizeOptionTable({rows, className}) {
     <div className={className}>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium text-neutral-900">
-          Size:{selectedLabel ? ` ${selectedLabel}` : null}
+          Size:
+          {selectedLabel ? (
+            <span className="text-sm font-normal text-neutral-500">
+              {' '}
+              {selectedLabel}
+            </span>
+          ) : null}
         </h3>
         <Link
-          to="/faq"
+          to="/faq#sizing"
           className="text-sm text-neutral-600 underline underline-offset-2"
         >
           Size Guide

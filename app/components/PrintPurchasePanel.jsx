@@ -13,6 +13,7 @@ import {
 import {AnimatePresence, motion} from 'framer-motion';
 import {getProductOptions, Money} from '@shopify/hydrogen';
 import {SizeOptionTable} from '~/components/SizeOptionTable';
+import {PrintProductInfoAside, PrintProductInfoListItem} from '~/components/PrintProductInfoTabs';
 import {AddToCartButton} from '~/components/AddToCartButton';
 import {FramedPicture} from '~/components/FramedPicture';
 import {
@@ -158,10 +159,8 @@ export function PrintPurchasePanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PrintFeatureList />
-
-      <PrintFulfillmentNotes />
 
       <PrintPurchaseDock
         expanded={expanded}
@@ -183,7 +182,7 @@ export function PrintPurchasePanel({
         footer={
           <AddToCartButton
             analytics={analytics}
-            className="w-full bg-neutral-900 px-6 py-4 text-center text-xs font-medium tracking-[0.2em] text-white uppercase transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full bg-neutral-900 px-4 py-4 text-center text-xs font-medium uppercase tracking-[0.2em] text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 md:px-6"
             disabled={!selectedVariant || !selectedVariant.availableForSale}
             onClick={() => {
               open('cart');
@@ -218,6 +217,8 @@ export function PrintPurchasePanel({
         onSelectFallback={(value) => selectFallbackParam('mount', value)}
       />
     </PrintPurchaseDock>
+
+      <PrintProductInfoAside selectedFrame={selectedFrame} />
     </div>
   );
 }
@@ -257,8 +258,9 @@ export function PrintPurchaseDock({
   children,
   footer,
 }) {
-  const showSummary = !expanded && !galleryInView && summary;
-  const showCollapsedCta = !expanded && galleryInView;
+  const {isOpen: asideOpen} = useAside();
+  const showSummary = !expanded && !galleryInView && summary && !asideOpen;
+  const showCollapsedCta = !expanded && galleryInView && !asideOpen;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -284,7 +286,7 @@ export function PrintPurchaseDock({
   const mobileDock = (
     <div className="pointer-events-none fixed inset-x-0 bottom-2.5 z-30 px-2.5 md:hidden">
       <AnimatePresence mode="wait" initial={false}>
-        {expanded ? (
+        {asideOpen ? null : expanded ? (
           <motion.div
             key="expanded"
             className="pointer-events-auto flex max-h-[50dvh] flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
@@ -306,7 +308,7 @@ export function PrintPurchaseDock({
               {children}
             </div>
             {footer ? (
-              <div className="shrink-0 border-t border-neutral-100 bg-white px-4 py-3">
+              <div className="mt-auto shrink-0 [&_button]:w-full [&_button]:rounded-none">
                 {footer}
               </div>
             ) : null}
@@ -324,7 +326,7 @@ export function PrintPurchaseDock({
           >
             <button
               type="button"
-              className="flex w-full items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+              className="flex w-full min-w-0 items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
               onClick={onToggle}
               aria-expanded={expanded}
             >
@@ -332,7 +334,7 @@ export function PrintPurchaseDock({
                 aria-hidden
                 className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
               />
-              <span>Select Size, Frame &amp; Mount</span>
+              <span className="truncate">Select Size, Frame &amp; Mount</span>
               <ChevronDown className="size-4 shrink-0" strokeWidth={1.75} />
             </button>
           </motion.div>
@@ -353,11 +355,6 @@ export function PrintPurchaseDock({
 
   return (
     <>
-      <div
-        className="h-[calc(4.75rem+0.625rem)] md:hidden"
-        aria-hidden
-      />
-
       {mounted ? createPortal(mobileDock, document.body) : null}
       {mounted ? createPortal(desktopSummaryDock, document.body) : null}
 
@@ -365,7 +362,7 @@ export function PrintPurchaseDock({
         <button
           type="button"
           className={cn(
-            'flex w-full items-center justify-center gap-2 px-4 py-4 text-sm font-medium transition-colors',
+            'flex w-full min-w-0 items-center justify-center gap-2 px-4 py-4 text-sm font-medium transition-colors',
             expanded
               ? 'bg-neutral-100 text-neutral-900'
               : 'bg-neutral-900 text-white hover:bg-neutral-800',
@@ -373,18 +370,18 @@ export function PrintPurchaseDock({
           onClick={onToggle}
           aria-expanded={expanded}
         >
-          {!expanded ? (
-            <span
-              aria-hidden
-              className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
-            />
-          ) : null}
-          <span>Select Size, Frame &amp; Mount</span>
-          {expanded ? (
-            <ChevronUp className="size-4 shrink-0" strokeWidth={1.75} />
-          ) : (
-            <ChevronDown className="size-4 shrink-0" strokeWidth={1.75} />
-          )}
+          <span
+            aria-hidden
+            className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
+          />
+          <span className="truncate">Select Size, Frame &amp; Mount</span>
+          <ChevronDown
+            className={cn(
+              'size-4 shrink-0 transition-transform duration-200 ease-out',
+              expanded && 'rotate-180',
+            )}
+            strokeWidth={1.75}
+          />
         </button>
 
         {expanded ? (
@@ -536,21 +533,15 @@ export function PrintFeatureList() {
         <Layers className="mt-0.5 size-4 shrink-0 text-neutral-400" strokeWidth={1.5} />
         <span>Six sizes available</span>
       </li>
-    </ul>
-  );
-}
-
-export function PrintFulfillmentNotes() {
-  return (
-    <ul className="space-y-3 text-sm text-neutral-600">
-      <li className="flex items-start gap-3">
+      <li className="flex items-start gap-3 text-neutral-600">
         <Truck className="mt-0.5 size-4 shrink-0 text-neutral-400" strokeWidth={1.5} />
         <span>Delivered in 14 business days</span>
       </li>
-      <li className="flex items-start gap-3">
+      <li className="flex items-start gap-3 text-neutral-600">
         <Globe className="mt-0.5 size-4 shrink-0 text-neutral-400" strokeWidth={1.5} />
         <span>Printed and framed locally in Canada</span>
       </li>
+      <PrintProductInfoListItem />
     </ul>
   );
 }
@@ -620,10 +611,24 @@ function FrameSwatches({
   }));
   const values =
     useShopify && shopifyValues.length > 0 ? shopifyValues : fallbackValues;
+  const selectedLabel =
+    values.find((value) =>
+      useShopify
+        ? value.selected
+        : value.name.toLowerCase() === selectedFrame.toLowerCase(),
+    )?.name ?? selectedFrame;
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-neutral-900">Frame:</h3>
+      <h3 className="mb-3 text-sm font-medium text-neutral-900">
+        Frame:
+        {selectedLabel ? (
+          <span className="text-sm font-normal text-neutral-500">
+            {' '}
+            {selectedLabel}
+          </span>
+        ) : null}
+      </h3>
       <div className="inline-flex w-fit divide-x divide-neutral-200 border border-neutral-200">
           {values.map((value) => {
             const selected = useShopify
@@ -733,10 +738,24 @@ function MountToggle({
         selected: name.toLowerCase() === selectedMount.toLowerCase(),
         exists: true,
       }));
+  const selectedLabel =
+    values.find((value) =>
+      useShopify
+        ? value.selected
+        : value.name.toLowerCase() === selectedMount.toLowerCase(),
+    )?.name ?? selectedMount;
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-neutral-900">Mount:</h3>
+      <h3 className="mb-3 text-sm font-medium text-neutral-900">
+        Mount:
+        {selectedLabel ? (
+          <span className="text-sm font-normal text-neutral-500">
+            {' '}
+            {selectedLabel}
+          </span>
+        ) : null}
+      </h3>
       <div className="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200">
         {values.map((value) => {
           const selected = useShopify
