@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Link, useNavigate, useSearchParams} from 'react-router';
 import {
@@ -42,6 +42,19 @@ import {
 import {cn} from '~/lib/utils';
 import {scrollPageToTop} from '~/lib/page-scroll';
 
+/** Purchase panel starts expanded on desktop; collapsed on mobile. */
+export function usePurchasePanelExpanded() {
+  const [expanded, setExpanded] = useState(false);
+
+  useLayoutEffect(() => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      setExpanded(true);
+    }
+  }, []);
+
+  return [expanded, setExpanded];
+}
+
 /**
  * @param {{
  *   product: import('storefrontapi.generated').ProductFragment;
@@ -74,7 +87,7 @@ export function PrintPurchasePanel({
   framedSpec,
   minPrice,
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = usePurchasePanelExpanded();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const {open} = useAside();
@@ -203,24 +216,73 @@ export function PrintPurchasePanel({
         />
       ) : null}
 
-      <FrameSwatches
-        option={frameOption}
-        selectedFrame={selectedFrame}
-        onSelectShopify={selectOptionValue}
-        onSelectFallback={(value) => selectFallbackParam('frame', value)}
-      />
+      <FrameMountOptions>
+        <FrameSwatches
+          option={frameOption}
+          selectedFrame={selectedFrame}
+          onSelectShopify={selectOptionValue}
+          onSelectFallback={(value) => selectFallbackParam('frame', value)}
+        />
 
-      <MountToggle
-        option={mountOption}
-        selectedMount={selectedMount}
-        onSelectShopify={selectOptionValue}
-        onSelectFallback={(value) => selectFallbackParam('mount', value)}
-      />
+        <MountToggle
+          option={mountOption}
+          selectedMount={selectedMount}
+          onSelectShopify={selectOptionValue}
+          onSelectFallback={(value) => selectFallbackParam('mount', value)}
+        />
+      </FrameMountOptions>
     </PrintPurchaseDock>
 
       <PrintProductInfoAside selectedFrame={selectedFrame} />
     </div>
   );
+}
+
+const DOCK_MS = 320;
+const DOCK_SPRING = {
+  type: 'spring',
+  stiffness: 500,
+  damping: 50,
+  bounce: 0,
+  restDelta: 0.01,
+  restSpeed: 0.01,
+};
+const DOCK_EASE = 'cubic-bezier(0, 0, 0.2, 1)';
+const DOCK_BORDER_EXPAND_TRANSITION = {
+  type: 'tween',
+  duration: DOCK_MS / 1000,
+  ease: [0.05, 0.9, 0.15, 1],
+};
+const DOCK_BORDER_COLLAPSE_TRANSITION = {
+  type: 'tween',
+  duration: 0.03,
+  delay: DOCK_MS / 1000 - 0.03,
+  ease: [0.4, 0, 1, 1],
+};
+const DOCK_SHELL_EXPANDED = {
+  borderColor: '#e5e5e5',
+};
+const DOCK_SHELL_COLLAPSED = {
+  borderColor: 'rgba(0, 0, 0, 0)',
+};
+
+/** @param {boolean} expanded @param {boolean} isHeightAnimating */
+function getDockShellTransition(expanded, isHeightAnimating) {
+  const borderColor = expanded
+    ? DOCK_BORDER_EXPAND_TRANSITION
+    : DOCK_BORDER_COLLAPSE_TRANSITION;
+
+  if (isHeightAnimating) {
+    return {
+      height: DOCK_SPRING,
+      borderColor,
+    };
+  }
+
+  return {
+    height: {duration: 0},
+    borderColor,
+  };
 }
 
 /**
@@ -262,15 +324,214 @@ export function PrintPurchaseDock({
   const showSummary = !expanded && !galleryInView && summary && !asideOpen;
   const showCollapsedCta = !expanded && galleryInView && !asideOpen;
   const [mounted, setMounted] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [shellExpanded, setShellExpanded] = useState(expanded);
+  const [contentInFlow, setContentInFlow] = useState(expanded);
+  const [panelHeight, setPanelHeight] = useState(null);
+  const [buttonHeight, setButtonHeight] = useState(0);
+  const buttonRef = useRef(null);
+  const contentRef = useRef(null);
+  const prevExpandedRef = useRef(expanded);
+  const prevShowDockRef = useRef(
+    expanded || (!expanded && galleryInView && !asideOpen),
+  );
+  const targetPanelHeightRef = useRef(null);
+
+  const isShell = expanded || shellExpanded;
+  const showDock = expanded || showCollapsedCta || shellExpanded;
 
   useEffect(() => {
     setMounted(true);
+    const media = window.matchMedia('(max-width: 767px)');
+    const syncMobileViewport = () => setIsMobileViewport(media.matches);
+    syncMobileViewport();
+    media.addEventListener('change', syncMobileViewport);
+    return () => media.removeEventListener('change', syncMobileViewport);
   }, []);
+
+  useEffect(() => {
+    if (expanded) setShellExpanded(true);
+    if (!isMobileViewport && !expanded) {
+      setShellExpanded(false);
+      setContentInFlow(false);
+      setPanelHeight(null);
+      targetPanelHeightRef.current = null;
+    }
+  }, [expanded, isMobileViewport]);
+
+  useEffect(() => {
+    if (!asideOpen && showDock) return;
+
+    targetPanelHeightRef.current = null;
+    setPanelHeight(null);
+
+    if (expanded) {
+      setShellExpanded(true);
+      setContentInFlow(true);
+    } else {
+      setShellExpanded(false);
+      setContentInFlow(false);
+    }
+
+    prevExpandedRef.current = expanded;
+  }, [asideOpen, showDock, expanded]);
+
+  useLayoutEffect(() => {
+    const dockJustShown = showDock && !prevShowDockRef.current;
+    prevShowDockRef.current = showDock;
+
+    if (!isMobileViewport || !dockJustShown || !expanded) return;
+
+    setShellExpanded(true);
+    setContentInFlow(true);
+    setPanelHeight(null);
+    targetPanelHeightRef.current = null;
+    prevExpandedRef.current = true;
+  }, [showDock, expanded, isMobileViewport]);
+
+  const measureDockHeights = useCallback(() => {
+    const measuredButtonHeight = buttonRef.current?.offsetHeight ?? 0;
+    const contentHeight = contentRef.current?.scrollHeight ?? 0;
+
+    return {
+      measuredButtonHeight,
+      contentHeight,
+      fullHeight: measuredButtonHeight + contentHeight,
+    };
+  }, []);
+
+  const startDockAnimation = useCallback(
+    (nextExpanded) => {
+      let attempts = 0;
+
+      const applyHeights = () => {
+        const {measuredButtonHeight, fullHeight} = measureDockHeights();
+        const collapseTarget = Math.max(measuredButtonHeight, buttonHeight);
+
+        if (measuredButtonHeight > 0) {
+          setButtonHeight(measuredButtonHeight);
+        }
+
+        if (
+          (measuredButtonHeight === 0 || fullHeight === 0) &&
+          attempts < 6
+        ) {
+          attempts += 1;
+          requestAnimationFrame(applyHeights);
+          return;
+        }
+
+        if (measuredButtonHeight === 0) return;
+
+        if (nextExpanded) {
+          setContentInFlow(false);
+          targetPanelHeightRef.current = fullHeight;
+          setPanelHeight(measuredButtonHeight);
+          requestAnimationFrame(() => {
+            setPanelHeight(fullHeight);
+          });
+          return;
+        }
+
+        targetPanelHeightRef.current = collapseTarget;
+        setPanelHeight(fullHeight);
+        requestAnimationFrame(() => {
+          setPanelHeight(collapseTarget);
+        });
+      };
+
+      applyHeights();
+    },
+    [buttonHeight, measureDockHeights],
+  );
+
+  useLayoutEffect(() => {
+    if (!isMobileViewport || !isShell) return;
+    if (prevExpandedRef.current === expanded) return;
+
+    prevExpandedRef.current = expanded;
+    startDockAnimation(expanded);
+  }, [expanded, isShell, isMobileViewport, startDockAnimation]);
+
+  const handlePanelAnimationComplete = () => {
+    if (panelHeight === null) return;
+    if (panelHeight !== targetPanelHeightRef.current) return;
+
+    if (expanded) {
+      setContentInFlow(true);
+      setPanelHeight(null);
+      targetPanelHeightRef.current = null;
+      return;
+    }
+
+    setShellExpanded(false);
+    setContentInFlow(false);
+    setPanelHeight(null);
+    targetPanelHeightRef.current = null;
+  };
+
+  useEffect(() => {
+    if (panelHeight === null) return undefined;
+
+    const timeout = window.setTimeout(() => {
+      if (panelHeight !== targetPanelHeightRef.current) return;
+      handlePanelAnimationComplete();
+    }, DOCK_MS + 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [panelHeight, expanded]);
+
+  const isCollapsedCtaDock =
+    showCollapsedCta && !isShell && panelHeight == null;
+
+  const dockHeightAnimation =
+    panelHeight != null
+      ? {height: panelHeight}
+      : isShell && contentInFlow
+        ? {height: 'auto'}
+        : isCollapsedCtaDock && buttonHeight > 0
+          ? {height: buttonHeight}
+          : {};
+
+  useLayoutEffect(() => {
+    if (!showDock || !buttonRef.current) return;
+    setButtonHeight(buttonRef.current.offsetHeight);
+  }, [showDock, expanded, shellExpanded, panelHeight, contentInFlow]);
+
+  const renderDockToggleButton = () => (
+    <button
+      ref={buttonRef}
+      type="button"
+      className={cn(
+        'relative z-10 flex w-full shrink-0 items-center justify-center gap-2 px-4 py-4 text-sm font-medium transition-colors',
+        expanded
+          ? 'bg-neutral-100 text-neutral-900'
+          : 'bg-neutral-900 text-white hover:bg-neutral-800',
+      )}
+      style={{
+        transitionDuration: `${DOCK_MS}ms`,
+        transitionTimingFunction: DOCK_EASE,
+      }}
+      onClick={onToggle}
+      aria-expanded={expanded}
+    >
+      <span
+        aria-hidden
+        className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
+      />
+      <span className="truncate">Select Size, Frame &amp; Mount</span>
+      {expanded ? (
+        <ChevronUp className="size-4 shrink-0" strokeWidth={1.75} />
+      ) : (
+        <ChevronDown className="size-4 shrink-0" strokeWidth={1.75} />
+      )}
+    </button>
+  );
 
   const renderSummaryCard = () => (
     <motion.div
       key="summary"
-      className="pointer-events-auto overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+      className="pointer-events-auto overflow-hidden overscroll-none rounded-lg border border-neutral-200 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
       initial={{opacity: 0, y: 16}}
       animate={{opacity: 1, y: 0}}
       exit={{opacity: 0, y: 16}}
@@ -284,67 +545,71 @@ export function PrintPurchaseDock({
   );
 
   const mobileDock = (
-    <div className="pointer-events-none fixed inset-x-0 bottom-2.5 z-30 px-2.5 md:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-2.5 z-30 overscroll-none px-2.5 md:hidden">
       <AnimatePresence mode="wait" initial={false}>
-        {asideOpen ? null : expanded ? (
+        {asideOpen ? null : showDock ? (
           <motion.div
-            key="expanded"
-            className="pointer-events-auto flex max-h-[50dvh] flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-            initial={{opacity: 0, y: 16}}
-            animate={{opacity: 1, y: 0}}
-            exit={{opacity: 0, y: 16}}
-            transition={{duration: 0.2, ease: 'easeOut'}}
+            key="purchase-dock"
+            className={cn(
+              'pointer-events-auto relative overflow-hidden rounded-lg border shadow-[0_8px_32px_rgba(0,0,0,0.12)]',
+              isShell ? 'bg-white' : 'bg-transparent',
+            )}
+            animate={{
+              ...(expanded ? DOCK_SHELL_EXPANDED : DOCK_SHELL_COLLAPSED),
+              ...dockHeightAnimation,
+            }}
+            transition={
+              panelHeight != null
+                ? getDockShellTransition(expanded, true)
+                : {
+                    height: {duration: 0},
+                    borderColor: expanded
+                      ? DOCK_BORDER_EXPAND_TRANSITION
+                      : DOCK_BORDER_COLLAPSE_TRANSITION,
+                  }
+            }
+            onAnimationComplete={handlePanelAnimationComplete}
+            initial={false}
+            exit={{
+              opacity: 0,
+              y: 8,
+              transition: {duration: 0.2, ease: 'easeOut'},
+            }}
           >
-            <button
-              type="button"
-              className="flex w-full shrink-0 items-center justify-center gap-2 bg-neutral-100 px-4 py-4 text-sm font-medium text-neutral-900 transition-colors"
-              onClick={onToggle}
-              aria-expanded={expanded}
-            >
-              <span>Select Size, Frame &amp; Mount</span>
-              <ChevronUp className="size-4 shrink-0" strokeWidth={1.75} />
-            </button>
-            <div className="min-h-0 flex-1 space-y-8 overflow-y-auto overscroll-contain px-4 pt-6 pb-4">
-              {children}
-            </div>
-            {footer ? (
-              <div className="mt-auto shrink-0 [&_button]:w-full [&_button]:rounded-none">
-                {footer}
+            {renderDockToggleButton()}
+
+            {isShell ? (
+              <div
+                className={cn(
+                  'bg-white',
+                  contentInFlow
+                    ? 'relative'
+                    : 'absolute inset-x-0',
+                )}
+                style={
+                  contentInFlow ? undefined : {top: buttonHeight}
+                }
+              >
+                <div ref={contentRef}>
+                  <div className="shrink-0 p-0">{children}</div>
+                  {footer ? (
+                    <div className="shrink-0 [&_button]:w-full [&_button]:rounded-none">
+                      {footer}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </motion.div>
         ) : showSummary ? (
           renderSummaryCard()
-        ) : showCollapsedCta ? (
-          <motion.div
-            key="cta"
-            className="pointer-events-auto overflow-hidden rounded-lg bg-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-            initial={{opacity: 0, y: 16}}
-            animate={{opacity: 1, y: 0}}
-            exit={{opacity: 0, y: 16}}
-            transition={{duration: 0.2, ease: 'easeOut'}}
-          >
-            <button
-              type="button"
-              className="flex w-full min-w-0 items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
-              onClick={onToggle}
-              aria-expanded={expanded}
-            >
-              <span
-                aria-hidden
-                className="size-2 shrink-0 rounded-full bg-[#3b82f6]"
-              />
-              <span className="truncate">Select Size, Frame &amp; Mount</span>
-              <ChevronDown className="size-4 shrink-0" strokeWidth={1.75} />
-            </button>
-          </motion.div>
         ) : null}
       </AnimatePresence>
     </div>
   );
 
   const desktopSummaryDock = (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 hidden px-2.5 md:block">
+    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 hidden overscroll-none px-2.5 md:block">
       <div className="mx-auto max-w-xl">
         <AnimatePresence mode="wait" initial={false}>
           {showSummary ? renderSummaryCard() : null}
@@ -355,7 +620,7 @@ export function PrintPurchaseDock({
 
   return (
     <>
-      {mounted ? createPortal(mobileDock, document.body) : null}
+      {mounted && isMobileViewport ? createPortal(mobileDock, document.body) : null}
       {mounted ? createPortal(desktopSummaryDock, document.body) : null}
 
       <div className="hidden overflow-hidden md:block">
@@ -385,9 +650,9 @@ export function PrintPurchaseDock({
         </button>
 
         {expanded ? (
-          <div className="space-y-8 bg-white pt-6 pb-8">
-            {children}
-            {footer}
+          <div className="bg-white pt-4 pb-6">
+            <div className="flex flex-col gap-5">{children}</div>
+            {footer ? <div className="mt-6">{footer}</div> : null}
           </div>
         ) : null}
       </div>
@@ -460,7 +725,7 @@ function PrintPurchaseSummaryCard({
     <button
       type="button"
       onClick={onExpand}
-      className="flex min-h-18 w-full items-stretch overflow-hidden text-left"
+      className="flex min-h-18 w-full touch-manipulation items-stretch overflow-hidden overscroll-none text-left"
       aria-label={`Configure ${title}`}
     >
       <div className="flex w-18 shrink-0 self-stretch bg-[#ececea]">
@@ -619,17 +884,18 @@ function FrameSwatches({
     )?.name ?? selectedFrame;
 
   return (
-    <div>
-      <h3 className="mb-3 text-sm font-medium text-neutral-900">
+    <div className="max-md:flex max-md:flex-col max-md:gap-3 max-md:py-4">
+      <h3 className="shrink-0 px-3 text-xs font-medium text-neutral-900 md:mb-2 md:px-0 md:text-sm">
         Frame:
         {selectedLabel ? (
-          <span className="text-sm font-normal text-neutral-500">
+          <span className="text-xs font-normal text-neutral-500 md:text-sm">
             {' '}
             {selectedLabel}
           </span>
         ) : null}
       </h3>
-      <div className="inline-flex w-fit divide-x divide-neutral-200 border border-neutral-200">
+      <div className="max-md:px-4">
+        <div className="inline-flex w-fit divide-x divide-neutral-200 border border-neutral-200 max-md:flex max-md:h-11 max-md:w-full max-md:overflow-hidden">
           {values.map((value) => {
             const selected = useShopify
               ? value.selected
@@ -646,7 +912,8 @@ function FrameSwatches({
                     : onSelectFallback(value.name)
                 }
                 className={cn(
-                  'flex size-11 items-center justify-center transition-colors',
+                  'flex items-center justify-center transition-colors md:size-11',
+                  'max-md:h-11 max-md:min-w-0 max-md:flex-1',
                   selected
                     ? 'bg-neutral-100'
                     : 'bg-white hover:bg-neutral-50',
@@ -659,6 +926,7 @@ function FrameSwatches({
               </button>
             );
           })}
+        </div>
       </div>
     </div>
   );
@@ -746,45 +1014,58 @@ function MountToggle({
     )?.name ?? selectedMount;
 
   return (
-    <div>
-      <h3 className="mb-3 text-sm font-medium text-neutral-900">
+    <div className="max-md:flex max-md:flex-col max-md:gap-3 max-md:py-4">
+      <h3 className="shrink-0 px-3 text-xs font-medium text-neutral-900 md:mb-2 md:px-0 md:text-sm">
         Mount:
         {selectedLabel ? (
-          <span className="text-sm font-normal text-neutral-500">
+          <span className="text-xs font-normal text-neutral-500 md:text-sm">
             {' '}
             {selectedLabel}
           </span>
         ) : null}
       </h3>
-      <div className="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200">
-        {values.map((value) => {
-          const selected = useShopify
-            ? value.selected
-            : value.name.toLowerCase() === selectedMount.toLowerCase();
+      <div className="max-md:px-4">
+        <div className="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 max-md:h-11 max-md:overflow-hidden">
+          {values.map((value) => {
+            const selected = useShopify
+              ? value.selected
+              : value.name.toLowerCase() === selectedMount.toLowerCase();
 
-          return (
-            <button
-              key={value.name}
-              type="button"
-              disabled={useShopify ? !value.exists : false}
-              onClick={() =>
-                useShopify
-                  ? onSelectShopify(value.variantUriQuery, value.selected)
-                  : onSelectFallback(value.name)
-              }
-              className={cn(
-                'px-4 py-3 text-sm font-medium transition-colors',
-                selected
-                  ? 'bg-neutral-100 text-neutral-900'
-                  : 'bg-white text-neutral-700 hover:bg-neutral-50',
-                useShopify && !value.exists && 'cursor-not-allowed opacity-40',
-              )}
-            >
-              {value.name}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={value.name}
+                type="button"
+                disabled={useShopify ? !value.exists : false}
+                onClick={() =>
+                  useShopify
+                    ? onSelectShopify(value.variantUriQuery, value.selected)
+                    : onSelectFallback(value.name)
+                }
+                className={cn(
+                  'flex items-center justify-center font-medium transition-colors',
+                  'max-md:h-11 max-md:min-w-0 max-md:px-2 max-md:text-xs max-md:leading-none max-md:whitespace-nowrap',
+                  'md:px-4 md:py-3 md:text-sm',
+                  selected
+                    ? 'bg-neutral-100 text-neutral-900'
+                    : 'bg-white text-neutral-700 hover:bg-neutral-50',
+                  useShopify && !value.exists && 'cursor-not-allowed opacity-40',
+                )}
+              >
+                {value.name}
+              </button>
+            );
+          })}
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** @param {{children: import('react').ReactNode}} */
+export function FrameMountOptions({children}) {
+  return (
+    <div className="max-md:grid max-md:grid-cols-2 max-md:items-start max-md:divide-x max-md:divide-neutral-200 md:flex md:flex-col md:gap-4">
+      {children}
     </div>
   );
 }

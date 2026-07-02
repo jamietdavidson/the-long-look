@@ -1,6 +1,5 @@
 import {useCallback, useRef, useState} from 'react';
 import {Link, useSearchParams} from 'react-router';
-import {useInView} from 'framer-motion';
 import {
   getAdjacentAndFirstAvailableVariants,
   Money,
@@ -12,8 +11,10 @@ import {PrintDetailGallery} from '~/components/PrintDetailGallery';
 import {PrintProductInfoAside} from '~/components/PrintProductInfoTabs';
 import {
   PrintFeatureList,
+  FrameMountOptions,
   PrintPurchaseDock,
   PrintPurchasePanel,
+  usePurchasePanelExpanded,
   FrameSwatches,
   MountToggle,
 } from '~/components/PrintPurchasePanel';
@@ -31,6 +32,7 @@ import {
 } from '~/lib/framed-picture';
 import {artistPath, printsPath} from '~/lib/paths';
 import {scrollPageToTop} from '~/lib/page-scroll';
+import {useGalleryInView} from '~/lib/use-gallery-in-view';
 
 /** @typedef {import('~/lib/content-model').Picture} Picture */
 
@@ -72,7 +74,7 @@ export function PrintDetail({picture, product, recommended = []}) {
  */
 function PrintDetailWithProduct({picture, product, image, recommended = []}) {
   const galleryRef = useRef(null);
-  const galleryInView = useInView(galleryRef, {amount: 0.15});
+  const galleryInView = useGalleryInView(galleryRef, 0.15);
   const [searchParams] = useSearchParams();
   const selectedVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
@@ -126,7 +128,7 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
 /** @param {{picture: Picture; image: {id?: string; url: string; altText?: string | null; width?: number | null; height?: number | null} | null; recommended?: Array<import('~/lib/content-api').PictureCard>}} */
 function PrintDetailPreview({picture, image, recommended = []}) {
   const galleryRef = useRef(null);
-  const galleryInView = useInView(galleryRef, {amount: 0.15});
+  const galleryInView = useGalleryInView(galleryRef, 0.15);
   const [selectedSize, setSelectedSize] = useState(
     /** @type {import('~/lib/framed-picture').FramedPictureNamedSize} */ (
       FRAMED_PICTURE_DEFAULT_NAMED_SIZE
@@ -134,7 +136,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
   );
   const [selectedFrame, setSelectedFrame] = useState('Black');
   const [selectedMount, setSelectedMount] = useState('Border');
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = usePurchasePanelExpanded();
   const handleSummaryExpand = useCallback(async () => {
     setExpanded(true);
     await scrollPageToTop({behavior: 'smooth'});
@@ -188,16 +190,18 @@ function PrintDetailPreview({picture, image, recommended = []}) {
                 frame={selectedFrame}
                 mount={selectedMount}
               />
-              <FrameSwatches
-                selectedFrame={selectedFrame}
-                onSelectShopify={() => {}}
-                onSelectFallback={setSelectedFrame}
-              />
-              <MountToggle
-                selectedMount={selectedMount}
-                onSelectShopify={() => {}}
-                onSelectFallback={setSelectedMount}
-              />
+              <FrameMountOptions>
+                <FrameSwatches
+                  selectedFrame={selectedFrame}
+                  onSelectShopify={() => {}}
+                  onSelectFallback={setSelectedFrame}
+                />
+                <MountToggle
+                  selectedMount={selectedMount}
+                  onSelectShopify={() => {}}
+                  onSelectFallback={setSelectedMount}
+                />
+              </FrameMountOptions>
             </PrintPurchaseDock>
             <PrintProductInfoAside selectedFrame={selectedFrame} />
             {price && Number(price.amount) > 0 ? null : (
