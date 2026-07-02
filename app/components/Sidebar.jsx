@@ -5,7 +5,7 @@ import {useState} from 'react';
 import {artistPath, artistsPath, collectionPath, printsPath} from '~/lib/paths';
 import {ScrollArea} from '~/components/ui/scroll-area';
 import {Separator} from '~/components/ui/separator';
-import {Sheet, SheetContent} from '~/components/ui/sheet';
+import {Sheet, SheetContent, SheetDescription, SheetTitle} from '~/components/ui/sheet';
 
 const sidebarLinkClass =
   'flex items-center justify-between py-2.5 text-[11px] text-neutral-600 transition-colors hover:text-neutral-900';
@@ -43,6 +43,10 @@ export function Sidebar({open, onClose}) {
         showCloseButton={false}
         className="flex w-full max-w-sm flex-col gap-0 border-r px-0 pb-0 pt-0"
       >
+        <SheetTitle className="sr-only">Shop menu</SheetTitle>
+        <SheetDescription className="sr-only">
+          Browse collections and artists.
+        </SheetDescription>
         <ScrollArea className="min-h-0 flex-1">
           <div
             className="pt-[var(--header-height,3.75rem)]"
