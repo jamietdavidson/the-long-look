@@ -251,7 +251,7 @@ function PrintDetailHeader({picture, minPrice}) {
     null;
 
   return (
-    <header className="mb-6 text-center md:mb-8 md:text-left">
+    <header className="mb-6 md:mb-8">
       <h1 className={cn(type.title.lg, 'text-neutral-900')}>
         {picture.title}
       </h1>
@@ -279,7 +279,7 @@ function PrintDetailHeader({picture, minPrice}) {
         <div
           className={cn(
             type.body.xl,
-            'mt-4 flex items-baseline justify-center gap-1 text-neutral-700 md:justify-start',
+            'mt-4 flex items-baseline gap-1 text-neutral-700',
           )}
         >
           <span>From</span>
@@ -338,7 +338,7 @@ function RecommendedForYou({products}) {
   if (products.length === 0) return null;
 
   return (
-    <div className="border-t border-neutral-100 py-12 md:py-16">
+    <div className="border-t border-neutral-100">
       <ProductGrid
         title="More like this"
         products={products}
