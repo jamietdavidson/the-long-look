@@ -34,6 +34,10 @@ export function collectionsPath() {
   return '/collections';
 }
 
+export function searchPath() {
+  return '/search';
+}
+
 /** @param {string} handle */
 export function productPath(handle) {
   return `/products/${handle}`;

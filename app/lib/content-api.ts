@@ -413,3 +413,55 @@ export async function loadArtistsIndex(storefront: Storefront) {
     works: pictures.filter((picture) => picture.artist.handle === artist.handle),
   }));
 }
+
+export type SearchContentResult = {
+  prints: PictureCard[];
+  artists: Artist[];
+};
+
+/**
+ * Search pictures and artists by title, description, artist name, or location.
+ * @param {Storefront} storefront
+ * @param {string} term
+ */
+export async function searchContent(
+  storefront: Storefront,
+  term: string,
+): Promise<SearchContentResult> {
+  const query = term.trim().toLowerCase();
+  if (!query) {
+    return {prints: [], artists: []};
+  }
+
+  const [pictures, artists] = await Promise.all([
+    loadAllPictures(storefront).catch(() => []),
+    loadAllArtists(storefront).catch(() => []),
+  ]);
+
+  const matchedArtists = artists.filter((artist) => {
+    const haystack = [artist.name, artist.location, artist.bio]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(query);
+  });
+
+  const matchedArtistHandles = new Set(matchedArtists.map((artist) => artist.handle));
+
+  const matchedPrints = pictures.filter((picture) => {
+    if (matchedArtistHandles.has(picture.artist.handle)) {
+      return true;
+    }
+
+    const haystack = [picture.title, picture.description, picture.artist.name]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(query);
+  });
+
+  return {
+    prints: picturesToCards(matchedPrints),
+    artists: matchedArtists,
+  };
+}

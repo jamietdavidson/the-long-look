@@ -12,6 +12,7 @@ import {
 import favicon from '~/assets/favicon.svg';
 import interVariable from '~/assets/fonts/inter-variable.ttf?url';
 import interItalicVariable from '~/assets/fonts/inter-italic-variable.ttf?url';
+import playfairDisplayItalicVariable from '~/assets/fonts/playfair-display-italic-variable.ttf?url';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import {loadContentNav} from '~/lib/content-api';
 import globalsStyles from '~/styles/globals.css?url';
@@ -67,6 +68,13 @@ export function links() {
     {
       rel: 'preload',
       href: interItalicVariable,
+      as: 'font',
+      type: 'font/ttf',
+      crossOrigin: 'anonymous',
+    },
+    {
+      rel: 'preload',
+      href: playfairDisplayItalicVariable,
       as: 'font',
       type: 'font/ttf',
       crossOrigin: 'anonymous',

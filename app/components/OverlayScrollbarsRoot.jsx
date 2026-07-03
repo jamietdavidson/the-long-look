@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useMemo, useRef} from 'react';
 import {useLocation} from 'react-router';
 import {useOverlayScrollbars} from 'overlayscrollbars-react';
 import {
@@ -6,6 +6,18 @@ import {
   syncPageScroll,
   unregisterPageScrollTarget,
 } from '~/lib/page-scroll';
+
+const OVERLAY_SCROLLBARS_OPTIONS = {
+  scrollbars: {
+    theme: 'os-theme-dark',
+    autoHide: 'scroll',
+    autoHideDelay: 800,
+  },
+  overflow: {
+    x: 'hidden',
+    y: 'scroll',
+  },
+};
 
 /**
  * @param {{
@@ -15,22 +27,14 @@ import {
  */
 export function OverlayScrollbarsRoot({children, className = ''}) {
   const rootRef = useRef(null);
+  const instanceRef = useRef(/** @type {ReturnType<typeof useOverlayScrollbars>[1]} */ (null));
   const location = useLocation();
-  const [initialize, instance] = useOverlayScrollbars({
-    options: {
-      scrollbars: {
-        theme: 'os-theme-dark',
-        autoHide: 'scroll',
-        autoHideDelay: 800,
-      },
-      overflow: {
-        x: 'hidden',
-        y: 'scroll',
-      },
-    },
-    events: {
+  const events = useMemo(
+    () => ({
       initialized: (osInstance) => {
-        const viewport = osInstance?.elements()?.viewport ?? instance()?.elements()?.viewport;
+        const viewport =
+          osInstance?.elements()?.viewport ??
+          instanceRef.current()?.elements()?.viewport;
 
         if (viewport) {
           registerPageScrollTarget(viewport);
@@ -42,8 +46,14 @@ export function OverlayScrollbarsRoot({children, className = ''}) {
       destroyed: () => {
         unregisterPageScrollTarget();
       },
-    },
+    }),
+    [],
+  );
+  const [initialize, instance] = useOverlayScrollbars({
+    options: OVERLAY_SCROLLBARS_OPTIONS,
+    events,
   });
+  instanceRef.current = instance;
 
   useEffect(() => {
     const element = rootRef.current;
@@ -56,7 +66,7 @@ export function OverlayScrollbarsRoot({children, className = ''}) {
 
     const registerViewport = () => {
       const viewport =
-        instance()?.elements()?.viewport ??
+        instanceRef.current()?.elements()?.viewport ??
         element.querySelector('[data-overlayscrollbars-viewport]');
 
       if (viewport instanceof HTMLElement) {
@@ -71,12 +81,12 @@ export function OverlayScrollbarsRoot({children, className = ''}) {
       window.clearTimeout(timer);
       unregisterPageScrollTarget();
     };
-  }, [initialize, instance]);
+  }, [initialize]);
 
   useEffect(() => {
-    const viewport = instance()?.elements()?.viewport;
+    const viewport = instanceRef.current()?.elements()?.viewport;
     viewport?.scrollTo({top: 0, left: 0});
-  }, [location.pathname, instance]);
+  }, [location.pathname]);
 
   return (
     <div ref={rootRef} className={className}>

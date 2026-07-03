@@ -17,6 +17,10 @@ function resolveScrollTarget() {
 
 /** @param {HTMLElement} element */
 export function registerPageScrollTarget(element) {
+  if (scrollTarget === element) {
+    return;
+  }
+
   scrollTarget = element;
   window.dispatchEvent(new CustomEvent(TARGET_CHANGE_EVENT));
   notifyPageScroll();

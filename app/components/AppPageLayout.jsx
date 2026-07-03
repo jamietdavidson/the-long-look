@@ -1,7 +1,20 @@
 import {useMatches} from 'react-router';
 import {cn} from '~/lib/utils';
 
-/** @typedef {{compensateForTopbar?: boolean}} AppRouteHandle */
+/** @typedef {'white' | 'black'} TopbarColor */
+/** @typedef {'filled' | 'transparent'} TopbarMode */
+
+/** @typedef {{
+ *   compensateForTopbar?: boolean;
+ *   topbar?: {
+ *     color?: TopbarColor;
+ *     mode?: TopbarMode;
+ *     autohide?: boolean;
+ *   };
+ * }} AppRouteHandle */
+
+/** @type {{color: TopbarColor; mode: TopbarMode; autohide: boolean}} */
+export const DEFAULT_TOPBAR = {color: 'black', mode: 'filled', autohide: true};
 
 /** Default for routes that do not set `handle.compensateForTopbar`. */
 export const DEFAULT_COMPENSATE_FOR_TOPBAR = true;
@@ -22,6 +35,30 @@ export function getCompensateForTopbar(matches) {
 
 export function useCompensateForTopbar() {
   return getCompensateForTopbar(useMatches());
+}
+
+/**
+ * Read topbar appearance from the deepest matching route handle.
+ * @param {ReturnType<typeof useMatches>} matches
+ */
+export function getTopbarConfig(matches) {
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const topbar = /** @type {AppRouteHandle | undefined} */ (
+      matches[i]?.handle
+    )?.topbar;
+    if (topbar) {
+      return {
+        color: topbar.color ?? DEFAULT_TOPBAR.color,
+        mode: topbar.mode ?? DEFAULT_TOPBAR.mode,
+        autohide: topbar.autohide ?? DEFAULT_TOPBAR.autohide,
+      };
+    }
+  }
+  return DEFAULT_TOPBAR;
+}
+
+export function useTopbarConfig() {
+  return getTopbarConfig(useMatches());
 }
 
 /**

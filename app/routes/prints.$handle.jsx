@@ -12,7 +12,10 @@ export const meta = ({data}) => {
 };
 
 /** @type {import('~/components/AppPageLayout').AppRouteHandle} */
-export const handle = {compensateForTopbar: false};
+export const handle = {
+  compensateForTopbar: false,
+  topbar: {mode: 'transparent'},
+};
 
 /**
  * @param {Route.LoaderArgs} args

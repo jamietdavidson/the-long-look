@@ -41,6 +41,7 @@ import {
 } from '~/lib/print-options';
 import {cn} from '~/lib/utils';
 import {scrollPageToTop} from '~/lib/page-scroll';
+import {useGalleryInView} from '~/lib/use-gallery-in-view';
 
 /** Purchase panel starts expanded on desktop; collapsed on mobile. */
 export function usePurchasePanelExpanded() {
@@ -321,10 +322,18 @@ export function PrintPurchaseDock({
   footer,
 }) {
   const {isOpen: asideOpen} = useAside();
-  const showSummary = !expanded && !galleryInView && summary && !asideOpen;
-  const showCollapsedCta = !expanded && galleryInView && !asideOpen;
   const [mounted, setMounted] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const purchasePanelRef = useRef(null);
+  const purchasePanelInView = useGalleryInView(purchasePanelRef, 0.15);
+  const showMobileSummary =
+    !expanded && !galleryInView && summary && !asideOpen;
+  const showDesktopSummary =
+    !purchasePanelInView && summary && !asideOpen;
+  const showSummary =
+    mounted &&
+    (isMobileViewport ? showMobileSummary : showDesktopSummary);
+  const showCollapsedCta = !expanded && galleryInView && !asideOpen;
   const [shellExpanded, setShellExpanded] = useState(expanded);
   const [contentInFlow, setContentInFlow] = useState(expanded);
   const [panelHeight, setPanelHeight] = useState(null);
@@ -621,9 +630,11 @@ export function PrintPurchaseDock({
   return (
     <>
       {mounted && isMobileViewport ? createPortal(mobileDock, document.body) : null}
-      {mounted ? createPortal(desktopSummaryDock, document.body) : null}
+      {mounted && !isMobileViewport
+        ? createPortal(desktopSummaryDock, document.body)
+        : null}
 
-      <div className="hidden overflow-hidden md:block">
+      <div ref={purchasePanelRef} className="hidden overflow-hidden md:block">
         <button
           type="button"
           className={cn(
