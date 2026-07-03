@@ -9,8 +9,15 @@ export default function ContactPage() {
     <>
       <PageHero title="Contact" />
       <PageContent>
-        <p className={cn(type.body.md, 'text-neutral-600 mb-6')}>hello@thelonglook.com</p>
-        <p className={cn(type.body.md, 'text-neutral-600')}>1513 Park Row, Venice CA 90291</p>
+        <p className={cn(type.body.md, 'mb-6 text-neutral-600')}>
+          <a
+            href="mailto:info@thelonglook.co"
+            className="transition-colors hover:text-neutral-900"
+          >
+            info@thelonglook.co
+          </a>
+        </p>
+        <p className={cn(type.body.md, 'text-neutral-600')}>Victoria, BC</p>
       </PageContent>
     </>
   );

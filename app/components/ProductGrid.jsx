@@ -1,6 +1,7 @@
 import {Link} from 'react-router';
 import {useState} from 'react';
 import {Money} from '@shopify/hydrogen';
+import {FavoriteButton} from '~/components/FavoriteButton';
 import {FramedPicture} from '~/components/FramedPicture';
 import {
   FRAMED_PICTURE_IMAGE_SIZES,
@@ -86,28 +87,36 @@ export function ProductCard({
   return (
     <article
       className={cn('block h-full w-full', className)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
-      <Link to={variantUrl} prefetch="intent" className="block">
-        <FramedPictureWall
-          variant="gridCard"
-          className={cn(isCompact && 'px-3 pt-6 pb-4', wallClassName)}
-        >
-          <div className="flex w-full flex-1 items-center justify-center">
-            <FramedPicture
-              image={product.featuredImage}
-              alt={product.title}
-              size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
-              loading={loading}
-              sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-              containerFill={containerFill}
-              hovered={hovered}
-              interactive
-            />
-          </div>
-        </FramedPictureWall>
-      </Link>
+      <div
+        className="relative"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <Link to={variantUrl} prefetch="intent" className="block">
+          <FramedPictureWall
+            variant="gridCard"
+            className={cn(isCompact && 'px-3 pt-6 pb-4', wallClassName)}
+          >
+            <div className="flex w-full flex-1 items-center justify-center">
+              <FramedPicture
+                image={product.featuredImage}
+                alt={product.title}
+                size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
+                loading={loading}
+                sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
+                containerFill={containerFill}
+                hovered={hovered}
+                interactive
+              />
+            </div>
+          </FramedPictureWall>
+        </Link>
+        <FavoriteButton
+          handle={product.handle}
+          className="absolute right-3 bottom-3 z-10"
+        />
+      </div>
       <div
         className={cn(
           'flex flex-col',
@@ -145,33 +154,41 @@ function SplitProductCard({
 
   return (
     <article className={cn('block h-full bg-white', className)}>
-      <Link
-        to={variantUrl}
-        prefetch="intent"
-        className="block"
+      <div
+        className="relative"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div
-          className={cn(
-            '@container flex aspect-8/9 items-center justify-center bg-[#ececea]',
-            splitWellClassName,
-          )}
+        <Link
+          to={variantUrl}
+          prefetch="intent"
+          className="block"
         >
-          <div className="flex size-full min-h-0 min-w-0 items-center justify-center">
-            <FramedPicture
-              image={product.featuredImage}
-              alt={product.title}
-              size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
-              loading={loading}
-              sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-              containerFill={containerFill}
-              hovered={hovered}
-              interactive
-            />
+          <div
+            className={cn(
+              '@container flex aspect-8/9 items-center justify-center bg-[#ececea]',
+              splitWellClassName,
+            )}
+          >
+            <div className="flex size-full min-h-0 min-w-0 items-center justify-center">
+              <FramedPicture
+                image={product.featuredImage}
+                alt={product.title}
+                size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
+                loading={loading}
+                sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
+                containerFill={containerFill}
+                hovered={hovered}
+                interactive
+              />
+            </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+        <FavoriteButton
+          handle={product.handle}
+          className="absolute right-3 bottom-3 z-10"
+        />
+      </div>
       <div
         className={cn(
           'flex flex-col',

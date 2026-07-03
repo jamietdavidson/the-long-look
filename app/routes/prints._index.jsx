@@ -7,7 +7,7 @@ import {type} from '~/lib/typography';
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: 'All Prints | The Long Look'}];
+  return [{title: 'Prints | The Long Look'}];
 };
 
 /**
@@ -26,7 +26,7 @@ export default function PrintsIndex() {
     <>
       <div className="text-center py-12 px-6 border-b border-neutral-100">
         <h1 className={type.title.md}>
-          All Prints
+          Prints
         </h1>
       </div>
       <ProductGrid

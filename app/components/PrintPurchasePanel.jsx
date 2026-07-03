@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Frame,
   Globe,
+  HelpCircle,
   Layers,
   Truck,
 } from 'lucide-react';
@@ -33,10 +34,12 @@ import {
   sortSizeOptionValues,
 } from '~/lib/framed-picture';
 import {
+  applyFrameSelection,
+  applyMountSelection,
   DEFAULT_FRAME_OPTIONS,
   DEFAULT_MOUNT_OPTIONS,
-  getResolvedFrameValue,
-  getResolvedMountValue,
+  FRAME_MOUNT_CONFLICT_MESSAGE,
+  getResolvedFrameAndMount,
   isExcludedFrameOption,
 } from '~/lib/print-options';
 import {cn} from '~/lib/utils';
@@ -113,8 +116,10 @@ export function PrintPurchasePanel({
     (option) => option.name.toLowerCase() === 'mount',
   );
 
-  const selectedFrame = getResolvedFrameValue(selectedVariant, searchParams);
-  const selectedMount = getResolvedMountValue(selectedVariant, searchParams);
+  const {frame: selectedFrame, mount: selectedMount} = getResolvedFrameAndMount(
+    selectedVariant,
+    searchParams,
+  );
 
   const cartLines =
     selectedVariant
@@ -163,9 +168,46 @@ export function PrintPurchasePanel({
     }
   };
 
-  const selectFallbackParam = (key, value) => {
+  const updateFrameMountParams = (frame, mount) => {
     const params = new URLSearchParams(searchParams);
-    params.set(key, value);
+    params.set('frame', frame);
+    params.set('mount', mount);
+    void navigate(`?${params.toString()}`, {
+      replace: true,
+      preventScrollReset: true,
+    });
+  };
+
+  const selectFrameFallback = (frame) => {
+    const {frame: nextFrame, mount} = applyFrameSelection(frame, selectedMount);
+    updateFrameMountParams(nextFrame, mount);
+  };
+
+  const selectMountFallback = (mount) => {
+    const {frame, mount: nextMount} = applyMountSelection(mount, selectedFrame);
+    updateFrameMountParams(frame, nextMount);
+  };
+
+  const selectFrameShopify = (variantUriQuery, selected, frameName) => {
+    if (selected) return;
+
+    const params = new URLSearchParams(variantUriQuery);
+    const {frame, mount} = applyFrameSelection(frameName, selectedMount);
+    params.set('frame', frame);
+    params.set('mount', mount);
+    void navigate(`?${params.toString()}`, {
+      replace: true,
+      preventScrollReset: true,
+    });
+  };
+
+  const selectMountShopify = (variantUriQuery, selected, mountName) => {
+    if (selected) return;
+
+    const params = new URLSearchParams(variantUriQuery);
+    const {frame, mount} = applyMountSelection(mountName, selectedFrame);
+    params.set('frame', frame);
+    params.set('mount', mount);
     void navigate(`?${params.toString()}`, {
       replace: true,
       preventScrollReset: true,
@@ -221,15 +263,15 @@ export function PrintPurchasePanel({
         <FrameSwatches
           option={frameOption}
           selectedFrame={selectedFrame}
-          onSelectShopify={selectOptionValue}
-          onSelectFallback={(value) => selectFallbackParam('frame', value)}
+          onSelectShopify={selectFrameShopify}
+          onSelectFallback={selectFrameFallback}
         />
 
         <MountToggle
           option={mountOption}
           selectedMount={selectedMount}
-          onSelectShopify={selectOptionValue}
-          onSelectFallback={(value) => selectFallbackParam('mount', value)}
+          onSelectShopify={selectMountShopify}
+          onSelectFallback={selectMountFallback}
         />
       </FrameMountOptions>
     </PrintPurchaseDock>
@@ -866,7 +908,7 @@ function SizeTable({option, orientation, frame, mount, onSelect}) {
  * @param {{
  *   option?: import('@shopify/hydrogen').MappedProductOptions;
  *   selectedFrame: string;
- *   onSelectShopify: (variantUriQuery: string, selected: boolean) => void;
+ *   onSelectShopify: (variantUriQuery: string, selected: boolean, optionName: string) => void;
  *   onSelectFallback: (value: string) => void;
  * }}
  */
@@ -919,7 +961,11 @@ function FrameSwatches({
                 disabled={useShopify ? !value.exists : false}
                 onClick={() =>
                   useShopify
-                    ? onSelectShopify(value.variantUriQuery, value.selected)
+                    ? onSelectShopify(
+                        value.variantUriQuery,
+                        value.selected,
+                        value.name,
+                      )
                     : onSelectFallback(value.name)
                 }
                 className={cn(
@@ -997,7 +1043,7 @@ function FrameSwatch({name, swatch}) {
  * @param {{
  *   option?: import('@shopify/hydrogen').MappedProductOptions;
  *   selectedMount: string;
- *   onSelectShopify: (variantUriQuery: string, selected: boolean) => void;
+ *   onSelectShopify: (variantUriQuery: string, selected: boolean, optionName: string) => void;
  *   onSelectFallback: (value: string) => void;
  * }}
  */
@@ -1048,7 +1094,11 @@ function MountToggle({
                 disabled={useShopify ? !value.exists : false}
                 onClick={() =>
                   useShopify
-                    ? onSelectShopify(value.variantUriQuery, value.selected)
+                    ? onSelectShopify(
+                        value.variantUriQuery,
+                        value.selected,
+                        value.name,
+                      )
                     : onSelectFallback(value.name)
                 }
                 className={cn(
@@ -1074,9 +1124,36 @@ function MountToggle({
 /** @param {{children: import('react').ReactNode}} */
 export function FrameMountOptions({children}) {
   return (
-    <div className="max-md:grid max-md:grid-cols-2 max-md:items-start max-md:divide-x max-md:divide-neutral-200 md:flex md:flex-col md:gap-4">
-      {children}
+    <div className="relative">
+      <div className="absolute top-0 right-3 z-10 md:right-0">
+        <FrameMountConflictHint />
+      </div>
+      <div className="max-md:grid max-md:grid-cols-2 max-md:items-start max-md:divide-x max-md:divide-neutral-200 md:flex md:flex-col md:gap-4">
+        {children}
+      </div>
     </div>
+  );
+}
+
+function FrameMountConflictHint() {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="flex size-6 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-neutral-400"
+        aria-describedby="frame-mount-conflict-hint"
+      >
+        <HelpCircle className="size-3.5" strokeWidth={1.5} aria-hidden />
+        <span className="sr-only">About frame and mount options</span>
+      </button>
+      <span
+        id="frame-mount-conflict-hint"
+        role="tooltip"
+        className="pointer-events-none absolute top-full right-0 z-20 mt-1.5 w-52 rounded border border-neutral-200 bg-white px-3 py-2 text-left text-xs leading-snug text-neutral-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 md:w-60"
+      >
+        {FRAME_MOUNT_CONFLICT_MESSAGE}
+      </span>
+    </span>
   );
 }
 

@@ -1,6 +1,6 @@
 import {Link, useSearchParams} from 'react-router';
 import {useId, useMemo} from 'react';
-import {ChevronDown} from 'lucide-react';
+import {ChevronDown, X} from 'lucide-react';
 import {PRINT_FILTER_PARAMS} from '~/lib/print-filters';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
@@ -51,6 +51,36 @@ function buildClearFiltersHref(searchParams) {
 
 /**
  * @param {{
+ *   activeCount: number;
+ *   className?: string;
+ *   onNavigate?: () => void;
+ * }}
+ */
+export function SearchFiltersClearButton({activeCount, className, onNavigate}) {
+  const [searchParams] = useSearchParams();
+
+  if (activeCount <= 0) {
+    return null;
+  }
+
+  return (
+    <Link
+      to={buildClearFiltersHref(searchParams)}
+      prefetch="intent"
+      onClick={onNavigate}
+      aria-label="Clear all filters"
+      className={cn(
+        'inline-flex size-8 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900',
+        className,
+      )}
+    >
+      <X size={18} strokeWidth={1.5} aria-hidden />
+    </Link>
+  );
+}
+
+/**
+ * @param {{
  *   activeFilters: import('~/lib/print-filters').PrintFilters;
  *   listId?: string;
  *   className?: string;
@@ -63,8 +93,6 @@ export function SearchFiltersHeader({
   className,
   onNavigate,
 }) {
-  const [searchParams] = useSearchParams();
-
   const activeCount = useMemo(
     () => Object.values(activeFilters).reduce((sum, values) => sum + values.length, 0),
     [activeFilters],
@@ -73,26 +101,24 @@ export function SearchFiltersHeader({
   return (
     <div
       className={cn(
-        'flex items-center justify-between px-5 py-4',
+        'relative px-5 py-4',
         className,
       )}
     >
       <h2
         id={listId}
-        className={cn(type.overline.sm, 'text-neutral-900')}
+        className={cn(type.nav, 'text-neutral-900')}
       >
         Filters
+        {activeCount > 0 ? (
+          <span className="text-neutral-500"> ({activeCount})</span>
+        ) : null}
       </h2>
-      {activeCount > 0 ? (
-        <Link
-          to={buildClearFiltersHref(searchParams)}
-          prefetch="intent"
-          onClick={onNavigate}
-          className={cn(type.micro, 'uppercase tracking-overline font-medium text-neutral-400 transition-colors hover:text-neutral-700')}
-        >
-          Clear all
-        </Link>
-      ) : null}
+      <SearchFiltersClearButton
+        activeCount={activeCount}
+        onNavigate={onNavigate}
+        className="absolute top-1/2 right-2 -translate-y-1/2"
+      />
     </div>
   );
 }
@@ -106,6 +132,7 @@ export function SearchFiltersHeader({
  *   headerClassName?: string;
  *   listId?: string;
  *   renderHeader?: boolean;
+ *   constrainHeight?: boolean;
  *   onNavigate?: () => void;
  * }}
  */
@@ -116,14 +143,27 @@ export function SearchFilters({
   headerClassName,
   listId: listIdProp,
   renderHeader = true,
+  constrainHeight = false,
   onNavigate,
 }) {
   const generatedListId = useId();
   const listId = listIdProp ?? generatedListId;
   const [searchParams] = useSearchParams();
 
+  const filterGroups = FILTER_GROUPS.map((group) => (
+    <FilterGroup
+      key={group.key}
+      title={group.title}
+      param={group.key}
+      options={facets[group.key]}
+      activeValues={activeFilters[group.key]}
+      searchParams={searchParams}
+      onNavigate={onNavigate}
+    />
+  ));
+
   return (
-    <div className={cn('flex flex-col', className)}>
+    <div className={cn('flex min-h-0 flex-col', className)}>
       {renderHeader ? (
         <SearchFiltersHeader
           activeFilters={activeFilters}
@@ -133,23 +173,23 @@ export function SearchFilters({
         />
       ) : null}
 
-      <div
-        aria-labelledby={renderHeader || listIdProp ? listId : undefined}
-        aria-label={!renderHeader && !listIdProp ? 'Filters' : undefined}
-        className="relative z-0 divide-y divide-neutral-100 max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto"
-      >
-        {FILTER_GROUPS.map((group) => (
-          <FilterGroup
-            key={group.key}
-            title={group.title}
-            param={group.key}
-            options={facets[group.key]}
-            activeValues={activeFilters[group.key]}
-            searchParams={searchParams}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </div>
+      {constrainHeight ? (
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          aria-labelledby={listIdProp ? listId : undefined}
+          aria-label={!listIdProp ? 'Filters' : undefined}
+        >
+          <div className="divide-y divide-neutral-100">{filterGroups}</div>
+        </div>
+      ) : (
+        <div
+          aria-labelledby={renderHeader || listIdProp ? listId : undefined}
+          aria-label={!renderHeader && !listIdProp ? 'Filters' : undefined}
+          className="relative z-0 divide-y divide-neutral-100 max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto"
+        >
+          {filterGroups}
+        </div>
+      )}
     </div>
   );
 }
@@ -175,8 +215,8 @@ function FilterGroup({
   if (!options.length) return null;
 
   return (
-    <details className="group px-5 py-4" defaultOpen>
-      <summary className={cn(type.overline.xs, 'flex cursor-pointer list-none items-center justify-between text-neutral-900 [&::-webkit-details-marker]:hidden')}>
+    <details className="group px-5 py-4" open>
+      <summary className={cn(type.body.md, 'flex cursor-pointer list-none items-center justify-between uppercase tracking-nav font-semibold text-neutral-900 [&::-webkit-details-marker]:hidden')}>
         {title}
         <ChevronDown
           size={14}
@@ -196,7 +236,7 @@ function FilterGroup({
                 prefetch="intent"
                 onClick={onNavigate}
                 className={cn(
-                  type.body.lg,
+                  type.body.xl,
                   'flex items-center gap-3 transition-colors',
                   checked ? 'text-neutral-900' : 'text-neutral-700 hover:text-neutral-900',
                 )}
@@ -215,7 +255,7 @@ function FilterGroup({
                   ) : null}
                 </span>
                 <span className="flex-1">{option.label}</span>
-                <span className={cn(type.body.sm, 'tabular-nums text-neutral-400')}>
+                <span className={cn(type.body.md, 'tabular-nums text-neutral-400')}>
                   {option.count}
                 </span>
               </Link>

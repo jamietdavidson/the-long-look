@@ -32,7 +32,12 @@ import {
   resolveMountFromOption,
 } from '~/lib/framed-picture';
 import {artistPath, printsPath} from '~/lib/paths';
-import {getResolvedFramedSize} from '~/lib/print-options';
+import {
+  applyFrameSelection,
+  applyMountSelection,
+  getResolvedFrameAndMount,
+  getResolvedFramedSize,
+} from '~/lib/print-options';
 import {scrollPageToTop} from '~/lib/page-scroll';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
 
@@ -87,12 +92,16 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
 
   const orientation = getOrientationFromImage(image);
   const resolvedNamedSize = getResolvedFramedSize(selectedVariant, searchParams);
+  const {frame: resolvedFrame, mount: resolvedMount} = getResolvedFrameAndMount(
+    selectedVariant,
+    searchParams,
+  );
   const framedSpec = getFramedPictureSpecFromVariant(
     selectedVariant,
     resolvedNamedSize,
     {
-      frame: searchParams.get('frame'),
-      mount: searchParams.get('mount'),
+      frame: resolvedFrame,
+      mount: resolvedMount,
     },
   );
   const minPrice =
@@ -108,6 +117,7 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
           framedSpec={framedSpec}
           namedSize={resolvedNamedSize}
           selectedVariant={selectedVariant}
+          printHandle={picture.handle}
         />
         <PrintDetailAside>
           <PrintDetailHeader picture={picture} minPrice={minPrice} />
@@ -148,6 +158,16 @@ function PrintDetailPreview({picture, image, recommended = []}) {
     setExpanded(true);
     await scrollPageToTop({behavior: 'smooth'});
   }, []);
+  const handleFrameSelect = useCallback((frame) => {
+    const {frame: nextFrame, mount} = applyFrameSelection(frame, selectedMount);
+    setSelectedFrame(nextFrame);
+    setSelectedMount(mount);
+  }, [selectedMount]);
+  const handleMountSelect = useCallback((mount) => {
+    const {frame, mount: nextMount} = applyMountSelection(mount, selectedFrame);
+    setSelectedFrame(frame);
+    setSelectedMount(nextMount);
+  }, [selectedFrame]);
   const orientation = getOrientationFromImage(image);
   const price = picture.product?.priceRange?.minVariantPrice;
   const spec = FRAMED_PICTURE_SIZES[selectedSize];
@@ -171,6 +191,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
           alt={picture.title}
           framedSpec={framedSpec}
           namedSize={selectedSize}
+          printHandle={picture.handle}
         />
         <PrintDetailAside>
           <PrintDetailHeader picture={picture} minPrice={price} />
@@ -201,12 +222,12 @@ function PrintDetailPreview({picture, image, recommended = []}) {
                 <FrameSwatches
                   selectedFrame={selectedFrame}
                   onSelectShopify={() => {}}
-                  onSelectFallback={setSelectedFrame}
+                  onSelectFallback={handleFrameSelect}
                 />
                 <MountToggle
                   selectedMount={selectedMount}
                   onSelectShopify={() => {}}
-                  onSelectFallback={setSelectedMount}
+                  onSelectFallback={handleMountSelect}
                 />
               </FrameMountOptions>
             </PrintPurchaseDock>

@@ -9,7 +9,7 @@ import {
 
 const OVERLAY_SCROLLBARS_OPTIONS = {
   scrollbars: {
-    theme: 'os-theme-dark',
+    theme: 'os-theme-dark page-scrollbars',
     autoHide: 'scroll',
     autoHideDelay: 800,
   },

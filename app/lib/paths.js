@@ -38,6 +38,10 @@ export function searchPath() {
   return '/search';
 }
 
+export function favouritesPath() {
+  return '/favourites';
+}
+
 /** @param {string} handle */
 export function productPath(handle) {
   return `/products/${handle}`;

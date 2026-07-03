@@ -18,7 +18,7 @@ export function PageLayout({cart, children = null}) {
   return (
     <Aside.Provider>
       <DeferredCart cart={cart}>
-        <div className="flex h-screen flex-col overflow-hidden">
+        <div className="flex h-dvh flex-col overflow-hidden">
           <CartAside />
           <Header color={topbar.color} mode={topbar.mode} autohide={topbar.autohide} />
           <OverlayScrollbarsRoot className="page-scroll flex-1 min-h-0 overflow-hidden">

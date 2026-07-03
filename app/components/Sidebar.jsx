@@ -10,13 +10,24 @@ import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
 const sidebarLinkClass = cn(
-  type.body.sm,
+  type.body.lg,
   'flex items-center justify-between py-2.5 text-neutral-600 transition-colors hover:text-neutral-900',
 );
 
-/** @param {{open: boolean, onClose: () => void}} */
-export function Sidebar({open, onClose}) {
-  const [expandedSections, setExpandedSections] = useState(new Set(['collections']));
+function preventShopToggleDismiss(event) {
+  if (
+    event.target instanceof Element &&
+    event.target.closest('[data-shop-toggle]')
+  ) {
+    event.preventDefault();
+  }
+}
+
+/** @param {{open: boolean, onOpenChange: (open: boolean) => void}} */
+export function Sidebar({open, onOpenChange}) {
+  const [expandedSections, setExpandedSections] = useState(
+    () => new Set(['collections', 'artists']),
+  );
   const rootData = useRouteLoaderData('root');
   const contentNav = rootData?.contentNav;
 
@@ -34,80 +45,90 @@ export function Sidebar({open, onClose}) {
   };
 
   const isOpen = (section) => expandedSections.has(section);
+  const close = () => onOpenChange(false);
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) onClose();
-      }}
-    >
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="flex w-full max-w-sm flex-col gap-0 border-r px-0 pb-0 pt-0"
+        className="flex w-full max-w-sm flex-col gap-0 border-r bg-white px-0 pb-0 pt-0"
+        onPointerDownOutside={preventShopToggleDismiss}
+        onInteractOutside={preventShopToggleDismiss}
       >
         <SheetTitle className="sr-only">Shop menu</SheetTitle>
         <SheetDescription className="sr-only">
           Browse collections and artists.
         </SheetDescription>
+        <header
+          aria-hidden
+          className="h-[var(--header-height)] shrink-0 border-b border-neutral-200"
+        />
         <ScrollArea className="min-h-0 flex-1">
-          <div
-            className="pt-[var(--header-height,4.25rem)]"
-          >
-          <SidebarSection
-            title="Collections"
-            isOpen={isOpen('collections')}
-            onToggle={() => toggleSection('collections')}
-          >
-            <Link to={printsPath()} onClick={onClose} className={sidebarLinkClass}>
-              <span>Shop All</span>
-              <span className="text-muted-foreground">{totalPictures}</span>
-            </Link>
-            {collections.map((c) => (
-              <Link
-                key={c.handle}
-                to={collectionPath(c.handle)}
-                onClick={onClose}
-                className={sidebarLinkClass}
-              >
-                <span>{c.title}</span>
-                <span className="text-muted-foreground">{c.count}</span>
-              </Link>
-            ))}
-          </SidebarSection>
-
-          <Separator />
-
-          <SidebarSection
-            title="Artists"
-            isOpen={isOpen('artists')}
-            onToggle={() => toggleSection('artists')}
-          >
-            {artists.map((a) => (
-              <Link
-                key={a.handle}
-                to={artistPath(a.handle)}
-                onClick={onClose}
-                className={sidebarLinkClass}
-              >
-                <span>{a.name}</span>
-                <span className="text-muted-foreground">{a.works} works</span>
-              </Link>
-            ))}
-            <Link
-              to={artistsPath()}
-              onClick={onClose}
-              className={cn(type.body.sm, 'block py-2.5 font-medium text-foreground')}
+          <div>
+            <SidebarSection
+              title="Collections"
+              isOpen={isOpen('collections')}
+              onToggle={() => toggleSection('collections')}
             >
-              View All Artists →
-            </Link>
-          </SidebarSection>
+              <Link to={printsPath()} onClick={close} className={sidebarLinkClass}>
+                <span>Prints</span>
+                <span className="text-muted-foreground">{totalPictures}</span>
+              </Link>
+              {collections.map((c) => (
+                <Link
+                  key={c.handle}
+                  to={collectionPath(c.handle)}
+                  onClick={close}
+                  className={sidebarLinkClass}
+                >
+                  <span>{c.title}</span>
+                  <span className="text-muted-foreground">{c.count}</span>
+                </Link>
+              ))}
+            </SidebarSection>
+
+            <Separator />
+
+            <SidebarSection
+              title="Artists"
+              isOpen={isOpen('artists')}
+              onToggle={() => toggleSection('artists')}
+            >
+              {artists.map((a) => (
+                <Link
+                  key={a.handle}
+                  to={artistPath(a.handle)}
+                  onClick={close}
+                  className={sidebarLinkClass}
+                >
+                  <span>{a.name}</span>
+                  <span className="text-muted-foreground">{a.works} works</span>
+                </Link>
+              ))}
+              <Link
+                to={artistsPath()}
+                onClick={close}
+                className={cn(type.body.lg, 'block py-2.5 font-medium text-foreground')}
+              >
+                View All Artists →
+              </Link>
+            </SidebarSection>
           </div>
         </ScrollArea>
 
         <div className="border-t border-border px-6 py-5">
-          <span className={cn(type.body.xs, 'text-muted-foreground')}>@thelonglook</span>
+          <a
+            href="https://instagram.com/the_long_look"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              type.body.sm,
+              'text-muted-foreground transition-colors hover:text-neutral-900',
+            )}
+          >
+            @the_long_look
+          </a>
         </div>
       </SheetContent>
     </Sheet>
@@ -123,7 +144,7 @@ function SidebarSection({title, isOpen, onToggle, children}) {
         onClick={onToggle}
         className="flex w-full items-center justify-between px-6 py-3 hover:bg-muted/50"
       >
-        <span className={cn(type.overline.lg, 'text-foreground')}>
+        <span className={cn(type.nav, 'text-foreground')}>
           {title}
         </span>
         <ChevronRight

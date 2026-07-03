@@ -1,7 +1,7 @@
 import {useId} from 'react';
 import {useLoaderData, useSearchParams} from 'react-router';
 import {Analytics} from '@shopify/hydrogen';
-import {Search, SlidersHorizontal} from 'lucide-react';
+import {ChevronDown, Search} from 'lucide-react';
 import {useState} from 'react';
 import {SearchForm} from '~/components/SearchForm';
 import {SearchFilters, SearchFiltersHeader} from '~/components/SearchFilters';
@@ -84,7 +84,7 @@ export default function SearchPage() {
     <div className="search-page-chrome min-h-full">
       <h1 className="sr-only">Search</h1>
 
-      <div className="sticky top-[calc(var(--header-height)-1px)] z-20 bg-white">
+      <div className="sticky top-[var(--header-height)] z-20 bg-white">
         <SearchForm className="border-b border-neutral-100">
           {({inputRef}) => (
             <>
@@ -113,8 +113,8 @@ export default function SearchPage() {
           )}
         </SearchForm>
 
-        <div className="flex border-b border-neutral-100">
-          <div className="hidden w-72 shrink-0 border-r border-neutral-100 lg:block">
+        <div className="hidden border-b border-neutral-100 lg:flex">
+          <div className="w-72 shrink-0 border-r border-neutral-100">
             <SearchFiltersHeader
               activeFilters={filters}
               listId={filtersListId}
@@ -123,29 +123,15 @@ export default function SearchPage() {
 
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
             <div>
-              <p className={cn(type.overline.xs, 'text-neutral-900')}>
+              <p className={cn(type.nav, 'text-neutral-900')}>
                 {total} print{total === 1 ? '' : 's'}
               </p>
               {term ? (
-                <p className={cn(type.body.md, 'mt-1 text-neutral-500')}>
+                <p className={cn(type.body.lg, 'mt-1 text-neutral-500')}>
                   Results for &ldquo;{term}&rdquo;
                 </p>
               ) : null}
             </div>
-
-            <button
-              type="button"
-              className={cn(type.overline.xs, 'inline-flex items-center gap-2 border border-neutral-200 px-3 py-2 text-neutral-700 lg:hidden')}
-              onClick={() => setMobileFiltersOpen(true)}
-            >
-              <SlidersHorizontal size={14} strokeWidth={1.5} />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className={cn(type.body.xs, 'rounded-full bg-neutral-900 px-1.5 py-0.5 text-white')}>
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
           </div>
         </div>
       </div>
@@ -154,28 +140,14 @@ export default function SearchPage() {
         {mobileFiltersOpen ? (
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/10 lg:hidden"
+            className="fixed inset-0 z-20 bg-black/10 lg:hidden"
             aria-label="Close filters"
             onClick={() => setMobileFiltersOpen(false)}
           />
         ) : null}
 
-        <aside
-          className={cn(
-            'search-filters-aside w-72 shrink-0 border-r border-neutral-100 bg-white lg:z-0',
-            'max-lg:fixed max-lg:top-[var(--header-height)] max-lg:bottom-0 max-lg:left-0 max-lg:z-50 max-lg:flex max-lg:flex-col max-lg:transition-transform max-lg:duration-200',
-            mobileFiltersOpen ? 'max-lg:translate-x-0' : 'max-lg:pointer-events-none max-lg:-translate-x-full',
-            'lg:translate-x-0',
-          )}
-        >
-          <div className="border-b border-neutral-100 lg:hidden">
-            <SearchFiltersHeader
-              activeFilters={filters}
-              onNavigate={() => setMobileFiltersOpen(false)}
-            />
-          </div>
+        <aside className="search-filters-aside hidden w-72 shrink-0 border-r border-neutral-100 bg-white lg:block">
           <SearchFilters
-            className="max-lg:h-full"
             facets={facets}
             activeFilters={filters}
             term={term}
@@ -185,7 +157,7 @@ export default function SearchPage() {
           />
         </aside>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pb-[var(--search-mobile-bar-height)] lg:pb-0">
           {showEmptyCatalog ? (
             <SearchEmptyState message="No prints published yet." />
           ) : total === 0 ? (
@@ -203,7 +175,7 @@ export default function SearchPage() {
               }}
             />
           ) : (
-            <div className="pb-16">
+            <div className="lg:pb-16">
               <ProductGrid
                 products={prints}
                 {...printCatalogGridProps}
@@ -223,6 +195,73 @@ export default function SearchPage() {
           }}
         />
       ) : null}
+
+      <div className="search-mobile-shell fixed inset-x-0 bottom-0 z-30 flex flex-col lg:hidden">
+        <aside
+          aria-hidden={!mobileFiltersOpen}
+          className={cn(
+            'grid overflow-hidden border-t border-neutral-100 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.08)] transition-[max-height] duration-300 ease-out',
+            'grid-rows-[auto_minmax(0,1fr)]',
+            mobileFiltersOpen
+              ? 'max-h-[66dvh]'
+              : 'pointer-events-none max-h-0 border-t-0 shadow-none',
+          )}
+        >
+          <div className="shrink-0 border-b border-neutral-100">
+            <SearchFiltersHeader
+              activeFilters={filters}
+              listId={filtersListId}
+              onNavigate={() => setMobileFiltersOpen(false)}
+            />
+          </div>
+          <SearchFilters
+            className="min-h-0 overflow-hidden"
+            facets={facets}
+            activeFilters={filters}
+            term={term}
+            listId={filtersListId}
+            renderHeader={false}
+            constrainHeight
+            onNavigate={() => setMobileFiltersOpen(false)}
+          />
+        </aside>
+
+        <div className="flex shrink-0 items-center justify-between border-t border-neutral-100 bg-white px-5 py-4">
+          <div className="min-w-0">
+            <p className={cn(type.nav, 'text-neutral-900')}>
+              {total} print{total === 1 ? '' : 's'}
+            </p>
+            {term ? (
+              <p className={cn(type.body.sm, 'mt-0.5 truncate text-neutral-500')}>
+                &ldquo;{term}&rdquo;
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className={cn(
+              type.nav,
+              'inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-neutral-900 underline-offset-4 hover:underline',
+            )}
+            onClick={() => setMobileFiltersOpen((open) => !open)}
+            aria-expanded={mobileFiltersOpen}
+          >
+            Filters
+            {activeFilterCount > 0 ? (
+              <span className="text-neutral-500"> ({activeFilterCount})</span>
+            ) : null}
+            <ChevronDown
+              size={14}
+              strokeWidth={1.5}
+              className={cn(
+                'shrink-0 transition-transform duration-300 ease-out',
+                mobileFiltersOpen ? 'rotate-0' : 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

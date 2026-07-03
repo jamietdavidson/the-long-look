@@ -69,7 +69,7 @@ export function Aside({children, heading, type}) {
       aria-modal
       aria-hidden={!expanded}
       className={cn(
-        'fixed inset-0 z-50 bg-black/20',
+        'fixed inset-0 z-70 bg-black/20',
         animate && 'transition-opacity duration-300',
         expanded ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}
@@ -97,13 +97,13 @@ export function Aside({children, heading, type}) {
               : '-translate-x-full',
         )}
       >
-        <header className="flex h-[var(--header-height)] shrink-0 items-center justify-between border-b border-neutral-200 px-5 md:px-6">
+        <header className="flex h-[var(--header-height)] shrink-0 items-center justify-between border-b border-neutral-200 pl-5 pr-3 md:pl-6 md:pr-4">
           <h3
             id={id}
             className={cn(
-              isCart ? typography.nav : typography.overline.md,
+              isCart || isPrintInfo ? typography.nav : typography.overline.md,
               'm-0',
-              isCart ? 'text-neutral-800' : 'text-neutral-900',
+              isCart || isPrintInfo ? 'text-neutral-800' : 'text-neutral-900',
             )}
           >
             {heading}

@@ -58,8 +58,8 @@ function PrintProductInfoTabbedContent({
             aria-controls={`print-info-panel-${tab.id}`}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              typography.body.md,
-              'px-2 py-3 text-center leading-snug font-medium transition-colors md:px-3 md:text-body-xl',
+              typography.nav,
+              'px-2 py-3 text-center leading-snug transition-colors md:px-3',
               activeTab === tab.id
                 ? 'bg-neutral-100 text-neutral-900'
                 : 'bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900',

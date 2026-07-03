@@ -2,11 +2,12 @@ import {Link, NavLink} from 'react-router';
 import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {useOptimisticCart} from '@shopify/hydrogen';
 import {motion} from 'framer-motion';
-import {Search, ShoppingBag} from 'lucide-react';
+import {ChevronDown, Heart, Search, ShoppingBag} from 'lucide-react';
 import {Sidebar} from '~/components/Sidebar';
 import {useAside} from '~/components/Aside';
 import {useDeferredCart} from '~/components/DeferredCart';
-import {artistsPath, printsPath, searchPath} from '~/lib/paths';
+import {artistsPath, favouritesPath, printsPath, searchPath} from '~/lib/paths';
+import {useFavoritesStore} from '~/lib/favorites-store';
 import {getPageScrollTop, subscribePageScroll} from '~/lib/page-scroll';
 
 import {Logo} from '~/components/Logo';
@@ -19,15 +20,15 @@ const SCROLL_DIRECTION_THRESHOLD = 6;
 const HIDE_DELAY_MS = 280;
 const SHOW_DELAY_MS = 280;
 const SURFACE_TRANSITION_MS = 550;
+const TOPBAR_VISIBILITY_TRANSITION = {duration: 0.55, ease: 'easeOut'};
+const HEADER_ACTION_ICON_SIZE = 20;
 
 /** @param {import('~/components/AppPageLayout').TopbarColor} color */
 function getNavLinkClass(color) {
   return cn(
     type.nav,
-    'cursor-pointer transition-colors',
-    color === 'white'
-      ? 'text-white hover:text-white/70'
-      : 'text-neutral-800 hover:text-neutral-500',
+    'cursor-pointer underline-offset-4 hover:underline',
+    color === 'white' ? 'text-white' : 'text-neutral-800',
   );
 }
 
@@ -65,66 +66,6 @@ function getHeaderSurfaceStyle({color, mode, backgroundProgress}) {
     backdropFilter: `blur(${backgroundProgress * 10}px)`,
     WebkitBackdropFilter: `blur(${backgroundProgress * 10}px)`,
   };
-}
-
-function useHeaderHeightSync(headerRef) {
-  useEffect(() => {
-    const header = headerRef.current;
-
-    if (!header) {
-      return undefined;
-    }
-
-    const syncHeight = () => {
-      document.documentElement.style.setProperty(
-        '--header-height',
-        `${header.offsetHeight}px`,
-      );
-    };
-
-    syncHeight();
-
-    const resizeObserver = new ResizeObserver(syncHeight);
-    resizeObserver.observe(header);
-    window.addEventListener('resize', syncHeight);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', syncHeight);
-    };
-  }, [headerRef]);
-}
-
-function useShopButtonPosition(spacerRef, shopRef) {
-  useLayoutEffect(() => {
-    const spacer = spacerRef.current;
-    const shop = shopRef.current;
-
-    if (!spacer || !shop) {
-      return undefined;
-    }
-
-    const syncPosition = () => {
-      const {top, left, height} = spacer.getBoundingClientRect();
-      shop.style.top = `${top}px`;
-      shop.style.left = `${left}px`;
-      shop.style.height = `${height}px`;
-    };
-
-    syncPosition();
-    shop.style.visibility = 'visible';
-
-    const resizeObserver = new ResizeObserver(syncPosition);
-    resizeObserver.observe(spacer);
-    resizeObserver.observe(document.documentElement);
-
-    window.addEventListener('resize', syncPosition);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', syncPosition);
-    };
-  }, [spacerRef, shopRef]);
 }
 
 function useScrollDirectionHeader({
@@ -312,9 +253,6 @@ function stylesEqual(a, b) {
  */
 export function Header({color = 'black', mode = 'filled', autohide = true}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const shopSpacerRef = useRef(/** @type {HTMLSpanElement | null} */ (null));
-  const shopButtonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
-  const headerRef = useRef(/** @type {HTMLElement | null} */ (null));
   const {open: openAside} = useAside();
   const {cart: resolvedCart} = useDeferredCart();
   const cart = useOptimisticCart(resolvedCart);
@@ -332,56 +270,71 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
     mode === 'filled' ||
     (mode === 'transparent' && color === 'black' && backgroundProgress > 0);
 
-  useShopButtonPosition(shopSpacerRef, shopButtonRef);
-  useHeaderHeightSync(headerRef);
-
   return (
     <>
-      <button
-        ref={shopButtonRef}
+      <motion.button
         type="button"
-        className={`invisible fixed z-[60] inline-flex items-center border-0 bg-transparent p-0 transition-opacity duration-[550ms] ease-out ${navClass}`}
+        data-shop-toggle
+        className={cn(
+          'fixed top-0 left-0 z-60 flex h-[var(--header-height)] items-center border-0 bg-transparent pl-5 md:pl-6',
+          navClass,
+        )}
+        initial={false}
+        animate={{opacity: isVisible ? 1 : 0}}
+        transition={TOPBAR_VISIBILITY_TRANSITION}
+        style={{pointerEvents: isVisible ? 'auto' : 'none'}}
         aria-expanded={sidebarOpen}
         aria-haspopup="dialog"
         aria-label={sidebarOpen ? 'Close shop menu' : 'Open shop menu'}
-        style={{
-          opacity: isVisible || sidebarOpen ? 1 : 0,
-          pointerEvents: isVisible || sidebarOpen ? 'auto' : 'none',
+        onClick={() => {
+          setSidebarOpen(!sidebarOpen);
         }}
-        onClick={() => setSidebarOpen((open) => !open)}
       >
-        Shop
-      </button>
+        <span className="inline-flex items-center gap-1.5">
+          Shop
+          <ChevronDown
+            size={14}
+            strokeWidth={2}
+            className={cn(
+              'shrink-0 transition-transform duration-200',
+              sidebarOpen && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </span>
+      </motion.button>
 
       <motion.header
-        ref={headerRef}
         className={cn(
-          'fixed top-0 left-0 right-0 z-40 border-b',
+          'fixed top-0 left-0 right-0 z-40 box-border h-[var(--header-height)] border-b',
           showTopbarBorder ? 'border-neutral-100' : 'border-transparent',
         )}
         initial={false}
         animate={{opacity: isVisible ? 1 : 0}}
-        transition={{duration: 0.55, ease: 'easeOut'}}
+        transition={TOPBAR_VISIBILITY_TRANSITION}
         style={{
           pointerEvents: isVisible ? 'auto' : 'none',
           transition: surfaceTransition,
           ...animatedSurfaceStyle,
         }}
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 py-4 md:px-6 md:py-5">
-          <div className="flex min-w-0 items-center justify-self-start gap-6">
-            <span
-              ref={shopSpacerRef}
-              className={`invisible pointer-events-none select-none ${navClass}`}
-              aria-hidden="true"
-            >
-              Shop
-            </span>
-            <nav className="hidden items-center gap-8 lg:flex" aria-label="Primary">
-              <NavLink to={printsPath()} className={navClass}>
-                Shop All
+        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 md:px-6">
+          <div className="flex min-w-0 items-center justify-self-start">
+            <nav className="flex items-center gap-5" aria-label="Primary">
+              <span
+                className={cn(
+                  'pointer-events-none invisible inline-flex select-none items-center gap-1.5',
+                  navClass,
+                )}
+                aria-hidden="true"
+              >
+                Shop
+                <ChevronDown size={14} strokeWidth={2} className="shrink-0" aria-hidden />
+              </span>
+              <NavLink to={printsPath()} className={cn('hidden lg:inline', navClass)}>
+                Prints
               </NavLink>
-              <NavLink to={artistsPath()} className={navClass}>
+              <NavLink to={artistsPath()} className={cn('hidden lg:inline', navClass)}>
                 Artists
               </NavLink>
             </nav>
@@ -400,8 +353,9 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
               className={cn('cursor-pointer', iconClass)}
               aria-label="Search"
             >
-              <Search size={22} strokeWidth={1.5} />
+              <Search size={HEADER_ACTION_ICON_SIZE} strokeWidth={1.5} />
             </NavLink>
+            <FavouritesLink color={color} />
             <CartBadge
               count={cart?.totalQuantity ?? 0}
               color={color}
@@ -411,8 +365,34 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
         </div>
       </motion.header>
 
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
     </>
+  );
+}
+
+/** @param {{color: import('~/components/AppPageLayout').TopbarColor}} */
+function FavouritesLink({color}) {
+  const hasHydrated = useFavoritesStore((state) => state.hasHydrated);
+  const count = useFavoritesStore((state) => state.handles.length);
+
+  return (
+    <NavLink
+      to={favouritesPath()}
+      className={cn('relative cursor-pointer', getIconClass(color))}
+      aria-label="Favourites"
+    >
+      <Heart size={HEADER_ACTION_ICON_SIZE} strokeWidth={1.5} />
+      {hasHydrated && count > 0 ? (
+        <span
+          className={cn(
+            'absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white',
+            type.micro,
+          )}
+        >
+          {count}
+        </span>
+      ) : null}
+    </NavLink>
   );
 }
 
@@ -424,7 +404,7 @@ function CartBadge({count, color, onClick}) {
       className={cn('relative cursor-pointer', getIconClass(color))}
       aria-label="Open cart"
     >
-      <ShoppingBag size={22} strokeWidth={1.5} />
+      <ShoppingBag size={HEADER_ACTION_ICON_SIZE} strokeWidth={1.5} />
       {count > 0 && (
         <span
           className={cn(

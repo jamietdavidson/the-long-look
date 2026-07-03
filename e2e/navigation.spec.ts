@@ -4,11 +4,11 @@ import {ROUTES, cartDrawer, mobileNav, pageMain} from './helpers';
 test.use({viewport: {width: 1280, height: 800}});
 
 test.describe('Header Navigation', () => {
-  test('clicking Shop All loads the prints catalog page', async ({page}) => {
+  test('clicking Prints loads the prints catalog page', async ({page}) => {
     await page.goto(ROUTES.home);
-    await page.locator('header nav').getByText('Shop All').click();
+    await page.locator('header nav').getByText('Prints').click();
     await expect(page).toHaveURL(ROUTES.prints);
-    await expect(pageMain(page).locator('h1')).toContainText('All Prints');
+    await expect(pageMain(page).locator('h1')).toContainText('Prints');
   });
 
   test('clicking Artists loads the Artists index', async ({page}) => {
@@ -35,37 +35,37 @@ test.describe('Header Navigation', () => {
 test.describe('Sidebar Navigation', () => {
   test.beforeEach(async ({page}) => {
     await page.goto(ROUTES.home);
-    await page.locator('[aria-label="Open navigation"]').click();
+    await page.locator('[aria-label="Open shop menu"]').click();
     await expect(mobileNav(page)).toBeVisible();
   });
 
-  test('opening sidebar shows Shop All link', async ({page}) => {
+  test('opening sidebar shows Prints link', async ({page}) => {
     const sheet = mobileNav(page);
-    await expect(sheet.getByText('Shop All')).toBeVisible();
+    await expect(sheet.getByText('Prints')).toBeVisible();
     await expect(sheet.getByText('View All Artists')).toBeVisible();
   });
 
-  test('clicking Shop All navigates to all prints', async ({page}) => {
+  test('clicking Prints navigates to Prints', async ({page}) => {
     const sheet = mobileNav(page);
-    await sheet.getByText('Shop All').click();
+    await sheet.getByText('Prints').click();
     await expect(page).toHaveURL(ROUTES.prints);
-    await expect(pageMain(page).locator('h1')).toContainText('All Prints');
+    await expect(pageMain(page).locator('h1')).toContainText('Prints');
   });
 
   test('sidebar closes after clicking a navigation link', async ({page}) => {
     const sheet = mobileNav(page);
-    await sheet.getByText('Shop All').click();
+    await sheet.getByText('Prints').click();
     await expect(page).toHaveURL(ROUTES.prints);
     await expect(sheet).not.toBeVisible();
   });
 });
 
 test.describe('Footer Navigation', () => {
-  test('clicking All Prints in footer loads the catalog page', async ({page}) => {
+  test('clicking Prints in footer loads the catalog page', async ({page}) => {
     await page.goto(ROUTES.home);
-    await page.locator('footer').getByText('All Prints').click();
+    await page.locator('footer').getByText('Prints').click();
     await expect(page).toHaveURL(ROUTES.prints);
-    await expect(pageMain(page).locator('h1')).toContainText('All Prints');
+    await expect(pageMain(page).locator('h1')).toContainText('Prints');
   });
 
   test('clicking Artists in footer loads the artists index', async ({page}) => {

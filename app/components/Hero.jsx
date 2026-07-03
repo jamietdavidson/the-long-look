@@ -43,7 +43,7 @@ export function Hero() {
       </p>
       <div className="relative z-10 flex flex-col items-center justify-center h-full text-white text-center px-6">
         <h2 className={cn(type.title.xl, 'max-w-3xl text-white')}>
-          Take a long look — Curated art meant to inspire.
+          Take a long look - curated art meant to inspire.
         </h2>
         <Link
           to={printsPath()}

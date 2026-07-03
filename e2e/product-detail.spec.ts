@@ -16,7 +16,7 @@ test.describe('Print and product pages', () => {
 
   test('prints index renders empty state or catalog grid', async ({page}) => {
     await page.goto(ROUTES.prints);
-    await expect(pageMain(page).locator('h1')).toContainText('All Prints');
+    await expect(pageMain(page).locator('h1')).toContainText('Prints');
   });
 
   test('artists index renders empty state or artist grid', async ({page}) => {

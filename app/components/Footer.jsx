@@ -14,13 +14,13 @@ export function Footer() {
               <Logo color="white" format="long" />
             </Link>
             <p className={cn(type.body.md, 'text-neutral-400')}>
-              Take a long look — Curated art meant to inspire.
+              Take a long look - curated art meant to inspire.
             </p>
           </div>
           <div>
             <h4 className={cn(type.body.md, 'text-neutral-400 mb-4')}>Shop</h4>
             <nav className="space-y-3">
-              <FooterLink to={printsPath()}>All Prints</FooterLink>
+              <FooterLink to={printsPath()}>Prints</FooterLink>
               <FooterLink to={artistsPath()}>Artists</FooterLink>
             </nav>
           </div>

@@ -18,7 +18,56 @@ export const DEFAULT_FRAME_OPTIONS = [
 
 export const DEFAULT_MOUNT_OPTIONS = ['Border', 'Full Bleed'] as const;
 
+/** Shown when explaining that full bleed and unframed cannot be combined. */
+export const FRAME_MOUNT_CONFLICT_MESSAGE =
+  'Full bleed and unframed prints are not available together. Selecting one will switch the other option.';
+
 const EXCLUDED_FRAME_PATTERN = /natural|wood/i;
+
+/** @param {string} value */
+export function isNoFrameOption(value) {
+  const normalized = value.toLowerCase().trim();
+  return normalized.includes('no frame') || normalized.includes('unframed');
+}
+
+/** @param {string} value */
+export function isFullBleedMountOption(value) {
+  return resolveMountFromOption(value) === 'fullBleed';
+}
+
+/**
+ * Resolve an incompatible no-frame + full-bleed pair (defaults to Border mount).
+ * @param {string} frame
+ * @param {string} mount
+ */
+export function reconcileIncompatibleFrameMount(frame, mount) {
+  if (isNoFrameOption(frame) && isFullBleedMountOption(mount)) {
+    return {frame, mount: DEFAULT_MOUNT_OPTIONS[0]};
+  }
+  return {frame, mount};
+}
+
+/**
+ * @param {string} frame
+ * @param {string} currentMount
+ */
+export function applyFrameSelection(frame, currentMount) {
+  if (isNoFrameOption(frame) && isFullBleedMountOption(currentMount)) {
+    return {frame, mount: DEFAULT_MOUNT_OPTIONS[0]};
+  }
+  return {frame, mount: currentMount};
+}
+
+/**
+ * @param {string} mount
+ * @param {string} currentFrame
+ */
+export function applyMountSelection(mount, currentFrame) {
+  if (isFullBleedMountOption(mount) && isNoFrameOption(currentFrame)) {
+    return {frame: DEFAULT_FRAME_OPTIONS[0], mount};
+  }
+  return {frame: currentFrame, mount};
+}
 
 /** @param {string} name */
 export function isExcludedFrameOption(name) {
@@ -46,11 +95,24 @@ export function getMountValueFromVariant(variant) {
   );
 }
 
+/** Case-insensitive search param lookup (Shopify uses `Frame`, links may use `frame`). */
+function getSearchParamValue(searchParams: URLSearchParams, name: string) {
+  const target = name.toLowerCase();
+  for (const [key, value] of searchParams.entries()) {
+    if (key.toLowerCase() === target && value) return value;
+  }
+  return null;
+}
+
 export function getResolvedFrameValue(
   variant: {selectedOptions?: Array<{name: string; value: string}>} | null | undefined,
   searchParams: URLSearchParams,
 ) {
-  return getFrameValueFromVariant(variant) ?? searchParams.get('frame') ?? 'Black';
+  return (
+    getSearchParamValue(searchParams, 'frame') ??
+    getFrameValueFromVariant(variant) ??
+    'Black'
+  );
 }
 
 export function getResolvedMountValue(
@@ -58,10 +120,20 @@ export function getResolvedMountValue(
   searchParams: URLSearchParams,
 ) {
   return (
+    getSearchParamValue(searchParams, 'mount') ??
     getMountValueFromVariant(variant) ??
-    searchParams.get('mount') ??
     'Border'
   );
+}
+
+/** URL overrides win; incompatible no-frame + full-bleed pairs are reconciled. */
+export function getResolvedFrameAndMount(
+  variant: {selectedOptions?: Array<{name: string; value: string}>} | null | undefined,
+  searchParams: URLSearchParams,
+) {
+  const frame = getResolvedFrameValue(variant, searchParams);
+  const mount = getResolvedMountValue(variant, searchParams);
+  return reconcileIncompatibleFrameMount(frame, mount);
 }
 
 export function frameValueToColor(value: string): FrameColor {
@@ -111,17 +183,39 @@ export function getPrintDetailSelectedOptions(request: Request) {
     (option) => option.name?.toLowerCase() === 'size' && option.value,
   );
 
-  if (!hasSize) {
-    return [
-      ...selected,
-      {
-        name: 'Size',
-        value: formatPrintSizeShopifyLabel(
-          FRAMED_PICTURE_SIZES[FRAMED_PICTURE_DEFAULT_NAMED_SIZE],
-        ),
-      },
-    ];
+  let options = hasSize
+    ? selected
+    : [
+        ...selected,
+        {
+          name: 'Size',
+          value: formatPrintSizeShopifyLabel(
+            FRAMED_PICTURE_SIZES[FRAMED_PICTURE_DEFAULT_NAMED_SIZE],
+          ),
+        },
+      ];
+
+  const frameOption = options.find(
+    (option) => option.name?.toLowerCase() === 'frame',
+  );
+  const mountOption = options.find(
+    (option) => option.name?.toLowerCase() === 'mount',
+  );
+
+  if (frameOption?.value && mountOption?.value) {
+    const reconciled = reconcileIncompatibleFrameMount(
+      frameOption.value,
+      mountOption.value,
+    );
+
+    if (reconciled.mount !== mountOption.value) {
+      options = options.map((option) =>
+        option.name?.toLowerCase() === 'mount'
+          ? {...option, value: reconciled.mount}
+          : option,
+      );
+    }
   }
 
-  return selected;
+  return options;
 }

@@ -85,14 +85,19 @@
 
 @layer components {
   .search-page-chrome {
-    --search-chrome-below-header: calc(3rem + 2.5625rem);
+    --search-chrome-below-header: calc(3rem + 1px);
+    --search-mobile-bar-height: 5rem;
   }
 
   @media (min-width: 64rem) {
+    .search-page-chrome {
+      --search-chrome-below-header: calc(3rem + 1px + 3.1875rem);
+    }
+
     .search-filters-aside {
       position: sticky;
-      top: calc(var(--header-height) - 1px + var(--search-chrome-below-header));
-      max-height: calc(100dvh - var(--header-height) + 1px - var(--search-chrome-below-header));
+      top: calc(var(--header-height) + var(--search-chrome-below-header));
+      max-height: calc(100dvh - var(--header-height) - var(--search-chrome-below-header));
       align-self: flex-start;
       overflow-y: auto;
     }
@@ -120,7 +125,8 @@
 }
 
 :root {
-  --header-height: 3.5rem;
+  /* Matches fixed header: py-4 content row + 1px border */
+  --header-height: 57px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -155,6 +161,13 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+@media (min-width: 48rem) {
+  :root {
+    /* md:py-5 content row + 1px border */
+    --header-height: 66px;
+  }
+}
+
 .page-scroll,
 .page-scroll[data-overlayscrollbars] {
   height: 100%;
@@ -172,6 +185,15 @@
 
 .page-scroll [data-overlayscrollbars-content] {
   min-height: 100%;
+}
+
+.page-scrollbars {
+  --os-size: 6px;
+  --os-padding-perpendicular: 1px;
+}
+
+.page-scrollbars.os-scrollbar-vertical {
+  --os-padding-axis: var(--header-height) 0;
 }
 
 .dark {

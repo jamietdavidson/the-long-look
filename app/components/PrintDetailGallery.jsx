@@ -2,6 +2,7 @@ import {forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState} from 
 import {useSearchParams} from 'react-router';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
+import {FavoriteButton} from '~/components/FavoriteButton';
 import {FramedPicture} from '~/components/FramedPicture';
 import {
   FRAMED_PICTURE_IMAGE_SIZES,
@@ -84,6 +85,7 @@ const slideVariants = {
  *   framedSpec: import('~/lib/framed-picture').FramedPictureSizeSpec;
  *   namedSize?: import('~/lib/framed-picture').FramedPictureNamedSize;
  *   selectedVariant?: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
+ *   printHandle?: string;
  * }}
  */
 export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
@@ -93,6 +95,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     framedSpec,
     namedSize,
     selectedVariant,
+    printHandle,
   },
   ref,
 ) {
@@ -262,6 +265,13 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
             onClick={() => paginate(1)}
           />
         </>
+      ) : null}
+
+      {printHandle ? (
+        <FavoriteButton
+          handle={printHandle}
+          className="absolute right-4 bottom-4 z-10"
+        />
       ) : null}
     </div>
   );
