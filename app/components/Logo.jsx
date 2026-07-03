@@ -4,7 +4,7 @@ import {cn} from '~/lib/utils';
 /** @typedef {'long' | 'box'} LogoFormat */
 
 const longFormatClass =
-  'relative inline-flex translate-y-[0.28em] items-baseline gap-x-[0.34em] text-[15px] font-bold uppercase leading-none tracking-[0.06em] md:text-[17px] md:tracking-[0.08em]';
+  'relative inline-flex translate-y-[0.28em] items-baseline gap-x-[0.34em] text-[17px] font-bold uppercase leading-none tracking-[0.06em] md:text-[21px] md:tracking-[0.08em]';
 
 const boxFormatClass =
   'inline-flex flex-col items-center gap-[0.18em] text-[15px] font-bold uppercase leading-none tracking-[0.06em] md:text-[17px] md:tracking-[0.08em]';

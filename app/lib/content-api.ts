@@ -38,6 +38,7 @@ export type PictureCard = {
   title: string;
   handle: string;
   artistName?: string | null;
+  artistHandle?: string | null;
   featuredImage: {
     id: string;
     url: string;
@@ -226,6 +227,7 @@ export function pictureToCard(picture: Picture): PictureCard {
     title: picture.title,
     handle: picture.handle,
     artistName: picture.artist?.name ?? null,
+    artistHandle: picture.artist?.handle ?? null,
     featuredImage: picture.image?.url
       ? {
           id: picture.id,

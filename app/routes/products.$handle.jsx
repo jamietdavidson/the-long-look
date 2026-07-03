@@ -10,6 +10,8 @@ import {
 import {ProductPurchase} from '~/components/ProductPurchase';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {PRODUCT_QUERY} from '~/graphql/product';
+import {cn} from '~/lib/utils';
+import {type as typography} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
@@ -77,12 +79,12 @@ function ShopifyProductPage({product}) {
             )}
           </div>
           <div className="md:pt-8">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-400 mb-3">{product.vendor}</p>
-            <h1 className="text-[22px] uppercase tracking-[0.1em] font-semibold mb-4">{title}</h1>
+            <p className={cn(typography.overline.xs, 'mb-3 text-neutral-400')}>{product.vendor}</p>
+            <h1 className={cn(typography.title.sm, 'mb-4')}>{title}</h1>
             <ProductPurchase product={product} />
             {descriptionHtml && (
               <div
-                className="mt-8 text-[12px] text-neutral-600 leading-relaxed prose-spoils"
+                className={cn(typography.body.lg, 'prose-spoils mt-8 text-neutral-600')}
                 dangerouslySetInnerHTML={{__html: descriptionHtml}}
               />
             )}

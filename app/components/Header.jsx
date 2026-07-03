@@ -11,6 +11,7 @@ import {getPageScrollTop, subscribePageScroll} from '~/lib/page-scroll';
 
 import {Logo} from '~/components/Logo';
 import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 const SCROLL_TOP_THRESHOLD = 8;
 const SCROLL_FADE_DISTANCE = 120;
@@ -19,13 +20,11 @@ const HIDE_DELAY_MS = 280;
 const SHOW_DELAY_MS = 280;
 const SURFACE_TRANSITION_MS = 550;
 
-const navLinkClass =
-  'cursor-pointer text-[13px] uppercase tracking-[0.2em] transition-colors';
-
 /** @param {import('~/components/AppPageLayout').TopbarColor} color */
 function getNavLinkClass(color) {
   return cn(
-    navLinkClass,
+    type.nav,
+    'cursor-pointer transition-colors',
     color === 'white'
       ? 'text-white hover:text-white/70'
       : 'text-neutral-800 hover:text-neutral-500',
@@ -97,7 +96,7 @@ function useHeaderHeightSync(headerRef) {
 }
 
 function useShopButtonPosition(spacerRef, shopRef) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const spacer = spacerRef.current;
     const shop = shopRef.current;
 
@@ -113,7 +112,7 @@ function useShopButtonPosition(spacerRef, shopRef) {
     };
 
     syncPosition();
-    requestAnimationFrame(syncPosition);
+    shop.style.visibility = 'visible';
 
     const resizeObserver = new ResizeObserver(syncPosition);
     resizeObserver.observe(spacer);
@@ -341,7 +340,7 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
       <button
         ref={shopButtonRef}
         type="button"
-        className={`fixed z-[60] inline-flex items-center border-0 bg-transparent p-0 transition-opacity duration-[550ms] ease-out ${navClass}`}
+        className={`invisible fixed z-[60] inline-flex items-center border-0 bg-transparent p-0 transition-opacity duration-[550ms] ease-out ${navClass}`}
         aria-expanded={sidebarOpen}
         aria-haspopup="dialog"
         aria-label={sidebarOpen ? 'Close shop menu' : 'Open shop menu'}
@@ -369,7 +368,7 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
           ...animatedSurfaceStyle,
         }}
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 py-5 md:px-8">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 py-4 md:px-6 md:py-5">
           <div className="flex min-w-0 items-center justify-self-start gap-6">
             <span
               ref={shopSpacerRef}
@@ -429,7 +428,8 @@ function CartBadge({count, color, onClick}) {
       {count > 0 && (
         <span
           className={cn(
-            'absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px]',
+            'absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full',
+            type.micro,
             color === 'white'
               ? 'bg-white text-neutral-900'
               : 'bg-neutral-900 text-white',

@@ -4,6 +4,7 @@ import {Info} from 'lucide-react';
 import {Aside, useAside} from '~/components/Aside';
 import {getPrintFaqSection, PRINT_FAQ_SECTIONS} from '~/lib/print-policies';
 import {cn} from '~/lib/utils';
+import {type as typography} from '~/lib/typography';
 
 const TABS = PRINT_FAQ_SECTIONS.map((section) => ({
   id: section.id,
@@ -57,7 +58,8 @@ function PrintProductInfoTabbedContent({
             aria-controls={`print-info-panel-${tab.id}`}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              'px-2 py-3 text-center text-[11px] leading-snug font-medium transition-colors md:px-3 md:text-xs',
+              typography.body.md,
+              'px-2 py-3 text-center leading-snug font-medium transition-colors md:px-3 md:text-body-xl',
               activeTab === tab.id
                 ? 'bg-neutral-100 text-neutral-900'
                 : 'bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900',
@@ -73,7 +75,7 @@ function PrintProductInfoTabbedContent({
           role="tabpanel"
           id={`print-info-panel-${section.id}`}
           aria-labelledby={`print-info-tab-${section.id}`}
-          className="space-y-3 text-[12px] leading-relaxed text-neutral-600"
+          className={cn(typography.body.lg, 'space-y-3 text-neutral-600')}
         >
           {paragraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>

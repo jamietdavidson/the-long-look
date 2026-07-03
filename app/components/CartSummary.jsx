@@ -1,5 +1,7 @@
 import {Money} from '@shopify/hydrogen';
 import {useId} from 'react';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @param {CartSummaryProps}
@@ -18,11 +20,11 @@ export function CartSummary({cart, layout}) {
     >
       <h4
         id={summaryId}
-        className="mb-3 text-[10px] uppercase tracking-[0.25em] text-neutral-500"
+        className={cn(type.overline.xs, 'mb-3 text-neutral-500')}
       >
         Totals
       </h4>
-      <dl role="group" className="mb-4 flex items-center justify-between text-[13px]">
+      <dl role="group" className={cn(type.body.lg, 'mb-4 flex items-center justify-between')}>
         <dt>Subtotal</dt>
         <dd>
           {cart?.cost?.subtotalAmount?.amount ? (
@@ -47,13 +49,13 @@ function CartCheckoutActions({checkoutUrl}) {
     <div className="mt-4 space-y-2">
       <a
         href={checkoutUrl}
-        className="block w-full border border-neutral-900 bg-neutral-900 px-4 py-3 text-center text-[10px] uppercase tracking-[0.25em] text-white transition-colors hover:bg-neutral-700"
+        className={cn(type.overline.xs, 'block w-full border border-neutral-900 bg-neutral-900 px-4 py-3 text-center text-white transition-colors hover:bg-neutral-700')}
         target="_self"
         rel="noopener noreferrer"
       >
         Checkout
       </a>
-      <p className="text-[11px] leading-relaxed text-neutral-500">
+      <p className={cn(type.body.sm, 'text-neutral-500')}>
         Secure checkout powered by Shopify. Shop Pay and other payment methods
         available at checkout.
       </p>

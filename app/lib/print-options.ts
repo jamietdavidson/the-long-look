@@ -1,4 +1,4 @@
-import type {FrameColor} from '~/lib/framed-picture';
+import type {FrameColor, FramedPictureNamedSize} from '~/lib/framed-picture';
 import {
   formatPrintSizeShopifyLabel,
   FRAMED_PICTURE_DEFAULT_NAMED_SIZE,
@@ -6,6 +6,7 @@ import {
   getFramedSizeFromVariant,
   resolveFrameColorFromOption,
   resolveMountFromOption,
+  resolveNamedFramedPictureSize,
 } from '~/lib/framed-picture';
 import {getSelectedProductOptions} from '@shopify/hydrogen';
 
@@ -69,6 +70,38 @@ export function frameValueToColor(value: string): FrameColor {
 
 export function mountValueToStyle(value: string) {
   return resolveMountFromOption(value);
+}
+
+/** Read a named print size from `?Size=` (or `?size=`) URL params. */
+export function getFramedSizeFromSearchParams(
+  searchParams: URLSearchParams,
+): FramedPictureNamedSize | undefined {
+  for (const [key, value] of searchParams.entries()) {
+    if (key.toLowerCase() !== 'size' || !value) continue;
+
+    const named = resolveNamedFramedPictureSize(value);
+    if (named) return named;
+  }
+
+  return undefined;
+}
+
+/** URL size wins when set; otherwise variant; otherwise Large. */
+export function getResolvedFramedSize(
+  variant:
+    | {
+        selectedOptions?: Array<{name: string; value: string}>;
+        title?: string | null;
+      }
+    | null
+    | undefined,
+  searchParams: URLSearchParams,
+): FramedPictureNamedSize {
+  return (
+    getFramedSizeFromSearchParams(searchParams) ??
+    getFramedSizeFromVariant(variant ?? {}) ??
+    FRAMED_PICTURE_DEFAULT_NAMED_SIZE
+  );
 }
 
 /** Selected product options for print detail — defaults Size to Large. */

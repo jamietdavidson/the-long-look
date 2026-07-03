@@ -48,6 +48,55 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Typography scale */
+  --text-micro: 0.5625rem;
+  --text-micro--line-height: 0.75rem;
+  --text-body-xs: 0.625rem;
+  --text-body-xs--line-height: 0.875rem;
+  --text-body-sm: 0.6875rem;
+  --text-body-sm--line-height: 0.9375rem;
+  --text-body-md: 0.75rem;
+  --text-body-md--line-height: 1rem;
+  --text-body-lg: 0.8125rem;
+  --text-body-lg--line-height: 1.125rem;
+  --text-body-xl: 0.875rem;
+  --text-body-xl--line-height: 1.25rem;
+  --text-overline-xs: 0.5625rem;
+  --text-overline-sm: 0.625rem;
+  --text-overline-md: 0.625rem;
+  --text-overline-lg: 0.6875rem;
+  --text-title-xs: 0.875rem;
+  --text-title-sm: 1.125rem;
+  --text-title-sm-lg: 1.375rem;
+  --text-title-md: 1.375rem;
+  --text-title-md-lg: 1.875rem;
+  --text-title-lg: 1.5rem;
+  --text-title-lg-lg: 1.75rem;
+  --text-title-xl: 1.375rem;
+  --text-title-xl-md: 2rem;
+  --text-title-xl-lg: 2.5rem;
+  --tracking-overline: 0.06em;
+  --tracking-label: 0.2em;
+  --tracking-nav: 0.1em;
+  --tracking-title: 0.06em;
+  --tracking-cta: 0.3em;
+}
+
+@layer components {
+  .search-page-chrome {
+    --search-chrome-below-header: calc(3rem + 2.5625rem);
+  }
+
+  @media (min-width: 64rem) {
+    .search-filters-aside {
+      position: sticky;
+      top: calc(var(--header-height) - 1px + var(--search-chrome-below-header));
+      max-height: calc(100dvh - var(--header-height) + 1px - var(--search-chrome-below-header));
+      align-self: flex-start;
+      overflow-y: auto;
+    }
+  }
 }
 
 @layer base {
@@ -71,7 +120,7 @@
 }
 
 :root {
-  --header-height: 4.25rem;
+  --header-height: 3.5rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

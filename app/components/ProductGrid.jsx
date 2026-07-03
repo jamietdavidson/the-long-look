@@ -11,7 +11,8 @@ import {
   FRAMED_PICTURE_GRID_CONTAINER_FILL,
 } from '~/lib/framed-picture';
 import {cn} from '~/lib/utils';
-import {printPath, printsPath} from '~/lib/paths';
+import {type} from '~/lib/typography';
+import {printPath, printsPath, artistPath} from '~/lib/paths';
 
 export const printGridClassName =
   'grid w-full gap-1 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[100rem]:grid-cols-4';
@@ -83,36 +84,44 @@ export function ProductCard({
   const [hovered, setHovered] = useState(false);
 
   return (
-    <Link
-      to={variantUrl}
-      prefetch="intent"
+    <article
       className={cn('block h-full w-full', className)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <FramedPictureWall
-        variant="gridCard"
-        className={cn(isCompact && 'px-3 pt-6 pb-4', wallClassName)}
+      <Link to={variantUrl} prefetch="intent" className="block">
+        <FramedPictureWall
+          variant="gridCard"
+          className={cn(isCompact && 'px-3 pt-6 pb-4', wallClassName)}
+        >
+          <div className="flex w-full flex-1 items-center justify-center">
+            <FramedPicture
+              image={product.featuredImage}
+              alt={product.title}
+              size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
+              loading={loading}
+              sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
+              containerFill={containerFill}
+              hovered={hovered}
+              interactive
+            />
+          </div>
+        </FramedPictureWall>
+      </Link>
+      <div
+        className={cn(
+          'flex flex-col',
+          isCompact ? 'px-2 pt-3 pb-4' : 'px-2.5 pt-3.5 pb-6',
+          textAlign === 'center' ? 'items-center text-center' : 'items-start text-left',
+        )}
       >
-        <div className="flex w-full flex-1 items-center justify-center">
-          <FramedPicture
-            image={product.featuredImage}
-            alt={product.title}
-            size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
-            loading={loading}
-            sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-            containerFill={containerFill}
-            hovered={hovered}
-            interactive
-          />
-        </div>
         <ProductCardContent
           product={product}
           showPrice={showPrice}
           size={size}
         />
-      </FramedPictureWall>
-    </Link>
+      </div>
+    </article>
   );
 }
 
@@ -163,9 +172,7 @@ function SplitProductCard({
           </div>
         </div>
       </Link>
-      <Link
-        to={variantUrl}
-        prefetch="intent"
+      <div
         className={cn(
           'flex flex-col',
           isCompact ? 'px-2 pt-3 pb-4' : 'px-2.5 pt-3.5 pb-6',
@@ -177,7 +184,7 @@ function SplitProductCard({
           showPrice={showPrice}
           size={size}
         />
-      </Link>
+      </div>
     </article>
   );
 }
@@ -200,27 +207,43 @@ function ProductCardContent({product, showPrice = true, size = 'default'}) {
         className={cn(
           'mb-[0.2rem] font-medium leading-snug text-neutral-800',
           isCompact
-            ? 'text-[0.6875rem] md:text-xs'
-            : 'text-[0.8125rem] md:text-sm',
+            ? type.body.sm
+            : cn(type.body.lg, 'md:text-body-xl'),
         )}
       >
-        {product.title}
+        <Link
+          to={printPath(product.handle)}
+          prefetch="intent"
+          className="hover:text-neutral-950"
+        >
+          {product.title}
+        </Link>
       </h3>
       {product.artistName ? (
         <p
           className={cn(
             'mb-[0.15rem] leading-snug text-neutral-500',
-            isCompact ? 'text-[0.625rem]' : 'text-[0.6875rem] md:text-xs',
+            isCompact ? type.body.xs : cn(type.body.sm, 'md:text-body-md'),
           )}
         >
-          {product.artistName}
+          {product.artistHandle ? (
+            <Link
+              to={artistPath(product.artistHandle)}
+              prefetch="intent"
+              className="underline underline-offset-2 transition-colors hover:text-neutral-800"
+            >
+              {product.artistName}
+            </Link>
+          ) : (
+            product.artistName
+          )}
         </p>
       ) : null}
       {showPrice && Number(product.priceRange.minVariantPrice.amount) > 0 ? (
         <div
           className={cn(
             'inline-flex items-baseline gap-1 whitespace-nowrap leading-snug text-neutral-500',
-            isCompact ? 'text-[0.625rem]' : 'text-[0.6875rem] md:text-xs',
+            isCompact ? type.body.xs : cn(type.body.sm, 'md:text-body-md'),
           )}
         >
           <span>From</span>
@@ -234,10 +257,9 @@ function ProductCardContent({product, showPrice = true, size = 'default'}) {
   );
 }
 
-/** @param {{title?: string, subtitle?: string, products: Array<import('~/lib/content-api').PictureCard & {priceRange: {minVariantPrice: {amount: string; currencyCode: string}}}>, gridClassName?: string, cardLayout?: ProductCardLayout, cardSize?: ProductCardSize, containerFill?: number, wallClassName?: string, splitWellClassName?: string, emptyMessage?: string, eagerCount?: number}} */
+/** @param {{title?: string, products: Array<import('~/lib/content-api').PictureCard & {priceRange: {minVariantPrice: {amount: string; currencyCode: string}}}>, gridClassName?: string, cardLayout?: ProductCardLayout, cardSize?: ProductCardSize, containerFill?: number, wallClassName?: string, splitWellClassName?: string, emptyMessage?: string, eagerCount?: number}} */
 export function ProductGrid({
   title,
-  subtitle,
   products,
   gridClassName = printGridClassName,
   cardLayout = 'integrated',
@@ -250,22 +272,15 @@ export function ProductGrid({
 }) {
   return (
     <section className="w-full">
-      {title || subtitle ? (
-        <div className="mb-12 px-6 text-center">
-          {subtitle ? (
-            <p className="mb-3 text-[10px] uppercase tracking-[0.4em] text-neutral-400">
-              {subtitle}
-            </p>
-          ) : null}
-          {title ? (
-            <h2 className="text-[18px] font-semibold uppercase tracking-[0.15em] text-neutral-900 md:text-[22px]">
-              {title}
-            </h2>
-          ) : null}
+      {title ? (
+        <div className="flex items-center justify-center px-6 py-8 text-center md:py-10">
+          <h2 className={cn(type.title.sm, 'text-neutral-900')}>
+            {title}
+          </h2>
         </div>
       ) : null}
       {products.length === 0 && emptyMessage ? (
-        <p className="px-6 text-center text-[12px] text-neutral-500">{emptyMessage}</p>
+        <p className={cn(type.body.md, 'px-6 text-center text-neutral-500')}>{emptyMessage}</p>
       ) : (
         <div className={gridClassName}>
           {products.map((product, index) => (
@@ -298,15 +313,12 @@ export function VideoSection() {
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
       <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center text-white">
-        <p className="mb-4 text-[10px] uppercase tracking-[0.4em] text-white/70">
-          The Art of Living
-        </p>
-        <h2 className="text-[20px] font-light md:text-[28px]">
+        <h2 className={cn(type.title.sm, 'font-light text-white md:text-title-lg-lg')}>
           Curated photography for your space
         </h2>
         <Link
           to={printsPath()}
-          className="mt-8 inline-block border border-white/50 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-all duration-300 hover:bg-white hover:text-neutral-900"
+          className={cn(type.cta, 'mt-8 inline-block border border-white/50 px-8 py-3 transition-all duration-300 hover:bg-white hover:text-neutral-900')}
         >
           Explore
         </Link>

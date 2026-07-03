@@ -1,6 +1,8 @@
 import {useLoaderData, data} from 'react-router';
 import {CartForm} from '@shopify/hydrogen';
 import {CartMain} from '~/components/CartMain';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
@@ -116,7 +118,7 @@ export default function Cart() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 md:px-10 py-12">
-        <h1 className="text-[22px] uppercase tracking-[0.15em] font-semibold mb-8">Cart</h1>
+        <h1 className={cn(type.title.md, 'mb-8')}>Cart</h1>
         <CartMain layout="page" cart={cart} />
     </div>
   );

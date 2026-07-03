@@ -16,6 +16,7 @@ import {
 import {ProductPrice} from './ProductPrice';
 import {useAside} from './Aside';
 import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 export function CartLineDivider() {
   return <li aria-hidden="true" className="border-t border-neutral-100" />;
@@ -147,11 +148,11 @@ export function CartLineItem({layout, line, childrenMap}) {
                   close();
                 }
               }}
-              className="min-w-0 flex-1 text-[14px] font-medium leading-tight text-neutral-900 underline-offset-2 hover:underline"
+              className={cn(type.body.xl, 'min-w-0 flex-1 font-medium leading-tight text-neutral-900 underline-offset-2 hover:underline')}
             >
               {product.title}
             </Link>
-            <div className="shrink-0 text-[13px] text-neutral-900">
+            <div className={cn(type.body.lg, 'shrink-0 text-neutral-900')}>
               <ProductPrice price={line?.cost?.totalAmount} />
             </div>
           </div>
@@ -164,7 +165,7 @@ export function CartLineItem({layout, line, childrenMap}) {
                   close();
                 }
               }}
-              className="mt-0.5 block text-[12px] leading-tight text-neutral-500"
+              className={cn(type.body.md, 'mt-0.5 block leading-tight text-neutral-500')}
             >
               {artistName}
             </Link>
@@ -236,7 +237,7 @@ function CartLineQuantity({line}) {
         </button>
       </CartLineUpdateButton>
       <span
-        className="flex h-5 min-w-5 items-center justify-center border-x border-neutral-200 px-1 text-[11px] font-medium tabular-nums text-neutral-900"
+        className={cn(type.body.sm, 'flex h-5 min-w-5 items-center justify-center border-x border-neutral-200 px-1 font-medium tabular-nums text-neutral-900')}
         aria-live="polite"
         aria-label={`Quantity ${quantity}`}
       >
@@ -259,7 +260,7 @@ function CartLineQuantity({line}) {
 }
 
 const quantityStepperButtonClassName =
-  'flex size-5 items-center justify-center text-xs leading-none text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30';
+  cn(type.body.md, 'flex size-5 items-center justify-center leading-none text-neutral-700 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30');
 
 /**
  * A button that removes a line item from the cart. It is disabled
@@ -281,7 +282,7 @@ function CartLineRemoveButton({lineIds, disabled}) {
       <button
         disabled={disabled}
         type="submit"
-        className="shrink-0 border-0 bg-transparent p-0 text-[12px] leading-tight text-neutral-500 underline-offset-2 transition-colors hover:text-neutral-900 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+        className={cn(type.body.md, 'shrink-0 border-0 bg-transparent p-0 leading-tight text-neutral-500 underline-offset-2 transition-colors hover:text-neutral-900 hover:underline disabled:cursor-not-allowed disabled:opacity-40')}
       >
         Remove
       </button>

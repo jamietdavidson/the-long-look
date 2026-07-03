@@ -2,6 +2,8 @@ import {Link, useNavigate} from 'react-router';
 import {AddToCartButton} from './AddToCartButton';
 import {useAside} from './Aside';
 import {getPrintHandleLineAttributes} from '~/lib/cart';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @param {{
@@ -41,7 +43,7 @@ export function ProductForm({
 
         return (
           <div key={option.name}>
-            <h5 className="mb-2 text-[10px] uppercase tracking-[0.2em] text-neutral-500">
+            <h5 className={cn(type.overline.xs, 'mb-2 text-neutral-500')}>
               {option.name}
             </h5>
             <div className="mb-4 flex flex-wrap gap-2">
@@ -64,7 +66,7 @@ export function ProductForm({
                   // as an anchor tag
                   return (
                     <Link
-                      className="border border-neutral-200 px-3 py-2 text-[11px] uppercase tracking-wider text-neutral-700 hover:border-neutral-900"
+                      className={cn(type.overline.sm, 'border border-neutral-200 px-3 py-2 text-neutral-700 hover:border-neutral-900')}
                       key={option.name + name}
                       prefetch="intent"
                       preventScrollReset
@@ -92,7 +94,7 @@ export function ProductForm({
                   return (
                     <button
                       type="button"
-                      className={`border border-neutral-200 px-3 py-2 text-[11px] uppercase tracking-wider text-neutral-700 hover:border-neutral-900${exists && !selected ? ' link' : ''}`}
+                      className={cn(type.overline.sm, `border border-neutral-200 px-3 py-2 text-neutral-700 hover:border-neutral-900${exists && !selected ? ' link' : ''}`)}
                       key={option.name + name}
                       style={{
                         border: selected

@@ -10,6 +10,8 @@ import {
   toProductConnection,
 } from '~/lib/content-api';
 import {artistPath, artistsPath, printsPath} from '~/lib/paths';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
@@ -86,11 +88,11 @@ export default function CollectionRoute() {
   return (
     <>
       <div className="text-center py-12 px-6 border-b border-neutral-100">
-        <h1 className="text-[22px] md:text-[30px] uppercase tracking-[0.15em] font-semibold">
+        <h1 className={type.title.md}>
           {collection.title}
         </h1>
         {collection.description && (
-          <p className="mt-4 text-[12px] text-neutral-500 max-w-xl mx-auto">{collection.description}</p>
+          <p className={cn(type.body.md, 'mt-4 text-neutral-500 max-w-xl mx-auto')}>{collection.description}</p>
         )}
       </div>
       <section className="w-full">
@@ -110,7 +112,7 @@ export default function CollectionRoute() {
             )}
           </PaginatedResourceSection>
         ) : (
-          <p className="text-center text-[12px] text-neutral-500">
+          <p className={cn(type.body.md, 'text-center text-neutral-500')}>
             No pictures in this collection yet.
           </p>
         )}

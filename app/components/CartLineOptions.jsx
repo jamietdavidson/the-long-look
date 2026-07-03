@@ -3,6 +3,8 @@ import {
   FRAMED_PICTURE_SIZE_LABELS,
   resolveNamedFramedPictureSize,
 } from '~/lib/framed-picture';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * Read-only display of the print options on a cart line.
@@ -29,9 +31,9 @@ export function CartLineOptions({line}) {
       {specs.map((spec) => (
         <li
           key={spec.label}
-          className="grid grid-cols-[4rem_1fr] items-baseline gap-2 text-[12px] leading-tight"
+          className={cn(type.body.md, 'grid grid-cols-[4rem_1fr] items-baseline gap-2 leading-tight')}
         >
-          <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400">
+          <span className={cn(type.overline.xs, 'text-neutral-400')}>
             {spec.label}
           </span>
           <span className="font-medium text-neutral-800">{spec.value}</span>

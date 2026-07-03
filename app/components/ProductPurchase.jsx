@@ -6,6 +6,8 @@ import {
   Money,
 } from '@shopify/hydrogen';
 import {ProductForm} from '~/components/ProductForm';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * Size selection and add-to-cart for a Shopify product.
@@ -41,7 +43,7 @@ export function ProductPurchase({
   return (
     <div className="space-y-6">
       {selectedVariant?.price && (
-        <p className="text-[14px] text-neutral-600">
+        <p className={cn(type.body.xl, 'text-neutral-600')}>
           <Money data={selectedVariant.price} withoutTrailingZeros />
         </p>
       )}

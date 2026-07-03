@@ -2,6 +2,7 @@ import {createContext, useContext, useEffect, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useId} from 'react';
 import {cn} from '~/lib/utils';
+import {type as typography} from '~/lib/typography';
 
 /**
  * A side bar component with Overlay
@@ -96,15 +97,19 @@ export function Aside({children, heading, type}) {
               : '-translate-x-full',
         )}
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-4">
+        <header className="flex h-[var(--header-height)] shrink-0 items-center justify-between border-b border-neutral-200 px-5 md:px-6">
           <h3
             id={id}
-            className="m-0 text-[11px] font-semibold uppercase tracking-[0.25em] text-neutral-900"
+            className={cn(
+              isCart ? typography.nav : typography.overline.md,
+              'm-0',
+              isCart ? 'text-neutral-800' : 'text-neutral-900',
+            )}
           >
             {heading}
           </h3>
           <button
-            className="text-2xl leading-none text-neutral-500 hover:text-neutral-900"
+            className="flex size-8 items-center justify-center text-xl leading-none text-neutral-500 hover:text-neutral-900"
             onClick={close}
             aria-label="Close"
           >

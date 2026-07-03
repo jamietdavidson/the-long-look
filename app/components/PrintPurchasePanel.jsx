@@ -895,7 +895,7 @@ function FrameSwatches({
     )?.name ?? selectedFrame;
 
   return (
-    <div className="max-md:flex max-md:flex-col max-md:gap-3 max-md:py-4">
+    <div className="max-md:flex max-md:flex-col max-md:gap-2 max-md:py-2">
       <h3 className="shrink-0 px-3 text-xs font-medium text-neutral-900 md:mb-2 md:px-0 md:text-sm">
         Frame:
         {selectedLabel ? (
@@ -905,8 +905,8 @@ function FrameSwatches({
           </span>
         ) : null}
       </h3>
-      <div className="max-md:px-4">
-        <div className="inline-flex w-fit divide-x divide-neutral-200 border border-neutral-200 max-md:flex max-md:h-11 max-md:w-full max-md:overflow-hidden">
+      <div className="max-md:px-3">
+        <div className="flex h-8 w-full divide-x divide-neutral-200 border border-neutral-200 md:inline-flex md:h-auto md:w-fit">
           {values.map((value) => {
             const selected = useShopify
               ? value.selected
@@ -923,8 +923,7 @@ function FrameSwatches({
                     : onSelectFallback(value.name)
                 }
                 className={cn(
-                  'flex items-center justify-center transition-colors md:size-11',
-                  'max-md:h-11 max-md:min-w-0 max-md:flex-1',
+                  'flex h-8 min-h-0 min-w-0 flex-1 items-center justify-center transition-colors md:size-11 md:flex-none',
                   selected
                     ? 'bg-neutral-100'
                     : 'bg-white hover:bg-neutral-50',
@@ -952,7 +951,7 @@ function FrameSwatch({name, swatch}) {
   if (image) {
     return (
       <span
-        className="size-6 rounded-full bg-cover bg-center"
+        className="size-4 rounded-full bg-cover bg-center md:size-6"
         style={{backgroundImage: `url(${image})`}}
       />
     );
@@ -960,9 +959,9 @@ function FrameSwatch({name, swatch}) {
 
   if (normalized.includes('no frame') || normalized.includes('unframed')) {
     return (
-      <span className="relative size-6 rounded-full border border-neutral-300 bg-white">
+      <span className="relative size-4 rounded-full border border-neutral-300 bg-white md:size-6">
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="h-px w-6 rotate-45 bg-neutral-400" />
+          <span className="h-px w-4 rotate-45 bg-neutral-400 md:w-6" />
         </span>
       </span>
     );
@@ -970,14 +969,14 @@ function FrameSwatch({name, swatch}) {
 
   if (normalized.includes('white')) {
     return (
-      <span className="size-6 rounded-full border border-neutral-300 bg-white" />
+      <span className="size-4 rounded-full border border-neutral-300 bg-white md:size-6" />
     );
   }
 
   if (normalized.includes('natural') || normalized.includes('wood')) {
     return (
       <span
-        className="size-6 rounded-full"
+        className="size-4 rounded-full md:size-6"
         style={{
           background:
             'linear-gradient(135deg, #d4b896 0%, #a67c52 45%, #c9a66b 100%)',
@@ -988,7 +987,7 @@ function FrameSwatch({name, swatch}) {
 
   return (
     <span
-      className="size-6 rounded-full"
+      className="size-4 rounded-full md:size-6"
       style={{backgroundColor: color || '#1a1a1a'}}
     />
   );
@@ -1025,7 +1024,7 @@ function MountToggle({
     )?.name ?? selectedMount;
 
   return (
-    <div className="max-md:flex max-md:flex-col max-md:gap-3 max-md:py-4">
+    <div className="max-md:flex max-md:flex-col max-md:gap-2 max-md:py-2">
       <h3 className="shrink-0 px-3 text-xs font-medium text-neutral-900 md:mb-2 md:px-0 md:text-sm">
         Mount:
         {selectedLabel ? (
@@ -1035,8 +1034,8 @@ function MountToggle({
           </span>
         ) : null}
       </h3>
-      <div className="max-md:px-4">
-        <div className="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 max-md:h-11 max-md:overflow-hidden">
+      <div className="max-md:px-3">
+        <div className="grid h-8 grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 md:h-auto">
           {values.map((value) => {
             const selected = useShopify
               ? value.selected
@@ -1053,9 +1052,9 @@ function MountToggle({
                     : onSelectFallback(value.name)
                 }
                 className={cn(
-                  'flex items-center justify-center font-medium transition-colors',
-                  'max-md:h-11 max-md:min-w-0 max-md:px-2 max-md:text-xs max-md:leading-none max-md:whitespace-nowrap',
-                  'md:px-4 md:py-3 md:text-sm',
+                  'flex h-8 min-h-0 min-w-0 items-center justify-center text-xs font-medium leading-none transition-colors',
+                  'px-1.5 whitespace-nowrap',
+                  'md:h-auto md:px-4 md:py-3 md:text-sm md:leading-normal',
                   selected
                     ? 'bg-neutral-100 text-neutral-900'
                     : 'bg-white text-neutral-700 hover:bg-neutral-50',

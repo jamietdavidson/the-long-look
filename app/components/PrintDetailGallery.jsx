@@ -1,4 +1,5 @@
 import {forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {useSearchParams} from 'react-router';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
 import {FramedPicture} from '~/components/FramedPicture';
@@ -9,10 +10,13 @@ import {
 import {
   getDetailFitLongSideCqi,
   getDetailFitMaxWidthCqi,
+  getDetailTierFitCaps,
   getFramedSizeFromVariant,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
+import {getFramedSizeFromSearchParams} from '~/lib/print-options';
 import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 const SWIPE_CONFIDENCE_THRESHOLD = 8000;
 
@@ -92,6 +96,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   },
   ref,
 ) {
+  const [searchParams] = useSearchParams();
   const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -99,8 +104,9 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     /** @type {{width: number; height: number} | null} */ (null),
   );
 
-  const resolvedNamedSize =
+  const tierForCaps =
     namedSize ??
+    getFramedSizeFromSearchParams(searchParams) ??
     resolveNamedSizeFromSpec(framedSpec) ??
     (selectedVariant ? getFramedSizeFromVariant(selectedVariant) : undefined);
 
@@ -109,28 +115,29 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const hasMultipleSlides = slides.length > 1;
 
   const slideFitCaps = useMemo(() => {
-    if (!containerSize) {
-      return slides.map(() => ({
-        maxWidthCqi: undefined,
-        maxLongSideCqi: undefined,
-      }));
-    }
+    return slides.map((slide) => {
+      if (!containerSize || !tierForCaps) {
+        return tierForCaps
+          ? getDetailTierFitCaps(slide.spec, tierForCaps)
+          : {maxWidthCqi: undefined, maxLongSideCqi: undefined};
+      }
 
-    return slides.map((slide) => ({
-      maxWidthCqi: getDetailFitMaxWidthCqi(
-        slide.spec,
-        resolvedNamedSize,
-        containerSize.width,
-        containerSize.height,
-      ),
-      maxLongSideCqi: getDetailFitLongSideCqi(
-        slide.spec,
-        resolvedNamedSize,
-        containerSize.width,
-        containerSize.height,
-      ),
-    }));
-  }, [slides, resolvedNamedSize, containerSize]);
+      return {
+        maxWidthCqi: getDetailFitMaxWidthCqi(
+          slide.spec,
+          tierForCaps,
+          containerSize.width,
+          containerSize.height,
+        ),
+        maxLongSideCqi: getDetailFitLongSideCqi(
+          slide.spec,
+          tierForCaps,
+          containerSize.width,
+          containerSize.height,
+        ),
+      };
+    });
+  }, [slides, tierForCaps, containerSize]);
 
   useEffect(() => {
     setSlideIndex(0);
@@ -143,7 +150,9 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
 
     const updateSize = () => {
       const {width, height} = element.getBoundingClientRect();
-      setContainerSize({width, height});
+      if (width > 0 && height > 0) {
+        setContainerSize({width, height});
+      }
     };
 
     updateSize();
@@ -238,7 +247,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
         <>
           <p
             aria-live="polite"
-            className="absolute bottom-4 left-4 z-10 text-xs font-medium text-neutral-600"
+            className={cn(type.body.md, 'absolute bottom-4 left-4 z-10 font-medium text-neutral-600')}
           >
             {slideIndex + 1}/{slides.length}
           </p>

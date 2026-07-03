@@ -1,4 +1,6 @@
 import {ProductCard} from '~/components/ProductGrid';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @param {{
@@ -12,7 +14,7 @@ export function DisplaysWellWith({products}) {
 
   return (
     <section>
-      <h2 className="mb-4 text-lg font-medium text-neutral-900">
+      <h2 className={cn(type.body.xl, 'mb-4 font-medium text-neutral-900')}>
         Displays well with
       </h2>
       <div className="grid grid-cols-2 gap-1">

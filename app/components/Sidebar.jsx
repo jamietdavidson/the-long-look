@@ -6,9 +6,13 @@ import {artistPath, artistsPath, collectionPath, printsPath} from '~/lib/paths';
 import {ScrollArea} from '~/components/ui/scroll-area';
 import {Separator} from '~/components/ui/separator';
 import {Sheet, SheetContent, SheetDescription, SheetTitle} from '~/components/ui/sheet';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
-const sidebarLinkClass =
-  'flex items-center justify-between py-2.5 text-[11px] text-neutral-600 transition-colors hover:text-neutral-900';
+const sidebarLinkClass = cn(
+  type.body.sm,
+  'flex items-center justify-between py-2.5 text-neutral-600 transition-colors hover:text-neutral-900',
+);
 
 /** @param {{open: boolean, onClose: () => void}} */
 export function Sidebar({open, onClose}) {
@@ -94,7 +98,7 @@ export function Sidebar({open, onClose}) {
             <Link
               to={artistsPath()}
               onClick={onClose}
-              className="block py-2.5 text-[11px] font-medium text-foreground"
+              className={cn(type.body.sm, 'block py-2.5 font-medium text-foreground')}
             >
               View All Artists →
             </Link>
@@ -103,7 +107,7 @@ export function Sidebar({open, onClose}) {
         </ScrollArea>
 
         <div className="border-t border-border px-6 py-5">
-          <span className="text-[10px] text-muted-foreground">@thelonglook</span>
+          <span className={cn(type.body.xs, 'text-muted-foreground')}>@thelonglook</span>
         </div>
       </SheetContent>
     </Sheet>
@@ -119,7 +123,7 @@ function SidebarSection({title, isOpen, onToggle, children}) {
         onClick={onToggle}
         className="flex w-full items-center justify-between px-6 py-3 hover:bg-muted/50"
       >
-        <span className="text-[12px] font-medium uppercase tracking-[0.15em] text-foreground">
+        <span className={cn(type.overline.lg, 'text-foreground')}>
           {title}
         </span>
         <ChevronRight

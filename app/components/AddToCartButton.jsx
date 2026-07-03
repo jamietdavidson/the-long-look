@@ -1,4 +1,6 @@
 import {CartForm} from '@shopify/hydrogen';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @param {{
@@ -36,7 +38,10 @@ export function AddToCartButton({
             type="submit"
             className={
               className ??
-              'border border-neutral-900 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
+              cn(
+                type.cta,
+                'border border-neutral-900 px-8 py-3 transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40',
+              )
             }
             onClick={onClick}
             disabled={disabled ?? fetcher.state !== 'idle'}

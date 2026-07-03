@@ -2,6 +2,8 @@ import {Link} from 'react-router';
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
 import {pictureToCard} from '~/lib/content-api';
 import {artistPath} from '~/lib/paths';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @param {{
@@ -40,7 +42,7 @@ export function ArtistProfile({artist}) {
               </div>
             ) : (
               <div className="flex aspect-square items-center justify-center overflow-hidden bg-neutral-100">
-                <span className="px-4 text-center text-[11px] uppercase tracking-[0.2em] text-neutral-400">
+                <span className={cn(type.overline.sm, 'px-4 text-center text-neutral-400')}>
                   {artist.name}
                 </span>
               </div>
@@ -48,18 +50,18 @@ export function ArtistProfile({artist}) {
           </div>
 
           <div className="flex flex-col justify-center md:py-4">
-            <h1 className="mb-3 text-[22px] font-semibold uppercase tracking-[0.12em] md:text-[30px]">
+            <h1 className={cn(type.title.md, 'mb-3')}>
               {artist.name}
             </h1>
             {(artist.birthYear || artist.location) && (
-              <p className="mb-4 text-[12px] text-neutral-500">
+              <p className={cn(type.body.md, 'mb-4 text-neutral-500')}>
                 {artist.birthYear ? `b. ${artist.birthYear}` : null}
                 {artist.birthYear && artist.location ? ' · ' : null}
                 {artist.location ?? null}
               </p>
             )}
             {artist.bio ? (
-              <p className="max-w-3xl text-[14px] leading-relaxed text-neutral-600">
+              <p className={cn(type.body.xl, 'max-w-3xl text-neutral-600')}>
                 {artist.bio}
               </p>
             ) : null}
@@ -68,7 +70,7 @@ export function ArtistProfile({artist}) {
                 href={`https://instagram.com/${artist.instagramHandle.replace('@', '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-6 text-[12px] text-neutral-600 hover:text-neutral-900"
+                className={cn(type.body.md, 'mt-6 text-neutral-600 hover:text-neutral-900')}
               >
                 {artist.instagramHandle}
               </a>
@@ -80,7 +82,7 @@ export function ArtistProfile({artist}) {
       {products.length > 0 ? (
         <ProductGrid products={products} {...printCatalogGridProps} />
       ) : (
-        <p className="px-6 py-16 text-center text-[12px] text-neutral-500">
+        <p className={cn(type.body.md, 'px-6 py-16 text-center text-neutral-500')}>
           No works published yet.
         </p>
       )}
@@ -102,7 +104,7 @@ export function ArtistsIndex({artists: artistList}) {
   return (
     <>
       <div className="text-center py-16 px-6 border-b border-neutral-100">
-        <h1 className="text-[22px] md:text-[30px] uppercase tracking-[0.15em] font-semibold">Artists</h1>
+        <h1 className={type.title.md}>Artists</h1>
       </div>
       {artistList.length > 0 ? (
         <div className="max-w-7xl mx-auto px-6 md:px-10 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -125,19 +127,19 @@ export function ArtistsIndex({artists: artistList}) {
                   </div>
                 ) : (
                   <div className="aspect-square overflow-hidden bg-neutral-100 mb-4 flex items-center justify-center">
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 px-4 text-center">
+                    <span className={cn(type.overline.xs, 'px-4 text-center text-neutral-400')}>
                       {artist.name}
                     </span>
                   </div>
                 )}
-                <h2 className="text-[13px] font-medium">{artist.name}</h2>
-                <p className="text-[11px] text-neutral-500">{workCount} works</p>
+                <h2 className={cn(type.body.lg, 'font-medium')}>{artist.name}</h2>
+                <p className={cn(type.body.sm, 'text-neutral-500')}>{workCount} works</p>
               </Link>
             );
           })}
         </div>
       ) : (
-        <p className="text-center py-16 text-[12px] text-neutral-500">
+        <p className={cn(type.body.md, 'text-center py-16 text-neutral-500')}>
           No artists published yet. Add artists in Shopify Admin → Content → Metaobjects.
         </p>
       )}

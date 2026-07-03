@@ -9,6 +9,7 @@ import {
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
 import {PrintDetailGallery} from '~/components/PrintDetailGallery';
 import {PrintProductInfoAside} from '~/components/PrintProductInfoTabs';
+import {SizeOptionTable} from '~/components/SizeOptionTable';
 import {
   PrintFeatureList,
   FrameMountOptions,
@@ -18,19 +19,20 @@ import {
   FrameSwatches,
   MountToggle,
 } from '~/components/PrintPurchasePanel';
-import {SizeOptionTable} from '~/components/SizeOptionTable';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 import {
   formatOuterDimensions,
   FRAMED_PICTURE_DEFAULT_NAMED_SIZE,
   FRAMED_PICTURE_SIZE_LABELS,
   FRAMED_PICTURE_SIZES,
   getFramedPictureSpecFromVariant,
-  getFramedSizeFromVariant,
   getOrientationFromImage,
   resolveFrameColorFromOption,
   resolveMountFromOption,
 } from '~/lib/framed-picture';
 import {artistPath, printsPath} from '~/lib/paths';
+import {getResolvedFramedSize} from '~/lib/print-options';
 import {scrollPageToTop} from '~/lib/page-scroll';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
 
@@ -84,10 +86,15 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
   useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
 
   const orientation = getOrientationFromImage(image);
-  const framedSpec = getFramedPictureSpecFromVariant(selectedVariant, undefined, {
-    frame: searchParams.get('frame'),
-    mount: searchParams.get('mount'),
-  });
+  const resolvedNamedSize = getResolvedFramedSize(selectedVariant, searchParams);
+  const framedSpec = getFramedPictureSpecFromVariant(
+    selectedVariant,
+    resolvedNamedSize,
+    {
+      frame: searchParams.get('frame'),
+      mount: searchParams.get('mount'),
+    },
+  );
   const minPrice =
     picture.product?.priceRange?.minVariantPrice ?? selectedVariant?.price;
 
@@ -99,7 +106,7 @@ function PrintDetailWithProduct({picture, product, image, recommended = []}) {
           image={image}
           alt={picture.title}
           framedSpec={framedSpec}
-          namedSize={getFramedSizeFromVariant(selectedVariant)}
+          namedSize={resolvedNamedSize}
           selectedVariant={selectedVariant}
         />
         <PrintDetailAside>
@@ -207,7 +214,7 @@ function PrintDetailPreview({picture, image, recommended = []}) {
             {price && Number(price.amount) > 0 ? null : (
               <Link
                 to={printsPath()}
-                className="inline-block border border-neutral-900 px-8 py-3 text-[10px] uppercase tracking-[0.3em] transition-colors hover:bg-neutral-900 hover:text-white"
+                className={cn(type.cta, 'inline-block border border-neutral-900 px-8 py-3 transition-colors hover:bg-neutral-900 hover:text-white')}
               >
                 Continue Shopping
               </Link>
@@ -236,40 +243,51 @@ function PrintDetailAside({children}) {
  * }}
  */
 function PrintDetailHeader({picture, minPrice}) {
+  const artist = picture.artist;
   const location =
-    picture.artist?.location ||
+    artist?.location ||
     picture.tags?.[0]?.label ||
     picture.collections?.[0]?.title ||
     null;
 
   return (
-    <header className="mb-6 md:mb-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 uppercase md:text-[1.75rem]">
+    <header className="mb-6 text-center md:mb-8 md:text-left">
+      <h1 className={cn(type.title.lg, 'text-neutral-900')}>
         {picture.title}
       </h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        {picture.artist?.name ? (
-          <>
+      {artist?.name ? (
+        <p className={cn(type.body.xl, 'mt-2')}>
+          {artist.handle ? (
             <Link
-              to={artistPath(picture.artist.handle)}
-              className="text-neutral-900 underline underline-offset-2"
+              to={artistPath(artist.handle)}
+              prefetch="intent"
+              className="text-neutral-600 underline underline-offset-2 transition-colors hover:text-neutral-900"
             >
-              {picture.artist.name}
+              {artist.name}
             </Link>
-            {location ? ` | ${location}` : null}
-          </>
-        ) : (
-          location
-        )}
-      </p>
+          ) : (
+            <span className="text-neutral-600">{artist.name}</span>
+          )}
+        </p>
+      ) : location ? (
+        <p className={cn(type.body.xl, 'mt-2 text-neutral-600')}>{location}</p>
+      ) : null}
+      {artist?.name && location ? (
+        <p className={cn(type.body.xl, 'mt-1 text-neutral-600')}>{location}</p>
+      ) : null}
       {minPrice && Number(minPrice.amount) > 0 ? (
-        <div className="mt-4 flex items-baseline gap-1 text-sm text-neutral-700">
-          <span>Starting at</span>
+        <div
+          className={cn(
+            type.body.xl,
+            'mt-4 flex items-baseline justify-center gap-1 text-neutral-700 md:justify-start',
+          )}
+        >
+          <span>From</span>
           <Money data={minPrice} withoutTrailingZeros />
         </div>
       ) : null}
       {picture.description ? (
-        <p className="mt-4 text-sm leading-relaxed text-neutral-600">
+        <p className={cn(type.body.xl, 'mt-4 text-neutral-600')}>
           {picture.description}
         </p>
       ) : null}

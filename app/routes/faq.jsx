@@ -1,5 +1,7 @@
 import {PageHero, PageContent} from '~/components/PageHero';
 import {PRINT_FAQ_SECTIONS} from '~/lib/print-policies';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 export const meta = () => [{title: 'FAQ | The Long Look'}];
 
@@ -15,14 +17,14 @@ export default function FAQPage() {
               id={section.id}
               className="scroll-mt-24 space-y-4"
             >
-              <h2 className="text-[14px] font-semibold uppercase tracking-[0.2em]">
+              <h2 className={type.title.xs}>
                 {section.title}
               </h2>
               <div className="space-y-3">
                 {section.paragraphs.map((paragraph) => (
                   <p
                     key={paragraph}
-                    className="text-[12px] leading-relaxed text-neutral-600"
+                    className={cn(type.body.md, 'text-neutral-600')}
                   >
                     {paragraph}
                   </p>

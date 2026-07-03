@@ -3,12 +3,14 @@ import {Suspense} from 'react';
 import {Hero} from '~/components/Hero';
 import {ProductGrid, VideoSection, printCatalogGridProps} from '~/components/ProductGrid';
 import {loadAllPictures, picturesToCards} from '~/lib/content-api';
+import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
  */
 export const meta = () => {
-  return [{title: 'The Long Look | The Art of Living'}];
+  return [{title: 'The Long Look'}];
 };
 
 /** @type {import('~/components/AppPageLayout').AppRouteHandle} */
@@ -42,7 +44,6 @@ export default function Homepage() {
           {(data) => (
             <ProductGrid
               title="Recent Works"
-              subtitle="The Art of Living"
               products={data?.products?.nodes ?? []}
               {...printCatalogGridProps}
               eagerCount={8}
@@ -70,7 +71,7 @@ export default function Homepage() {
 function SectionSkeleton({title}) {
   return (
     <section className="py-16 px-6 text-center">
-      <p className="text-[11px] text-neutral-400">Loading {title}...</p>
+      <p className={cn(type.body.md, 'text-neutral-400')}>Loading {title}...</p>
     </section>
   );
 }

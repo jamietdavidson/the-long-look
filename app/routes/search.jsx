@@ -19,6 +19,7 @@ import {
   parsePrintFilters,
 } from '~/lib/print-filters';
 import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
@@ -80,10 +81,10 @@ export default function SearchPage() {
   );
 
   return (
-    <div className="min-h-full">
+    <div className="search-page-chrome min-h-full">
       <h1 className="sr-only">Search</h1>
 
-      <div className="sticky top-[var(--header-height)] z-20 bg-white">
+      <div className="sticky top-[calc(var(--header-height)-1px)] z-20 bg-white">
         <SearchForm className="border-b border-neutral-100">
           {({inputRef}) => (
             <>
@@ -96,7 +97,7 @@ export default function SearchPage() {
                 <Search
                   size={18}
                   strokeWidth={1.5}
-                  className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-neutral-400 md:left-8"
+                  className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-neutral-400 md:left-6"
                   aria-hidden
                 />
                 <Input
@@ -105,7 +106,7 @@ export default function SearchPage() {
                   name="q"
                   placeholder="Search prints, artists, locations…"
                   type="search"
-                  className="h-12 w-full rounded-none border-0 border-neutral-100 bg-white pr-5 pl-12 text-sm shadow-none focus-visible:ring-0 md:pr-8 md:pl-14"
+                  className={cn(type.body.xl, 'h-12 w-full rounded-none border-0 border-neutral-100 bg-white pr-5 pl-10 shadow-none focus-visible:ring-0 md:pr-8 md:pl-12')}
                 />
               </div>
             </>
@@ -122,11 +123,11 @@ export default function SearchPage() {
 
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-900">
+              <p className={cn(type.overline.xs, 'text-neutral-900')}>
                 {total} print{total === 1 ? '' : 's'}
               </p>
               {term ? (
-                <p className="mt-1 text-[12px] text-neutral-500">
+                <p className={cn(type.body.md, 'mt-1 text-neutral-500')}>
                   Results for &ldquo;{term}&rdquo;
                 </p>
               ) : null}
@@ -134,13 +135,13 @@ export default function SearchPage() {
 
             <button
               type="button"
-              className="inline-flex items-center gap-2 border border-neutral-200 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-neutral-700 lg:hidden"
+              className={cn(type.overline.xs, 'inline-flex items-center gap-2 border border-neutral-200 px-3 py-2 text-neutral-700 lg:hidden')}
               onClick={() => setMobileFiltersOpen(true)}
             >
               <SlidersHorizontal size={14} strokeWidth={1.5} />
               Filters
               {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] text-white">
+                <span className={cn(type.body.xs, 'rounded-full bg-neutral-900 px-1.5 py-0.5 text-white')}>
                   {activeFilterCount}
                 </span>
               ) : null}
@@ -161,10 +162,10 @@ export default function SearchPage() {
 
         <aside
           className={cn(
-            'w-72 shrink-0 border-r border-neutral-100 bg-white lg:z-0',
+            'search-filters-aside w-72 shrink-0 border-r border-neutral-100 bg-white lg:z-0',
             'max-lg:fixed max-lg:top-[var(--header-height)] max-lg:bottom-0 max-lg:left-0 max-lg:z-50 max-lg:flex max-lg:flex-col max-lg:transition-transform max-lg:duration-200',
             mobileFiltersOpen ? 'max-lg:translate-x-0' : 'max-lg:pointer-events-none max-lg:-translate-x-full',
-            'lg:static lg:translate-x-0',
+            'lg:translate-x-0',
           )}
         >
           <div className="border-b border-neutral-100 lg:hidden">
@@ -236,12 +237,12 @@ export default function SearchPage() {
 function SearchEmptyState({message, actionLabel, onAction}) {
   return (
     <div className="px-6 py-20 text-center">
-      <p className="text-[13px] text-neutral-500">{message}</p>
+      <p className={cn(type.body.lg, 'text-neutral-500')}>{message}</p>
       {actionLabel && onAction ? (
         <button
           type="button"
           onClick={onAction}
-          className="mt-4 text-[11px] uppercase tracking-[0.2em] text-neutral-900 underline-offset-4 hover:underline"
+          className={cn(type.overline.xs, 'mt-4 text-neutral-900 underline-offset-4 hover:underline')}
         >
           {actionLabel}
         </button>

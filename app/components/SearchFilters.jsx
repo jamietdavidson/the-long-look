@@ -3,6 +3,7 @@ import {useId, useMemo} from 'react';
 import {ChevronDown} from 'lucide-react';
 import {PRINT_FILTER_PARAMS} from '~/lib/print-filters';
 import {cn} from '~/lib/utils';
+import {type} from '~/lib/typography';
 
 const FILTER_GROUPS = [
   {key: PRINT_FILTER_PARAMS.artist, title: 'Artist'},
@@ -78,7 +79,7 @@ export function SearchFiltersHeader({
     >
       <h2
         id={listId}
-        className="text-[11px] font-medium uppercase tracking-[0.25em] text-neutral-900"
+        className={cn(type.overline.sm, 'text-neutral-900')}
       >
         Filters
       </h2>
@@ -87,7 +88,7 @@ export function SearchFiltersHeader({
           to={buildClearFiltersHref(searchParams)}
           prefetch="intent"
           onClick={onNavigate}
-          className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 transition-colors hover:text-neutral-700"
+          className={cn(type.micro, 'uppercase tracking-overline font-medium text-neutral-400 transition-colors hover:text-neutral-700')}
         >
           Clear all
         </Link>
@@ -175,7 +176,7 @@ function FilterGroup({
 
   return (
     <details className="group px-5 py-4" defaultOpen>
-      <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-900 [&::-webkit-details-marker]:hidden">
+      <summary className={cn(type.overline.xs, 'flex cursor-pointer list-none items-center justify-between text-neutral-900 [&::-webkit-details-marker]:hidden')}>
         {title}
         <ChevronDown
           size={14}
@@ -195,7 +196,8 @@ function FilterGroup({
                 prefetch="intent"
                 onClick={onNavigate}
                 className={cn(
-                  'flex items-center gap-3 text-[13px] transition-colors',
+                  type.body.lg,
+                  'flex items-center gap-3 transition-colors',
                   checked ? 'text-neutral-900' : 'text-neutral-700 hover:text-neutral-900',
                 )}
               >
@@ -213,7 +215,7 @@ function FilterGroup({
                   ) : null}
                 </span>
                 <span className="flex-1">{option.label}</span>
-                <span className="text-[11px] tabular-nums text-neutral-400">
+                <span className={cn(type.body.sm, 'tabular-nums text-neutral-400')}>
                   {option.count}
                 </span>
               </Link>

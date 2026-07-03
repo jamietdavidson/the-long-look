@@ -216,13 +216,59 @@ function getLayoutOuterAspectForTierCap(
 /** Mobile detail gallery height — 5/8 viewport; keep in sync with PrintDetailGallery Tailwind classes. */
 export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO = 5 / 8;
 
-/** Best-effort @container dimensions before layout measurement (client only). */
+/** md breakpoint — keep in sync with PrintDetailGallery `md:w-1/2 md:h-screen`. */
+export const FRAMED_PICTURE_DETAIL_GALLERY_DESKTOP_BREAKPOINT_PX = 768;
+
+/** SSR fallback width before @container is measured (typical phone). */
+const FRAMED_PICTURE_DETAIL_GALLERY_SSR_WIDTH_PX = 393;
+
+/** Best-effort @container dimensions before layout measurement. */
 export function getDetailGalleryViewportEstimate() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {
+    return {
+      width: FRAMED_PICTURE_DETAIL_GALLERY_SSR_WIDTH_PX,
+      height:
+        FRAMED_PICTURE_DETAIL_GALLERY_SSR_WIDTH_PX *
+        FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO,
+    };
+  }
+
+  const isDesktop = window.matchMedia(
+    `(min-width: ${FRAMED_PICTURE_DETAIL_GALLERY_DESKTOP_BREAKPOINT_PX}px)`,
+  ).matches;
+
+  if (isDesktop) {
+    return {
+      width: window.innerWidth / 2,
+      height: window.innerHeight,
+    };
+  }
 
   return {
     width: window.innerWidth,
     height: window.innerHeight * FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO,
+  };
+}
+
+/** Tier caps only — no viewport height binding. Use before @container is measured. */
+export function getDetailTierFitCaps(
+  spec: FramedPictureSizeSpec,
+  namedSize: FramedPictureNamedSize,
+) {
+  const maxLongSideCqi = getDetailMaxLongSideCqiForNamedSize(namedSize);
+  const isFullBleed = spec.padding === 0;
+  const isUnframed = spec.frame === 0;
+  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : spec.padding;
+  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : spec.frame;
+  const verticalOuterAspect = getLayoutOuterAspectForTierCap(
+    spec,
+    layoutPadding,
+    layoutFrame,
+  );
+
+  return {
+    maxLongSideCqi,
+    maxWidthCqi: maxLongSideCqi * verticalOuterAspect,
   };
 }
 
