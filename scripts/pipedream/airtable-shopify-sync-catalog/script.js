@@ -17,6 +17,9 @@ import {
   resolvePrintRecord,
   linkedRecordIds,
   markRecordCommitted,
+  printHandle,
+  pruneOrphanedPrints,
+  removePrintByAirtableId,
   syncArtist,
   syncCollection,
   syncPrint,
@@ -46,9 +49,33 @@ export default defineComponent({
     const shopify = getShopifyConnection(this);
     const dryRun = this.dryRun ?? false;
     const committedStatus = AIRTABLE.committedStatus;
+    const linkedCommittedStatus = AIRTABLE.linkedCommittedStatus;
 
     const printRecord = await resolvePrintRecord($, airtable, steps, this.printRecordId);
     const printFields = printRecord.fields ?? {};
+    const printStatus = textValue(printFields[AIRTABLE.prints.status]);
+
+    if (printStatus !== committedStatus) {
+      const handle = printHandle(printRecord);
+      const removal = await removePrintByAirtableId(
+        $,
+        shopify,
+        printRecord.id,
+        handle,
+        dryRun,
+      );
+      const prune = await pruneOrphanedPrints($, airtable, shopify, dryRun);
+      const summary = {
+        printId: printRecord.id,
+        print: removal,
+        prune,
+        dryRun,
+        skippedSync: true,
+        reason: `Print status is "${printStatus || '(empty)'}" — not ${committedStatus}`,
+      };
+      $.export('summary', summary);
+      return summary;
+    }
 
     const catalog = await fetchVariantCatalog($, airtable);
     if (!catalog.length) {
@@ -122,7 +149,7 @@ export default defineComponent({
       statusField: AIRTABLE.artists.status,
       recordId: artistRecord.id,
       currentStatus: artistRecord.fields?.[AIRTABLE.artists.status],
-      committedStatus,
+      committedStatus: linkedCommittedStatus,
       dryRun,
     });
 
@@ -140,11 +167,13 @@ export default defineComponent({
           statusField: AIRTABLE.collections.status,
           recordId: collectionRecord.id,
           currentStatus: collectionRecord.fields?.[AIRTABLE.collections.status],
-          committedStatus,
+          committedStatus: linkedCommittedStatus,
           dryRun,
         }),
       );
     }
+
+    const prune = await pruneOrphanedPrints($, airtable, shopify, dryRun);
 
     const summary = {
       printId: printRecord.id,
@@ -153,6 +182,7 @@ export default defineComponent({
       artistStatus,
       collections: {synced: collectionsSynced, skipped: collectionsSkipped},
       collectionStatuses,
+      prune,
       dryRun,
     };
 

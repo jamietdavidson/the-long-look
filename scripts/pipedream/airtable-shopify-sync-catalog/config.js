@@ -17,6 +17,8 @@ export const AIRTABLE = {
   collectionsTable: 'Collections',
   collectionsTableId: 'tblo70cnCHTLuBnki',
   committedStatus: 'Committed',
+  /** Artists/Collections single-select typo in Airtable (Prints uses correct spelling). */
+  linkedCommittedStatus: 'Commited',
   prints: {
     name: 'Name',
     description: 'Description',
@@ -24,6 +26,7 @@ export const AIRTABLE = {
     artist: 'Artist',
     collection: 'Collection',
     orientation: 'Orientation',
+    status: 'Status',
   },
   variants: {
     sizeName: 'Name',
@@ -69,5 +72,11 @@ export const SHOPIFY = {
     artist: 'artist',
     collection: 'collection',
     picture: 'picture',
+  },
+  /** Metaobject field + product metafield for stable Airtable ↔ Shopify linking across renames. */
+  airtableRecordIdField: 'airtable_record_id',
+  airtableMetafield: {
+    namespace: 'airtable',
+    key: 'record_id',
   },
 };
