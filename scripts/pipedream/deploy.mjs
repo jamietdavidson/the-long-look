@@ -94,6 +94,24 @@ function extractKey(code) {
   return match?.[1] ?? null;
 }
 
+function toPlainComponentExport(code) {
+  if (!/export default defineComponent\(\{/.test(code)) {
+    return code;
+  }
+  return code
+    .replace(/export default defineComponent\(\{/, 'export default {')
+    .replace(/\}\);\s*$/, '};');
+}
+
+function buildPublishCode(bundled, {componentKey, name, version}) {
+  const withMetadata = injectComponentMetadata(bundled, {
+    componentKey,
+    name,
+    version,
+  });
+  return toPlainComponentExport(withMetadata);
+}
+
 function injectComponentMetadata(bundled, {componentKey, name, version}) {
   const existingKey = extractKey(bundled);
   const targetKey = existingKey ?? componentKey;
@@ -234,7 +252,7 @@ function findDeployableStep(steps, {stepNamespace, componentKey}) {
 async function publishActionOnly(apiKey, orgId, workflowConfig, bundled, sourceSha) {
   const existing = await getComponent(apiKey, orgId, workflowConfig.componentKey);
   const nextVersion = bumpVersion(existing?.version);
-  const publishCode = injectComponentMetadata(bundled, {
+  const publishCode = buildPublishCode(bundled, {
     componentKey: workflowConfig.componentKey,
     name: workflowConfig.name,
     version: nextVersion,
@@ -459,7 +477,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
   );
 
   const componentCode = existingKey
-    ? injectComponentMetadata(bundled, {
+    ? buildPublishCode(bundled, {
         componentKey: existingKey,
         name: workflowConfig.name,
         version: nextVersion,
@@ -477,7 +495,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
     log(`API update failed, trying pd publish: ${apiError.message}`);
     const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
     const publishPath = join(tempDir, `${workflowConfig.source}.js`);
-    const publishCode = injectComponentMetadata(bundled, {
+    const publishCode = buildPublishCode(bundled, {
       componentKey: workflowConfig.componentKey,
       name: workflowConfig.name,
       version: nextVersion,
