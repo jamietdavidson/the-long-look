@@ -85,13 +85,20 @@ function bumpVersion(version) {
 }
 
 function extractVersion(code) {
-  const match = /version:\s*['"]([^'"]+)['"]/.exec(code ?? '');
-  return match?.[1] ?? null;
+  const versionMatch = /\bversion:\s*['"]([^'"]+)['"]/.exec(extractComponentHeader(code));
+  return versionMatch?.[1] ?? null;
+}
+
+function extractComponentHeader(code) {
+  const match = /export default (?:defineComponent\()?\{([\s\S]*?)(?:\n\s*props:|\n\s*async run|\n\s*run\s*\()/.exec(
+    code ?? '',
+  );
+  return match?.[1] ?? '';
 }
 
 function extractKey(code) {
-  const match = /key:\s*['"]([^'"]+)['"]/.exec(code ?? '');
-  return match?.[1] ?? null;
+  const keyMatch = /\bkey:\s*['"]([^'"]+)['"]/.exec(extractComponentHeader(code));
+  return keyMatch?.[1] ?? null;
 }
 
 function toPlainComponentExport(code) {
