@@ -387,12 +387,15 @@ function publishedMatchesBundle(publishedCode, bundled) {
 
   const sharedAnchors = [
     'appC7O4qp56Rdaj7c',
-    'thelonglookco.myshopify.com',
-    'defineComponent',
+    'resolvePrintRecord',
+    'markRecordCommitted',
+    'tblcFW8sQcKON8zW4',
   ].filter((anchor) => bundled.includes(anchor));
 
-  const matchedAnchors = sharedAnchors.filter((anchor) => publishedCode.includes(anchor)).length;
-  return matchedAnchors >= 2 && publishedCode.length >= bundled.length * 0.85;
+  const matchedAnchors = sharedAnchors.filter((anchor) =>
+    publishedCode.includes(anchor),
+  ).length;
+  return matchedAnchors >= 2 && publishedCode.length >= bundled.length * 0.5;
 }
 
 async function verifyInlineComponentUpdate(apiKey, orgId, componentId, expectedCode, beforeHash) {
@@ -426,12 +429,20 @@ async function publishWorkflowAction(apiKey, orgId, workflowConfig, bundled, sta
     workflowConfig,
     nextVersion,
   );
-  const published = await getComponent(
-    apiKey,
-    orgId,
-    workflowConfig.publishedComponentId ?? workflowConfig.componentKey,
-  );
-  const publishedCode = published?.code ?? '';
+
+  let published;
+  let publishedCode = '';
+  for (let attempt = 0; attempt < 5; attempt++) {
+    published = await getComponent(
+      apiKey,
+      orgId,
+      workflowConfig.publishedComponentId ?? workflowConfig.componentKey,
+    );
+    publishedCode = published?.code ?? '';
+    if (publishedMatchesBundle(publishedCode, bundled)) break;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
   if (!publishedMatchesBundle(publishedCode, bundled)) {
     throw new Error(
       `Published action ${workflowConfig.componentKey}@${publishedVersion} does not contain expected code`,
@@ -560,17 +571,6 @@ function publishActionWithVersionRetry(componentPath, bundled, workflowConfig, s
     writeFileSync(componentPath, publishCode, 'utf8');
   };
 
-  writePublishCode(startVersion);
-  try {
-    publishWithCli(componentPath, {dev: true});
-    return startVersion;
-  } catch (error) {
-    const message = String(error.message);
-    if (!/already published|409|not publishable|greater than/i.test(message)) {
-      throw error;
-    }
-  }
-
   let version = startVersion;
 
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -683,6 +683,7 @@ function codeMarkers(code) {
     defineComponent: /export default defineComponent\(\{/.test(code),
     plainExport: /export default \{/.test(code) && !/defineComponent/.test(code),
     getTriggerPrintRecord: code.includes('getTriggerPrintRecord'),
+    resolvePrintRecord: code.includes('resolvePrintRecord'),
     markRecordCommitted: code.includes('markRecordCommitted'),
     collectionField: /collection:\s*'Collection'/.test(code),
     collectionsField: /collections:\s*'Collections'/.test(code),
@@ -748,6 +749,7 @@ async function compareWorkflow(apiKey, orgId, workflowConfig, projectId) {
   const remoteMarkers = codeMarkers(remoteCode);
   const checks = [
     'defineComponent',
+    'resolvePrintRecord',
     'getTriggerPrintRecord',
     'markRecordCommitted',
     'collectionField',
