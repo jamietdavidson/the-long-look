@@ -242,7 +242,7 @@ async function publishActionOnly(apiKey, orgId, workflowConfig, bundled, sourceS
   const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
   const publishPath = join(tempDir, `${workflowConfig.source}.js`);
   writeFileSync(publishPath, publishCode, 'utf8');
-  configurePdCli(apiKey);
+  configurePdCli(apiKey, orgId);
 
   let result;
   if (existing?.id) {
@@ -316,9 +316,13 @@ async function resolveAccessToken() {
   );
 }
 
-async function getWorkflow(apiKey, orgId, workflowId) {
+async function getWorkflow(apiKey, orgId, workflowId, projectId) {
   const payload = await pipedreamRequest(apiKey, 'GET', `/workflows/${workflowId}`, {
     orgId,
+    query: {
+      project_id: projectId,
+      include: 'steps',
+    },
   });
   return unwrap(payload);
 }
@@ -383,10 +387,22 @@ async function updateSavedComponent(apiKey, orgId, componentId, componentCode) {
   throw lastError;
 }
 
-function configurePdCli(apiKey) {
+function configurePdCli(apiKey, orgId) {
   const configDir = join(process.env.HOME ?? tmpdir(), '.config', 'pipedream');
   execFileSync('mkdir', ['-p', configDir]);
-  writeFileSync(join(configDir, 'config'), `api_key = ${apiKey}\n`, 'utf8');
+  writeFileSync(
+    join(configDir, 'config'),
+    [
+      'api_key = ' + apiKey,
+      'org_id = ' + orgId,
+      '',
+      '[thelonglook]',
+      'api_key = ' + apiKey,
+      'org_id = ' + orgId,
+      '',
+    ].join('\n'),
+    'utf8',
+  );
 }
 
 function ensurePdCli() {
@@ -403,20 +419,20 @@ function ensurePdCli() {
 
 function publishWithCli(componentPath) {
   ensurePdCli();
-  execFileSync('pd', ['publish', componentPath], {
+  execFileSync('pd', ['publish', componentPath, '--profile', 'thelonglook'], {
     stdio: 'inherit',
   });
   return {};
 }
 
-async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
+async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSha) {
   const sourceDir = join(PIPEDREAM_ROOT, workflowConfig.source);
   if (!existsSync(sourceDir)) {
     throw new Error(`Source workflow folder not found: ${workflowConfig.source}`);
   }
 
   const bundled = bundleWorkflow(sourceDir);
-  const workflow = await getWorkflow(apiKey, orgId, workflowConfig.workflowId);
+  const workflow = await getWorkflow(apiKey, orgId, workflowConfig.workflowId, projectId);
   const step = findDeployableStep(workflow.steps, workflowConfig);
 
   if (!step?.savedComponent?.id) {
@@ -467,7 +483,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
       version: nextVersion,
     });
     writeFileSync(publishPath, publishCode, 'utf8');
-    configurePdCli(apiKey);
+    configurePdCli(apiKey, orgId);
     result = publishWithCli(publishPath);
     log(
       `Published action ${workflowConfig.componentKey}@${nextVersion} via CLI (update workflow step to this action if needed)`,
@@ -487,6 +503,7 @@ async function main() {
   const sourceSha = process.env.SOURCE_SHA ?? 'local';
   const config = loadConfig();
   const {token: apiKey} = await resolveAccessToken();
+  const projectId = config.projectId;
 
   if (!orgId) {
     die('PIPEDREAM_ORG_ID is required');
@@ -495,7 +512,7 @@ async function main() {
   let published = 0;
 
   for (const workflowConfig of config.workflows) {
-    await deployWorkflow(apiKey, orgId, workflowConfig, sourceSha);
+    await deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSha);
     published += 1;
   }
 

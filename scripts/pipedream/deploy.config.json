@@ -1,4 +1,5 @@
 {
+  "projectId": "proj_Vbs7LgY",
   "workflows": [
     {
       "source": "airtable-shopify-sync-catalog",
