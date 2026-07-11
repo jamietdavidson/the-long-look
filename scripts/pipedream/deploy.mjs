@@ -258,7 +258,7 @@ function findDeployableStep(steps, {stepNamespace, componentKey}) {
 
 async function publishActionOnly(apiKey, orgId, workflowConfig, bundled, sourceSha) {
   const existing = await getComponent(apiKey, orgId, workflowConfig.componentKey);
-  const nextVersion = bumpVersion(existing?.version);
+  let nextVersion = bumpVersion(existing?.version);
   const publishCode = buildPublishCode(bundled, {
     componentKey: workflowConfig.componentKey,
     name: workflowConfig.name,
@@ -284,7 +284,13 @@ async function publishActionOnly(apiKey, orgId, workflowConfig, bundled, sourceS
   }
 
   if (!result) {
-    publishWithCli(publishPath);
+    const publishedVersion = publishActionWithVersionRetry(
+      publishPath,
+      bundled,
+      workflowConfig,
+      nextVersion,
+    );
+    nextVersion = publishedVersion;
   }
 
   log(
@@ -444,10 +450,43 @@ function ensurePdCli() {
 
 function publishWithCli(componentPath) {
   ensurePdCli();
-  execFileSync('pd', ['publish', componentPath, '--profile', 'thelonglook'], {
-    stdio: 'inherit',
-  });
+  try {
+    execFileSync('pd', ['publish', componentPath, '--profile', 'thelonglook'], {
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    const output = `${error.stdout ?? ''}${error.stderr ?? ''}${error.message}`;
+    throw new Error(output.trim() || 'pd publish failed');
+  }
   return {};
+}
+
+function publishActionWithVersionRetry(componentPath, bundled, workflowConfig, startVersion) {
+  let version = startVersion;
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const publishCode = buildPublishCode(bundled, {
+      componentKey: workflowConfig.componentKey,
+      name: workflowConfig.name,
+      version,
+    });
+    writeFileSync(componentPath, publishCode, 'utf8');
+
+    try {
+      publishWithCli(componentPath);
+      return version;
+    } catch (error) {
+      const message = String(error.message);
+      if (!/already published|409/.test(message)) {
+        throw error;
+      }
+      version = bumpVersion(version);
+      log(`Publish version conflict for ${workflowConfig.componentKey}, retrying as ${version}`);
+    }
+  }
+
+  throw new Error(`Unable to publish ${workflowConfig.componentKey} after version retries`);
 }
 
 async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSha) {
@@ -477,7 +516,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
     step.savedComponent?.version ??
     extractVersion(existingCode);
 
-  const nextVersion = bumpVersion(
+  let nextVersion = bumpVersion(
     existingKey
       ? (existingVersion || (await getComponent(apiKey, orgId, existingKey))?.version)
       : existingVersion,
@@ -509,7 +548,14 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
     });
     writeFileSync(publishPath, publishCode, 'utf8');
     configurePdCli(apiKey, orgId);
-    result = publishWithCli(publishPath);
+    const publishedVersion = publishActionWithVersionRetry(
+      publishPath,
+      bundled,
+      workflowConfig,
+      nextVersion,
+    );
+    result = {};
+    nextVersion = publishedVersion;
     log(
       `Published action ${workflowConfig.componentKey}@${nextVersion} via CLI (update workflow step to this action if needed)`,
     );
