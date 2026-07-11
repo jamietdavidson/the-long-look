@@ -167,39 +167,109 @@ async function pipedreamRequest(apiKey, method, path, {query, body, orgId} = {})
   return payload;
 }
 
-function findCodeStep(steps, stepNamespace) {
-  const codeSteps = (steps ?? []).filter(
-    (step) =>
-      step.lang?.startsWith('nodejs') &&
-      step.component === true &&
-      step.savedComponent?.id,
-  );
+function formatStepSummary(steps) {
+  return (steps ?? []).map((step) => ({
+    namespace: step.namespace,
+    type: step.type,
+    lang: step.lang ?? step.runtime,
+    component: step.component,
+    component_key: step.component_key,
+    savedComponentId: step.savedComponent?.id,
+  }));
+}
+
+function isNodeStep(step) {
+  const lang = step.lang ?? step.runtime ?? '';
+  return /node/i.test(lang);
+}
+
+function findDeployableStep(steps, {stepNamespace, componentKey}) {
+  const candidates = (steps ?? []).filter((step) => {
+    if (!isNodeStep(step)) {
+      return false;
+    }
+    if (stepNamespace && step.namespace !== stepNamespace) {
+      return false;
+    }
+    if (step.savedComponent?.id) {
+      return true;
+    }
+    if (componentKey && step.component_key === componentKey) {
+      return true;
+    }
+    if (step.component === true || step.type === 'CodeCell') {
+      return true;
+    }
+    return false;
+  });
 
   if (stepNamespace) {
-    const match = codeSteps.find((step) => step.namespace === stepNamespace);
+    const match = candidates.find((step) => step.namespace === stepNamespace);
     if (!match) {
       throw new Error(
-        `Configured step "${stepNamespace}" not found. Available: ${codeSteps
-          .map((step) => step.namespace)
-          .join(', ') || '(none)'}`,
+        `Configured step "${stepNamespace}" not found. Steps: ${JSON.stringify(formatStepSummary(steps))}`,
       );
     }
     return match;
   }
 
-  if (codeSteps.length === 1) {
-    return codeSteps[0];
+  if (candidates.length === 1) {
+    return candidates[0];
   }
 
-  if (codeSteps.length === 0) {
+  if (candidates.length === 0) {
     return null;
   }
 
+  const withSavedComponent = candidates.filter((step) => step.savedComponent?.id);
+  if (withSavedComponent.length === 1) {
+    return withSavedComponent[0];
+  }
+
   throw new Error(
-    `Multiple Node.js code steps found (${codeSteps
-      .map((step) => step.namespace)
-      .join(', ')}). Set "step" in deploy.config.json.`,
+    `Multiple deployable Node steps found (${candidates.map((s) => s.namespace).join(', ')}). Set "step" in deploy.config.json. Steps: ${JSON.stringify(formatStepSummary(steps))}`,
   );
+}
+
+async function publishActionOnly(apiKey, orgId, workflowConfig, bundled, sourceSha) {
+  const existing = await getComponent(apiKey, orgId, workflowConfig.componentKey);
+  const nextVersion = bumpVersion(existing?.version);
+  const publishCode = injectComponentMetadata(bundled, {
+    componentKey: workflowConfig.componentKey,
+    name: workflowConfig.name,
+    version: nextVersion,
+  });
+  const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
+  const publishPath = join(tempDir, `${workflowConfig.source}.js`);
+  writeFileSync(publishPath, publishCode, 'utf8');
+  configurePdCli(apiKey);
+
+  let result;
+  if (existing?.id) {
+    try {
+      result = await updateSavedComponent(
+        apiKey,
+        orgId,
+        existing.id,
+        publishCode,
+      );
+    } catch (error) {
+      log(`API publish failed, trying pd publish: ${error.message}`);
+    }
+  }
+
+  if (!result) {
+    publishWithCli(publishPath);
+  }
+
+  log(
+    `Published action ${workflowConfig.componentKey}@${nextVersion} for ${workflowConfig.workflowId} from ${sourceSha}`,
+  );
+  return {
+    status: 'published',
+    componentId: result?.id ?? existing?.id,
+    version: nextVersion,
+  };
 }
 
 async function resolveAccessToken() {
@@ -347,12 +417,13 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
 
   const bundled = bundleWorkflow(sourceDir);
   const workflow = await getWorkflow(apiKey, orgId, workflowConfig.workflowId);
-  const step = findCodeStep(workflow.steps, workflowConfig.step);
+  const step = findDeployableStep(workflow.steps, workflowConfig);
 
-  if (!step) {
-    throw new Error(
-      `No Node.js code step found in workflow ${workflowConfig.workflowId}`,
+  if (!step?.savedComponent?.id) {
+    log(
+      `No inline code step in ${workflowConfig.workflowId}; publishing private action instead. Steps: ${JSON.stringify(formatStepSummary(workflow.steps))}`,
     );
+    return publishActionOnly(apiKey, orgId, workflowConfig, bundled, sourceSha);
   }
 
   const savedComponentId = step.savedComponent.id;
