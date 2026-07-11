@@ -74,6 +74,35 @@ Body:
 
 Disable the Pipedream workflow once this is verified.
 
+## Finish deploy (one-time)
+
+Your CLI token is expired. Pick **one** path:
+
+### Path A — Railway dashboard (fastest)
+
+1. Open [Railway project](https://railway.com/project/b3ab32a9-416f-48f6-ad0b-10b92ec53e47)
+2. **New Service → GitHub Repo** → `jamietdavidson/the-long-look`
+3. Set **Root Directory** to `/` (repo root — Dockerfile path is in `railway.toml`)
+4. **Variables** tab — add `AIRTABLE_PAT`, `SHOPIFY_ACCESS_TOKEN`, `WEBHOOK_SECRET`, `POLL_INTERVAL_MS=300000`
+5. **Networking → Generate Domain**
+6. Deploy runs automatically from `main`
+
+### Path B — CLI
+
+```bash
+railway login
+cd /path/to/the-long-look
+railway link -p b3ab32a9-416f-48f6-ad0b-10b92ec53e47
+AIRTABLE_PAT=pat… SHOPIFY_ACCESS_TOKEN=shpat_… ./services/catalog-sync/set-railway-vars.sh
+railway up --detach
+```
+
+### Path C — GitHub Actions
+
+1. Railway project → **Settings → Tokens** → Create project token
+2. GitHub repo → **Settings → Secrets** → `RAILWAY_TOKEN` = that token
+3. Re-run [Deploy catalog sync workflow](https://github.com/jamietdavidson/the-long-look/actions/workflows/railway-catalog-sync.yml)
+
 ## Local dev
 
 From repo root:
