@@ -121,15 +121,20 @@ function injectComponentMetadata(bundled, {componentKey, name, version}) {
   );
 }
 
-async function pipedreamRequest(apiKey, method, path, {query, body} = {}) {
+async function pipedreamRequest(apiKey, method, path, {query, body, orgId} = {}) {
   const url = new URL(`${API_BASE}${path}`);
-  if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value != null) {
-        url.searchParams.set(key, value);
-      }
+  const params = {...query};
+  if (orgId && !params.org_id) {
+    params.org_id = orgId;
+  }
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null) {
+      url.searchParams.set(key, value);
     }
   }
+
+  const payloadBody =
+    body && orgId && body.org_id == null ? {...body, org_id: orgId} : body;
 
   const response = await fetch(url, {
     method,
@@ -138,7 +143,7 @@ async function pipedreamRequest(apiKey, method, path, {query, body} = {}) {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: payloadBody ? JSON.stringify(payloadBody) : undefined,
   });
 
   const text = await response.text();
@@ -197,22 +202,56 @@ function findCodeStep(steps, stepNamespace) {
   );
 }
 
-async function getWorkflow(apiKey, orgId, workflowId) {
-  const payload = await pipedreamRequest(
-    apiKey,
-    'GET',
-    `/workflows/${workflowId}`,
-    {query: {org_id: orgId}},
+async function resolveAccessToken() {
+  const apiKey = process.env.PIPEDREAM_API_KEY?.trim();
+  const clientId = process.env.PIPEDREAM_CLIENT_ID?.trim();
+  const clientSecret = process.env.PIPEDREAM_CLIENT_SECRET?.trim();
+
+  if (apiKey) {
+    await pipedreamRequest(apiKey, 'GET', '/users/me');
+    log('Authenticated with user API key');
+    return {token: apiKey, mode: 'user_api_key'};
+  }
+
+  if (clientId && clientSecret) {
+    const response = await fetch(`${API_BASE}/oauth/token`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+      body: JSON.stringify({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        `OAuth token exchange failed (${response.status}): ${payload?.error ?? JSON.stringify(payload)}`,
+      );
+    }
+    log('Authenticated with OAuth client credentials');
+    return {token: payload.access_token, mode: 'oauth'};
+  }
+
+  throw new Error(
+    'Set PIPEDREAM_API_KEY (user API key from My Account → API Key) or PIPEDREAM_CLIENT_ID + PIPEDREAM_CLIENT_SECRET',
   );
+}
+
+async function getWorkflow(apiKey, orgId, workflowId) {
+  const payload = await pipedreamRequest(apiKey, 'GET', `/workflows/${workflowId}`, {
+    orgId,
+  });
   return unwrap(payload);
 }
 
-async function getComponent(apiKey, componentIdOrKey) {
+async function getComponent(apiKey, orgId, componentIdOrKey) {
   try {
     const payload = await pipedreamRequest(
       apiKey,
       'GET',
       `/components/${componentIdOrKey}`,
+      {orgId},
     );
     return unwrap(payload);
   } catch (error) {
@@ -223,12 +262,13 @@ async function getComponent(apiKey, componentIdOrKey) {
   }
 }
 
-async function updateSavedComponent(apiKey, componentId, componentCode) {
+async function updateSavedComponent(apiKey, orgId, componentId, componentCode) {
   const attempts = [
-  {
+    {
       label: 'POST /components with component_id',
       run: () =>
         pipedreamRequest(apiKey, 'POST', '/components', {
+          orgId,
           body: {component_id: componentId, component_code: componentCode},
         }),
     },
@@ -236,6 +276,7 @@ async function updateSavedComponent(apiKey, componentId, componentCode) {
       label: 'PUT /components/{id}',
       run: () =>
         pipedreamRequest(apiKey, 'PUT', `/components/${componentId}`, {
+          orgId,
           body: {component_code: componentCode},
         }),
     },
@@ -243,6 +284,7 @@ async function updateSavedComponent(apiKey, componentId, componentCode) {
       label: 'POST /components code only',
       run: () =>
         pipedreamRequest(apiKey, 'POST', '/components', {
+          orgId,
           body: {component_code: componentCode},
         }),
     },
@@ -306,7 +348,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
   }
 
   const savedComponentId = step.savedComponent.id;
-  const existing = await getComponent(apiKey, savedComponentId);
+  const existing = await getComponent(apiKey, orgId, savedComponentId);
   const existingCode = existing?.code ?? step.savedComponent?.code ?? '';
   const existingKey =
     existing?.key ?? step.savedComponent?.key ?? extractKey(existingCode);
@@ -317,7 +359,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
 
   const nextVersion = bumpVersion(
     existingKey
-      ? (existingVersion || (await getComponent(apiKey, existingKey))?.version)
+      ? (existingVersion || (await getComponent(apiKey, orgId, existingKey))?.version)
       : existingVersion,
   );
 
@@ -335,7 +377,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
 
   let result;
   try {
-    result = await updateSavedComponent(apiKey, savedComponentId, componentCode);
+    result = await updateSavedComponent(apiKey, orgId, savedComponentId, componentCode);
   } catch (apiError) {
     log(`API update failed, trying pd publish: ${apiError.message}`);
     const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
@@ -362,14 +404,11 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, sourceSha) {
 }
 
 async function main() {
-  const apiKey = process.env.PIPEDREAM_API_KEY;
-  const orgId = process.env.PIPEDREAM_ORG_ID;
+  const orgId = process.env.PIPEDREAM_ORG_ID?.trim();
   const sourceSha = process.env.SOURCE_SHA ?? 'local';
   const config = loadConfig();
+  const {token: apiKey} = await resolveAccessToken();
 
-  if (!apiKey) {
-    die('PIPEDREAM_API_KEY is required');
-  }
   if (!orgId) {
     die('PIPEDREAM_ORG_ID is required');
   }
