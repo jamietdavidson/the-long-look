@@ -30,6 +30,8 @@ jobs:
       - name: Publish workflows via Pipedream API
         env:
           PIPEDREAM_API_KEY: ${{ secrets.PIPEDREAM_API_KEY }}
+          PIPEDREAM_CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
+          PIPEDREAM_CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
           PIPEDREAM_ORG_ID: ${{ secrets.PIPEDREAM_ORG_ID }}
           SOURCE_SHA: ${{ github.sha }}
         run: node scripts/pipedream/deploy.mjs

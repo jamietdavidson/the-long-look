@@ -203,15 +203,9 @@ function findCodeStep(steps, stepNamespace) {
 }
 
 async function resolveAccessToken() {
-  const apiKey = process.env.PIPEDREAM_API_KEY?.trim();
+  const apiKey = process.env.PIPEDREAM_API_KEY?.trim().replace(/^Bearer\s+/i, '');
   const clientId = process.env.PIPEDREAM_CLIENT_ID?.trim();
   const clientSecret = process.env.PIPEDREAM_CLIENT_SECRET?.trim();
-
-  if (apiKey) {
-    await pipedreamRequest(apiKey, 'GET', '/users/me');
-    log('Authenticated with user API key');
-    return {token: apiKey, mode: 'user_api_key'};
-  }
 
   if (clientId && clientSecret) {
     const response = await fetch(`${API_BASE}/oauth/token`, {
@@ -233,8 +227,22 @@ async function resolveAccessToken() {
     return {token: payload.access_token, mode: 'oauth'};
   }
 
+  if (apiKey) {
+    try {
+      await pipedreamRequest(apiKey, 'GET', '/users/me');
+      log('Authenticated with user API key');
+      return {token: apiKey, mode: 'user_api_key'};
+    } catch (error) {
+      throw new Error(
+        `PIPEDREAM_API_KEY is invalid (${error.message}). ` +
+          'Create a User API key at Pipedream → My Account → API Key (not a workspace OAuth client secret). ' +
+          'Alternatively set PIPEDREAM_CLIENT_ID and PIPEDREAM_CLIENT_SECRET.',
+      );
+    }
+  }
+
   throw new Error(
-    'Set PIPEDREAM_API_KEY (user API key from My Account → API Key) or PIPEDREAM_CLIENT_ID + PIPEDREAM_CLIENT_SECRET',
+    'Set PIPEDREAM_API_KEY (user API key) or PIPEDREAM_CLIENT_ID + PIPEDREAM_CLIENT_SECRET',
   );
 }
 
