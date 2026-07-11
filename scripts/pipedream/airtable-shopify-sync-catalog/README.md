@@ -27,10 +27,13 @@ Re-running is safe: Shopify entities are upserted by handle; Airtable status wri
 
 ## Pipedream setup
 
-1. **Trigger:** Airtable → *New Record in View* → Prints table → **Committed** view
-2. **Action:** Use the published action `thelonglook-airtable-shopify-sync-catalog` (or paste `script.js` + `config.js` + `utils.js` into a Node code step)
-3. Connect **airtable_oauth** and **shopify_developer_app**
-4. Test with **Dry run** = `true` first
+1. **Trigger:** Airtable → **New or Modified Records in View** → Prints table → **Committed** view  
+   (Do **not** use “New Records in View” — that only fires for newly created rows, not Status changes.)
+2. **Action:** Use the published action `thelonglook-airtable-shopify-sync-catalog`
+3. Connect **airtable_oauth** and **Shopify** on the **action step** (same account as trigger; trigger connection alone is not enough)
+4. For Shopify, **Shopify (Key Required)** works — Shop ID `thelonglookco` + your `shpat_` token
+5. Leave **Print record ID** blank in workflows (`{{steps.trigger.event.id}}` is only needed for isolated step tests)
+6. Test with **Dry run** = `true` first, then **Deploy**
 
 Required Shopify scopes: `read/write_metaobjects`, `read/write_products`, `read/write_publications`, `read/write_files`
 

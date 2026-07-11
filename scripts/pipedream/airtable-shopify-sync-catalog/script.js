@@ -1,7 +1,7 @@
 /**
  * Pipedream: Airtable → Shopify catalog sync (triggered per print)
  *
- * Trigger: Prints → Committed view (new record)
+ * Trigger: Prints → Committed view (new or modified record)
  * 1. Sync linked artist + collections to Shopify (idempotent)
  * 2. Sync the print (picture metaobject + product)
  * 3. Mark artist + collections Status → Committed in Airtable
@@ -12,8 +12,9 @@ import {AIRTABLE} from './config.js';
 import {
   fetchVariantCatalog,
   getPublicationIds,
+  getShopifyConnection,
   getTableRecord,
-  getTriggerPrintRecord,
+  resolvePrintRecord,
   linkedRecordIds,
   markRecordCommitted,
   syncArtist,
@@ -25,7 +26,15 @@ import {
 export default defineComponent({
   props: {
     airtable_oauth: {type: 'app', app: 'airtable_oauth'},
-    shopify_developer_app: {type: 'app', app: 'shopify_developer_app'},
+    shopify_developer_app: {type: 'app', app: 'shopify_developer_app', optional: true},
+    shopify: {type: 'app', app: 'shopify', optional: true},
+    printRecordId: {
+      type: 'string',
+      label: 'Print record ID',
+      description:
+        'Optional override for manual tests. In a workflow, leave blank — the print ID is read from the Airtable trigger.',
+      optional: true,
+    },
     dryRun: {
       type: 'boolean',
       label: 'Dry run',
@@ -35,11 +44,11 @@ export default defineComponent({
   },
   async run({steps, $}) {
     const airtable = this.airtable_oauth;
-    const shopify = this.shopify_developer_app;
+    const shopify = getShopifyConnection(this);
     const dryRun = this.dryRun ?? false;
     const committedStatus = AIRTABLE.committedStatus;
 
-    const printRecord = getTriggerPrintRecord(steps);
+    const printRecord = await resolvePrintRecord($, airtable, steps, this.printRecordId);
     const printFields = printRecord.fields ?? {};
 
     const catalog = await fetchVariantCatalog($, airtable);
@@ -54,7 +63,7 @@ export default defineComponent({
       throw new Error(`Print ${printRecord.id} is missing a linked Artist.`);
     }
 
-    const artistRecord = await getTableRecord($, airtable, AIRTABLE.artistsTable, artistRecordId);
+    const artistRecord = await getTableRecord($, airtable, 'artists', artistRecordId);
     const artistResult = await syncArtist($, shopify, artistRecord, dryRun);
     if (artistResult.status === 'skipped') {
       throw new Error(`Artist ${artistRecordId}: ${artistResult.reason}`);
@@ -78,7 +87,7 @@ export default defineComponent({
       const collectionRecord = await getTableRecord(
         $,
         airtable,
-        AIRTABLE.collectionsTable,
+        'collections',
         collectionRecordId,
       );
       const result = await syncCollection($, shopify, collectionRecord, dryRun);
@@ -110,7 +119,7 @@ export default defineComponent({
     }
 
     const artistStatus = await markRecordCommitted($, airtable, {
-      tableName: AIRTABLE.artistsTable,
+      tableKey: 'artists',
       statusField: AIRTABLE.artists.status,
       recordId: artistRecord.id,
       currentStatus: artistRecord.fields?.[AIRTABLE.artists.status],
@@ -123,12 +132,12 @@ export default defineComponent({
       const collectionRecord = await getTableRecord(
         $,
         airtable,
-        AIRTABLE.collectionsTable,
+        'collections',
         collectionRecordId,
       );
       collectionStatuses.push(
         await markRecordCommitted($, airtable, {
-          tableName: AIRTABLE.collectionsTable,
+          tableKey: 'collections',
           statusField: AIRTABLE.collections.status,
           recordId: collectionRecord.id,
           currentStatus: collectionRecord.fields?.[AIRTABLE.collections.status],

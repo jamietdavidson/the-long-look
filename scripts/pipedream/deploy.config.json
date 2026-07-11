@@ -5,6 +5,7 @@
       "source": "airtable-shopify-sync-catalog",
       "workflowId": "p_n1CGZzK",
       "componentKey": "thelonglook-airtable-shopify-sync-catalog",
+      "publishedComponentId": "sc_99ivBpEr",
       "name": "Airtable Shopify Sync Catalog"
     },
     {

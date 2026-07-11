@@ -53,19 +53,169 @@ export function normalizeVariant(fields) {
 
 // ─── Airtable API ─────────────────────────────────────────────────────────────
 
-export async function airtableRequest($, airtable, {method = 'get', path, data}) {
-  return axios($, {
-    method,
-    url: `https://api.airtable.com/v0${path}`,
-    headers: {
-      Authorization: `Bearer ${airtable.$auth.oauth_access_token}`,
-      'Content-Type': 'application/json',
-    },
-    data,
-  });
+const TABLE_REF = {
+  prints: {id: AIRTABLE.printsTableId, name: AIRTABLE.printsTable},
+  variants: {id: AIRTABLE.variantsTableId, name: AIRTABLE.variantsTable},
+  artists: {id: AIRTABLE.artistsTableId, name: AIRTABLE.artistsTable},
+  collections: {id: AIRTABLE.collectionsTableId, name: AIRTABLE.collectionsTable},
+};
+
+const PRINT_FIELD_IDS = {
+  [AIRTABLE.prints.name]: 'fldodweSrQJrDeTof',
+  [AIRTABLE.prints.description]: 'fldLpQ5eALLzTiGh0',
+  [AIRTABLE.prints.image]: 'fldyM2cKNOWimkTHy',
+  [AIRTABLE.prints.orientation]: 'fldwzuXg1F2f5ZGdZ',
+  [AIRTABLE.prints.artist]: 'fld27VD19QKXTMdJr',
+  [AIRTABLE.prints.collection]: 'fldx68uBGY28whBD9',
+  [AIRTABLE.prints.status]: 'fldhLQ5qh9X9aIklx',
+};
+
+export function tableRef(tableKey) {
+  return TABLE_REF[tableKey] ?? {id: null, name: tableKey};
 }
 
-export async function listTableRecords($, airtable, tableName, {sortField} = {}) {
+function tablePath(tableKey) {
+  const ref = tableRef(tableKey);
+  return ref.id ?? ref.name;
+}
+
+export function normalizeNamedFields(fields, fieldIdsByName) {
+  if (!fields || typeof fields !== 'object') return {};
+  const hasNamedKeys = Object.keys(fieldIdsByName).some((name) => name in fields);
+  if (hasNamedKeys) return fields;
+
+  const normalized = {};
+  for (const [name, fieldId] of Object.entries(fieldIdsByName)) {
+    if (fieldId in fields) normalized[name] = fields[fieldId];
+  }
+  return Object.keys(normalized).length ? normalized : fields;
+}
+
+export function normalizePrintRecord(record) {
+  if (!record?.id) return record;
+  return {
+    ...record,
+    fields: normalizeNamedFields(record.fields, PRINT_FIELD_IDS),
+  };
+}
+
+export function extractPrintRecordId(steps, explicitId) {
+  if (explicitId) return explicitId;
+
+  const candidates = [
+    steps?.trigger?.event,
+    steps?.trigger?.context?.event,
+    steps?.trigger,
+    steps?.trigger?.event?.record,
+  ].filter(Boolean);
+
+  for (const event of candidates) {
+    if (typeof event === 'string' && event.startsWith('rec')) return event;
+    if (event?.id?.startsWith?.('rec')) return event.id;
+    if (event?.recordId?.startsWith?.('rec')) return event.recordId;
+  }
+
+  return null;
+}
+
+export async function resolvePrintRecord($, airtable, steps, explicitId) {
+  const recordId = extractPrintRecordId(steps, explicitId);
+  if (!recordId) {
+    throw new Error(
+      'No print record ID found. Use an Airtable "New or Modified Records in View" trigger on Prints → Committed, or set Print Record ID for manual tests.',
+    );
+  }
+
+  const candidates = [
+    steps?.trigger?.event,
+    steps?.trigger?.context?.event,
+    steps?.trigger?.event?.record,
+  ].filter(Boolean);
+
+  for (const event of candidates) {
+    const record = event?.record ?? event;
+    if (record?.id === recordId && record?.fields && Object.keys(record.fields).length) {
+      return normalizePrintRecord(record);
+    }
+  }
+
+  const fetched = await getTableRecord($, airtable, 'prints', recordId);
+  return normalizePrintRecord(fetched);
+}
+
+/** @deprecated use resolvePrintRecord */
+export function getTriggerPrintRecord(steps) {
+  const recordId = extractPrintRecordId(steps);
+  const candidates = [
+    steps?.trigger?.event,
+    steps?.trigger?.context?.event,
+    steps?.trigger?.event?.record,
+  ].filter(Boolean);
+
+  for (const event of candidates) {
+    const record = normalizePrintRecord(event?.record ?? event);
+    if (record?.id && record?.fields && Object.keys(record.fields).length) {
+      return record;
+    }
+  }
+
+  throw new Error(
+    `No print fields on trigger event${recordId ? ` for ${recordId}` : ''}. The sync will fetch the record by ID when run in a workflow.`,
+  );
+}
+
+export function getShopifyConnection(component) {
+  const raw = component.shopify_developer_app ?? component.shopify;
+  const auth = raw?.$auth;
+  if (!auth) {
+    throw new Error(
+      'Connect Shopify on this step (Shopify Key Required or shopify_developer_app).',
+    );
+  }
+
+  const shopId = String(auth.shop_id ?? auth.shopId ?? 'thelonglookco').replace(
+    /\.myshopify\.com$/,
+    '',
+  );
+  const accessToken = auth.access_token ?? auth.api_key;
+  if (!accessToken) {
+    throw new Error('Shopify access token missing — reconnect the Shopify account on this step.');
+  }
+
+  return {$auth: {shop_id: shopId, access_token: accessToken}};
+}
+
+export async function airtableRequest($, airtable, {method = 'get', path, data}) {
+  const token = airtable?.$auth?.oauth_access_token;
+  if (!token) {
+    throw new Error(
+      'Airtable OAuth token missing — connect airtable_oauth on this action step (not just the trigger).',
+    );
+  }
+
+  try {
+    return await axios($, {
+      method,
+      url: `https://api.airtable.com/v0${path}`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      data,
+    });
+  } catch (error) {
+    const status = error?.response?.status;
+    const body = error?.response?.data;
+    if (status === 403) {
+      throw new Error(
+        `Airtable denied access to ${path}. Reconnect airtable_oauth on this step with access to base ${AIRTABLE.baseId}, or verify table/record IDs. ${JSON.stringify(body ?? {})}`,
+      );
+    }
+    throw error;
+  }
+}
+
+export async function listTableRecords($, airtable, tableKey, {sortField} = {}) {
   const records = [];
   let offset;
 
@@ -79,7 +229,7 @@ export async function listTableRecords($, airtable, tableName, {sortField} = {})
 
     const query = params.toString() ? `?${params}` : '';
     const response = await airtableRequest($, airtable, {
-      path: `/${AIRTABLE.baseId}/${encodeURIComponent(tableName)}${query}`,
+      path: `/${AIRTABLE.baseId}/${tablePath(tableKey)}${query}`,
     });
 
     records.push(...(response.records ?? []));
@@ -89,30 +239,22 @@ export async function listTableRecords($, airtable, tableName, {sortField} = {})
   return records;
 }
 
-export async function getTableRecord($, airtable, tableName, recordId) {
+export async function getTableRecord($, airtable, tableKey, recordId) {
   return airtableRequest($, airtable, {
-    path: `/${AIRTABLE.baseId}/${encodeURIComponent(tableName)}/${recordId}`,
+    path: `/${AIRTABLE.baseId}/${tablePath(tableKey)}/${recordId}`,
   });
 }
 
-export async function updateTableRecord($, airtable, tableName, recordId, fields) {
+export async function updateTableRecord($, airtable, tableKey, recordId, fields) {
   return airtableRequest($, airtable, {
     method: 'patch',
-    path: `/${AIRTABLE.baseId}/${encodeURIComponent(tableName)}/${recordId}`,
+    path: `/${AIRTABLE.baseId}/${tablePath(tableKey)}/${recordId}`,
     data: {fields},
   });
 }
 
-export function getTriggerPrintRecord(steps) {
-  const event = steps?.trigger?.event ?? steps?.trigger;
-  if (event?.id && event?.fields) return event;
-  if (event?.record?.id && event?.record?.fields) return event.record;
-  throw new Error(
-    'No print record found in trigger step. Use an Airtable "New Record in View" trigger on the Prints → Committed view.',
-  );
-}
-
 export async function markRecordCommitted($, airtable, {
+  tableKey,
   tableName,
   statusField,
   recordId,
@@ -120,6 +262,14 @@ export async function markRecordCommitted($, airtable, {
   committedStatus,
   dryRun,
 }) {
+  const resolvedTableKey =
+    tableKey ??
+    (tableName === AIRTABLE.artistsTable
+      ? 'artists'
+      : tableName === AIRTABLE.collectionsTable
+        ? 'collections'
+        : tableName);
+
   if (textValue(currentStatus) === committedStatus) {
     return {recordId, status: 'already_committed'};
   }
@@ -128,14 +278,14 @@ export async function markRecordCommitted($, airtable, {
     return {recordId, status: 'pending', dryRun: true};
   }
 
-  await updateTableRecord($, airtable, tableName, recordId, {
+  await updateTableRecord($, airtable, resolvedTableKey, recordId, {
     [statusField]: committedStatus,
   });
   return {recordId, status: 'committed'};
 }
 
 export async function fetchVariantCatalog($, airtable) {
-  const records = await listTableRecords($, airtable, AIRTABLE.variantsTable, {
+  const records = await listTableRecords($, airtable, 'variants', {
     sortField: AIRTABLE.variants.rank,
   });
   return records

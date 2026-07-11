@@ -7,6 +7,7 @@
  * 3. Fall back to `pd publish` if the API update path is rejected
  */
 import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import {existsSync, mkdtempSync, readFileSync, writeFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -375,6 +376,76 @@ async function getComponent(apiKey, orgId, componentIdOrKey) {
   }
 }
 
+function codeHash(code) {
+  return createHash('sha256').update(code ?? '').digest('hex');
+}
+
+function publishedMatchesBundle(publishedCode, bundled) {
+  if (!publishedCode || publishedCode.split('\n').length < 20) {
+    return false;
+  }
+
+  const sharedAnchors = [
+    'appC7O4qp56Rdaj7c',
+    'thelonglookco.myshopify.com',
+    'defineComponent',
+  ].filter((anchor) => bundled.includes(anchor));
+
+  const matchedAnchors = sharedAnchors.filter((anchor) => publishedCode.includes(anchor)).length;
+  return matchedAnchors >= 2 && publishedCode.length >= bundled.length * 0.85;
+}
+
+async function verifyInlineComponentUpdate(apiKey, orgId, componentId, expectedCode, beforeHash) {
+  const after = await getComponent(apiKey, orgId, componentId);
+  const remoteCode = after?.code ?? '';
+  const afterHash = after?.code_hash ?? codeHash(remoteCode);
+  const hashChanged = Boolean(beforeHash && afterHash && beforeHash !== afterHash);
+  const contentMatches = publishedMatchesBundle(remoteCode, expectedCode);
+
+  return {
+    ok: hashChanged || contentMatches,
+    remoteCode,
+    beforeHash,
+    afterHash,
+    hashChanged,
+    contentMatches,
+  };
+}
+
+async function publishWorkflowAction(apiKey, orgId, workflowConfig, bundled, startVersion) {
+  const existingPublished = workflowConfig.publishedComponentId
+    ? await getComponent(apiKey, orgId, workflowConfig.publishedComponentId)
+    : await getComponent(apiKey, orgId, workflowConfig.componentKey);
+  const nextVersion = bumpVersion(existingPublished?.version ?? startVersion);
+  const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
+  const publishPath = join(tempDir, `${workflowConfig.source}.js`);
+  configurePdCli(apiKey, orgId);
+  const publishedVersion = publishActionWithVersionRetry(
+    publishPath,
+    bundled,
+    workflowConfig,
+    nextVersion,
+  );
+  const published = await getComponent(
+    apiKey,
+    orgId,
+    workflowConfig.publishedComponentId ?? workflowConfig.componentKey,
+  );
+  const publishedCode = published?.code ?? '';
+  if (!publishedMatchesBundle(publishedCode, bundled)) {
+    throw new Error(
+      `Published action ${workflowConfig.componentKey}@${publishedVersion} does not contain expected code`,
+    );
+  }
+  log(
+    `Published action ${workflowConfig.componentKey}@${publishedVersion} (${published?.id ?? 'unknown id'})`,
+  );
+  log(
+    `If the workflow still shows old inline code, replace the code step with My Actions → ${workflowConfig.componentKey}`,
+  );
+  return {status: 'published', componentId: published?.id, version: publishedVersion};
+}
+
 async function updateSavedComponent(apiKey, orgId, componentId, componentCode) {
   const attempts = [
     {
@@ -437,21 +508,38 @@ function configurePdCli(apiKey, orgId) {
 }
 
 function ensurePdCli() {
+  const localPd = join(process.env.HOME ?? tmpdir(), '.local', 'bin', 'pd');
+  if (existsSync(localPd)) {
+    process.env.PATH = `${join(process.env.HOME ?? '', '.local', 'bin')}:${process.env.PATH ?? ''}`;
+  }
+
   try {
     execFileSync('pd', ['--version'], {stdio: 'pipe'});
     return;
   } catch {
-    log('Installing Pipedream CLI...');
-    execFileSync('sh', ['-c', 'curl -fsSL https://cli.pipedream.com/install | sh'], {
-      stdio: 'inherit',
-    });
+    log('Installing Pipedream CLI to ~/.local/bin ...');
+    const version = execFileSync('curl', ['-fsSL', 'https://cli.pipedream.com/LATEST_VERSION'], {
+      encoding: 'utf8',
+    }).trim();
+    const os = process.platform === 'darwin' ? 'darwin' : 'linux';
+    const arch = process.arch === 'arm64' ? 'arm64' : 'amd64';
+    const zipPath = join(tmpdir(), 'pd.zip');
+    execFileSync('curl', ['-fsSL', '-o', zipPath, `https://cli.pipedream.com/${os}/${arch}/${version}/pd.zip`]);
+    const installDir = join(process.env.HOME ?? tmpdir(), '.local', 'bin');
+    execFileSync('mkdir', ['-p', installDir]);
+    execFileSync('unzip', ['-o', zipPath, '-d', tmpdir()]);
+    execFileSync('cp', [join(tmpdir(), 'pd'), join(installDir, 'pd')]);
+    execFileSync('chmod', ['+x', join(installDir, 'pd')]);
+    process.env.PATH = `${installDir}:${process.env.PATH ?? ''}`;
   }
 }
 
-function publishWithCli(componentPath) {
+function publishWithCli(componentPath, {dev = false} = {}) {
   ensurePdCli();
+  const args = ['publish', componentPath, '--profile', 'thelonglook'];
+  if (dev) args.push('--dev');
   try {
-    execFileSync('pd', ['publish', componentPath, '--profile', 'thelonglook'], {
+    execFileSync('pd', args, {
       stdio: 'pipe',
       encoding: 'utf8',
     });
@@ -463,15 +551,30 @@ function publishWithCli(componentPath) {
 }
 
 function publishActionWithVersionRetry(componentPath, bundled, workflowConfig, startVersion) {
-  let version = startVersion;
-
-  for (let attempt = 0; attempt < 6; attempt++) {
+  const writePublishCode = (version) => {
     const publishCode = buildPublishCode(bundled, {
       componentKey: workflowConfig.componentKey,
       name: workflowConfig.name,
       version,
     });
     writeFileSync(componentPath, publishCode, 'utf8');
+  };
+
+  writePublishCode(startVersion);
+  try {
+    publishWithCli(componentPath, {dev: true});
+    return startVersion;
+  } catch (error) {
+    const message = String(error.message);
+    if (!/already published|409|not publishable|greater than/i.test(message)) {
+      throw error;
+    }
+  }
+
+  let version = startVersion;
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    writePublishCode(version);
 
     try {
       publishWithCli(componentPath);
@@ -508,6 +611,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
 
   const savedComponentId = step.savedComponent.id;
   const existing = await getComponent(apiKey, orgId, savedComponentId);
+  const beforeHash = existing?.code_hash ?? codeHash(existing?.code ?? step.savedComponent?.code ?? '');
   const existingCode = existing?.code ?? step.savedComponent?.code ?? '';
   const existingKey =
     existing?.key ?? step.savedComponent?.key ?? extractKey(existingCode);
@@ -522,57 +626,200 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
       : existingVersion,
   );
 
-  const componentCode = existingKey
-    ? injectComponentMetadata(bundled, {
-        componentKey: existingKey,
-        name: workflowConfig.name,
-        version: nextVersion,
-      })
-    : bundled;
+  const componentCode = prepareWorkflowComponentCode(bundled, {
+    componentKey: existingKey ?? workflowConfig.componentKey,
+    name: workflowConfig.name,
+    version: nextVersion,
+    existingKey,
+  });
 
   log(
     `Deploying ${workflowConfig.source} → ${workflowConfig.workflowId}/${step.namespace} (${savedComponentId})`,
   );
 
-  let result;
+  let inlineUpdated = false;
   try {
-    result = await updateSavedComponent(apiKey, orgId, savedComponentId, componentCode);
+    await updateSavedComponent(apiKey, orgId, savedComponentId, componentCode);
+    const verification = await verifyInlineComponentUpdate(
+      apiKey,
+      orgId,
+      savedComponentId,
+      componentCode,
+      beforeHash,
+    );
+    if (verification.ok) {
+      inlineUpdated = true;
+      log(`Inline component updated (${savedComponentId}) from ${sourceSha}`);
+    } else {
+      log(
+        `Inline component update did not change code (hash ${verification.beforeHash} → ${verification.afterHash}); falling back to pd publish`,
+      );
+    }
   } catch (apiError) {
-    log(`API update failed, trying pd publish: ${apiError.message}`);
-    const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
-    const publishPath = join(tempDir, `${workflowConfig.source}.js`);
-    const publishCode = buildPublishCode(bundled, {
-      componentKey: workflowConfig.componentKey,
-      name: workflowConfig.name,
-      version: nextVersion,
-    });
-    writeFileSync(publishPath, publishCode, 'utf8');
-    configurePdCli(apiKey, orgId);
-    const publishedVersion = publishActionWithVersionRetry(
-      publishPath,
-      bundled,
-      workflowConfig,
-      nextVersion,
-    );
-    result = {};
-    nextVersion = publishedVersion;
-    log(
-      `Published action ${workflowConfig.componentKey}@${nextVersion} via CLI (update workflow step to this action if needed)`,
-    );
+    log(`API inline update failed, trying pd publish: ${apiError.message}`);
   }
 
-  const componentId = result?.id ?? savedComponentId;
-  log(
-    `Deployed ${workflowConfig.source} (${componentId}) from ${sourceSha}`,
-  );
+  if (!inlineUpdated) {
+    return publishWorkflowAction(apiKey, orgId, workflowConfig, bundled, nextVersion);
+  }
 
-  return {status: 'published', componentId, version: nextVersion};
+  return {status: 'published', componentId: savedComponentId, version: nextVersion};
+}
+
+function parseCliArgs(argv) {
+  const flags = new Set(argv.filter((arg) => arg.startsWith('--')));
+  const workflowFilter = argv.find((arg, index) => {
+    return argv[index - 1] === '--workflow';
+  });
+  return {
+    dryRun: flags.has('--dry-run'),
+    compare: flags.has('--compare'),
+    workflowFilter,
+  };
+}
+
+function codeMarkers(code) {
+  return {
+    defineComponent: /export default defineComponent\(\{/.test(code),
+    plainExport: /export default \{/.test(code) && !/defineComponent/.test(code),
+    getTriggerPrintRecord: code.includes('getTriggerPrintRecord'),
+    markRecordCommitted: code.includes('markRecordCommitted'),
+    collectionField: /collection:\s*'Collection'/.test(code),
+    collectionsField: /collections:\s*'Collections'/.test(code),
+    batchArtistSync: code.includes('listTableRecords($, airtable, AIRTABLE.artistsTable)'),
+    lines: code.split('\n').length,
+  };
+}
+
+function prepareWorkflowComponentCode(bundled, {componentKey, name, version, existingKey}) {
+  return existingKey
+    ? injectComponentMetadata(bundled, {
+        componentKey: existingKey,
+        name,
+        version,
+      })
+    : bundled;
+}
+
+async function compareWorkflow(apiKey, orgId, workflowConfig, projectId) {
+  const sourceDir = join(PIPEDREAM_ROOT, workflowConfig.source);
+  const bundled = bundleWorkflow(sourceDir);
+  const workflow = await getWorkflow(apiKey, orgId, workflowConfig.workflowId, projectId);
+  const step = findDeployableStep(workflow.steps, workflowConfig);
+
+  if (!step?.savedComponent?.id) {
+    log(`No inline code step for ${workflowConfig.workflowId}`);
+    log(`Steps: ${JSON.stringify(formatStepSummary(workflow.steps))}`);
+    return;
+  }
+
+  const savedComponentId = step.savedComponent.id;
+  const existing = await getComponent(apiKey, orgId, savedComponentId);
+  const remoteCode = existing?.code ?? step.savedComponent?.code ?? '';
+  const existingKey =
+    existing?.key ?? step.savedComponent?.key ?? extractKey(remoteCode);
+  const existingVersion =
+    existing?.version ??
+    step.savedComponent?.version ??
+    extractVersion(remoteCode);
+  const nextVersion = bumpVersion(
+    existingKey
+      ? (existingVersion || (await getComponent(apiKey, orgId, existingKey))?.version)
+      : existingVersion,
+  );
+  const localDeployCode = prepareWorkflowComponentCode(bundled, {
+    componentKey: workflowConfig.componentKey,
+    name: workflowConfig.name,
+    version: nextVersion,
+    existingKey,
+  });
+
+  const outDir = mkdtempSync(join(tmpdir(), 'pipedream-compare-'));
+  const paths = {
+    bundled: join(outDir, `${workflowConfig.source}.bundled.js`),
+    deploy: join(outDir, `${workflowConfig.source}.deploy.js`),
+    remote: join(outDir, `${workflowConfig.source}.remote.js`),
+  };
+  writeFileSync(paths.bundled, bundled, 'utf8');
+  writeFileSync(paths.deploy, localDeployCode, 'utf8');
+  writeFileSync(paths.remote, remoteCode, 'utf8');
+
+  const localMarkers = codeMarkers(localDeployCode);
+  const remoteMarkers = codeMarkers(remoteCode);
+  const checks = [
+    'defineComponent',
+    'getTriggerPrintRecord',
+    'markRecordCommitted',
+    'collectionField',
+    'batchArtistSync',
+  ];
+  const mismatches = checks.filter((key) => localMarkers[key] !== remoteMarkers[key]);
+
+  log(`Compare ${workflowConfig.source} → ${workflowConfig.workflowId}/${step.namespace} (${savedComponentId})`);
+  log(`Remote key=${existingKey ?? '(none)'} version=${existingVersion ?? '(none)'} → next=${nextVersion}`);
+  log(`Local deploy markers: ${JSON.stringify(localMarkers)}`);
+  log(`Remote markers:       ${JSON.stringify(remoteMarkers)}`);
+  log(mismatches.length ? `Mismatch: ${mismatches.join(', ')}` : 'Markers match — remote should match deploy output');
+  log(`Files written:\n  ${paths.remote}\n  ${paths.deploy}\n  ${paths.bundled}`);
+  log(`Diff remote→deploy: diff -u ${paths.remote} ${paths.deploy}`);
+}
+
+async function dryRunWorkflow(workflowConfig) {
+  const sourceDir = join(PIPEDREAM_ROOT, workflowConfig.source);
+  const bundled = bundleWorkflow(sourceDir);
+  const deployCode = prepareWorkflowComponentCode(bundled, {
+    componentKey: workflowConfig.componentKey,
+    name: workflowConfig.name,
+    version: '0.0.1',
+    existingKey: workflowConfig.componentKey,
+  });
+  const publishCode = buildPublishCode(bundled, {
+    componentKey: workflowConfig.componentKey,
+    name: workflowConfig.name,
+    version: '0.0.1',
+  });
+
+  const outDir = mkdtempSync(join(tmpdir(), 'pipedream-dry-run-'));
+  const paths = {
+    bundled: join(outDir, `${workflowConfig.source}.bundled.js`),
+    workflowDeploy: join(outDir, `${workflowConfig.source}.workflow-deploy.js`),
+    cliPublish: join(outDir, `${workflowConfig.source}.cli-publish.js`),
+  };
+  writeFileSync(paths.bundled, bundled, 'utf8');
+  writeFileSync(paths.workflowDeploy, deployCode, 'utf8');
+  writeFileSync(paths.cliPublish, publishCode, 'utf8');
+
+  log(`Dry run ${workflowConfig.source}`);
+  log(`Bundled markers:         ${JSON.stringify(codeMarkers(bundled))}`);
+  log(`Workflow deploy markers: ${JSON.stringify(codeMarkers(deployCode))}`);
+  log(`CLI publish markers:     ${JSON.stringify(codeMarkers(publishCode))}`);
+  log(`Files written:\n  ${paths.bundled}\n  ${paths.workflowDeploy}\n  ${paths.cliPublish}`);
 }
 
 async function main() {
+  const {dryRun, compare, workflowFilter} = parseCliArgs(process.argv.slice(2));
+  const config = loadConfig();
+  const workflows = config.workflows.filter((workflowConfig) => {
+    if (!workflowFilter) return true;
+    return (
+      workflowConfig.source === workflowFilter ||
+      workflowConfig.workflowId === workflowFilter
+    );
+  });
+
+  if (!workflows.length) {
+    die(workflowFilter ? `No workflow matched --workflow ${workflowFilter}` : 'No workflows configured');
+  }
+
+  if (dryRun) {
+    for (const workflowConfig of workflows) {
+      await dryRunWorkflow(workflowConfig);
+    }
+    return;
+  }
+
   const orgId = process.env.PIPEDREAM_ORG_ID?.trim();
   const sourceSha = process.env.SOURCE_SHA ?? 'local';
-  const config = loadConfig();
   const {token: apiKey} = await resolveAccessToken();
   const projectId = config.projectId;
 
@@ -580,9 +827,16 @@ async function main() {
     die('PIPEDREAM_ORG_ID is required');
   }
 
+  if (compare) {
+    for (const workflowConfig of workflows) {
+      await compareWorkflow(apiKey, orgId, workflowConfig, projectId);
+    }
+    return;
+  }
+
   let published = 0;
 
-  for (const workflowConfig of config.workflows) {
+  for (const workflowConfig of workflows) {
     await deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSha);
     published += 1;
   }
