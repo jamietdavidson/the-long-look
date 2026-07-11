@@ -1,6 +1,6 @@
 # Airtable → Shopify catalog sync (Pipedream)
 
-One-way, idempotent sync from the **Operations** Airtable base to Shopify. **Does not write back to Airtable.**
+Triggered when a **Print** enters the **Committed** view in the Operations Airtable base. Syncs that print and its linked entities to Shopify, then marks the linked artist and collections as Committed in Airtable.
 
 | | |
 |---|---|
@@ -10,33 +10,37 @@ One-way, idempotent sync from the **Operations** Airtable base to Shopify. **Doe
 
 Order sync (Shopify → Airtable) is a **separate workflow** — see [`../shopify-airtable-sync-orders/`](../shopify-airtable-sync-orders/).
 
-## Sync order
+## Flow
 
 ```
-Variants    → shared variant catalog (all products)
-Artists     → artist metaobjects
-Collections → collection metaobjects
-Prints      → picture metaobjects + products
+Airtable trigger: Prints → Committed view (new record)
+        ↓
+1. Load Variants catalog (shared product options)
+2. Sync linked Artist → Shopify artist metaobject
+3. Sync linked Collections → Shopify collection metaobjects
+4. Sync Print → picture metaobject + product
+5. Write back Artist Status → Committed
+6. Write back Collection Status → Committed
 ```
 
-Re-running is safe: each entity is looked up by **handle** (slugified name) and updated if it already exists.
+Re-running is safe: Shopify entities are upserted by handle; Airtable status writes are skipped when already Committed.
+
+## Pipedream setup
+
+1. **Trigger:** Airtable → *New Record in View* → Prints table → **Committed** view
+2. **Action:** Use the published action `thelonglook-airtable-shopify-sync-catalog` (or paste `script.js` + `config.js` + `utils.js` into a Node code step)
+3. Connect **airtable_oauth** and **shopify_developer_app**
+4. Test with **Dry run** = `true` first
+
+Required Shopify scopes: `read/write_metaobjects`, `read/write_products`, `read/write_publications`, `read/write_files`
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `script.js` | Pipedream entry point (`defineComponent`) |
+| `script.js` | Trigger handler — one print per run |
 | `config.js` | Airtable field mappings and Shopify settings |
 | `utils.js` | API clients, transforms, and entity sync functions |
-
-## Pipedream setup
-
-1. Connect **airtable_oauth** and **shopify_developer_app**
-2. Add `script.js`, `config.js`, and `utils.js` to the workflow code step
-3. Test with **Dry run** = `true`
-4. Deploy
-
-Required Shopify scopes: `read/write_metaobjects`, `read/write_products`, `read/write_publications`, `read/write_files`
 
 ## Related
 

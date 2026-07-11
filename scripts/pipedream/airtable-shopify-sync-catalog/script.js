@@ -1,5 +1,10 @@
 /**
- * Pipedream: Airtable → Shopify catalog sync (one-way, idempotent)
+ * Pipedream: Airtable → Shopify catalog sync (triggered per print)
+ *
+ * Trigger: Prints → Committed view (new record)
+ * 1. Sync linked artist + collections to Shopify (idempotent)
+ * 2. Sync the print (picture metaobject + product)
+ * 3. Mark artist + collections Status → Committed in Airtable
  *
  * https://pipedream.com/@thelonglook/projects/proj_Vbs7LgY/airtable-shopify-sync-catalog-p_n1CGZzK/build
  */
@@ -7,7 +12,10 @@ import {AIRTABLE} from './config.js';
 import {
   fetchVariantCatalog,
   getPublicationIds,
-  listTableRecords,
+  getTableRecord,
+  getTriggerPrintRecord,
+  linkedRecordIds,
+  markRecordCommitted,
   syncArtist,
   syncCollection,
   syncPrint,
@@ -29,6 +37,10 @@ export default defineComponent({
     const airtable = this.airtable_oauth;
     const shopify = this.shopify_developer_app;
     const dryRun = this.dryRun ?? false;
+    const committedStatus = AIRTABLE.committedStatus;
+
+    const printRecord = getTriggerPrintRecord(steps);
+    const printFields = printRecord.fields ?? {};
 
     const catalog = await fetchVariantCatalog($, airtable);
     if (!catalog.length) {
@@ -37,81 +49,106 @@ export default defineComponent({
 
     const publicationIds = dryRun ? [] : await getPublicationIds($, shopify);
 
-    const artistRecords = await listTableRecords($, airtable, AIRTABLE.artistsTable);
+    const artistRecordId = linkedRecordIds(printFields[AIRTABLE.prints.artist])[0];
+    if (!artistRecordId) {
+      throw new Error(`Print ${printRecord.id} is missing a linked Artist.`);
+    }
+
+    const artistRecord = await getTableRecord($, airtable, AIRTABLE.artistsTable, artistRecordId);
+    const artistResult = await syncArtist($, shopify, artistRecord, dryRun);
+    if (artistResult.status === 'skipped') {
+      throw new Error(`Artist ${artistRecordId}: ${artistResult.reason}`);
+    }
+
     const artistMap = new Map();
-    const artistsSynced = [];
-    const artistsSkipped = [];
-
-    for (const record of artistRecords) {
-      const result = await syncArtist($, shopify, record, dryRun);
-      if (result.status === 'skipped') artistsSkipped.push(result);
-      else {
-        artistsSynced.push(result);
-        if (result.shopifyId) artistMap.set(record.id, result.shopifyId);
-        if (dryRun && result.handle) artistMap.set(record.id, `dry-run:${result.handle}`);
-      }
+    if (artistResult.shopifyId) artistMap.set(artistRecord.id, artistResult.shopifyId);
+    if (dryRun && artistResult.handle) {
+      artistMap.set(artistRecord.id, `dry-run:${artistResult.handle}`);
     }
+    const artistNameByRecordId = new Map([
+      [artistRecord.id, textValue(artistRecord.fields?.[AIRTABLE.artists.name])],
+    ]);
 
-    const artistNameByRecordId = new Map();
-    for (const record of artistRecords) {
-      const name = textValue(record.fields?.[AIRTABLE.artists.name]);
-      if (name) artistNameByRecordId.set(record.id, name);
-    }
-
-    const collectionRecords = await listTableRecords($, airtable, AIRTABLE.collectionsTable);
+    const collectionRecordIds = linkedRecordIds(printFields[AIRTABLE.prints.collections]);
     const collectionMap = new Map();
     const collectionsSynced = [];
     const collectionsSkipped = [];
 
-    for (const record of collectionRecords) {
-      const result = await syncCollection($, shopify, record, dryRun);
-      if (result.status === 'skipped') collectionsSkipped.push(result);
-      else {
-        collectionsSynced.push(result);
-        if (result.shopifyId) collectionMap.set(record.id, result.shopifyId);
-        if (dryRun && result.handle) collectionMap.set(record.id, `dry-run:${result.handle}`);
+    for (const collectionRecordId of collectionRecordIds) {
+      const collectionRecord = await getTableRecord(
+        $,
+        airtable,
+        AIRTABLE.collectionsTable,
+        collectionRecordId,
+      );
+      const result = await syncCollection($, shopify, collectionRecord, dryRun);
+      if (result.status === 'skipped') {
+        collectionsSkipped.push(result);
+        continue;
+      }
+
+      collectionsSynced.push(result);
+      if (result.shopifyId) collectionMap.set(collectionRecord.id, result.shopifyId);
+      if (dryRun && result.handle) {
+        collectionMap.set(collectionRecord.id, `dry-run:${result.handle}`);
       }
     }
 
-    const printRecords = await listTableRecords($, airtable, AIRTABLE.printsTable);
-    const printsSynced = [];
-    const printsSkipped = [];
-    const printErrors = [];
+    const printResult = await syncPrint($, {
+      shopify,
+      record: printRecord,
+      catalog,
+      artistMap,
+      collectionMap,
+      artistNameByRecordId,
+      publicationIds,
+      dryRun,
+    });
 
-    for (const record of printRecords) {
-      try {
-        const result = await syncPrint($, {
-          shopify,
-          record,
-          catalog,
-          artistMap,
-          collectionMap,
-          artistNameByRecordId,
-          publicationIds,
+    if (printResult.status === 'skipped') {
+      throw new Error(`Print ${printRecord.id}: ${printResult.reason}`);
+    }
+
+    const artistStatus = await markRecordCommitted($, airtable, {
+      tableName: AIRTABLE.artistsTable,
+      statusField: AIRTABLE.artists.status,
+      recordId: artistRecord.id,
+      currentStatus: artistRecord.fields?.[AIRTABLE.artists.status],
+      committedStatus,
+      dryRun,
+    });
+
+    const collectionStatuses = [];
+    for (const collectionRecordId of collectionRecordIds) {
+      const collectionRecord = await getTableRecord(
+        $,
+        airtable,
+        AIRTABLE.collectionsTable,
+        collectionRecordId,
+      );
+      collectionStatuses.push(
+        await markRecordCommitted($, airtable, {
+          tableName: AIRTABLE.collectionsTable,
+          statusField: AIRTABLE.collections.status,
+          recordId: collectionRecord.id,
+          currentStatus: collectionRecord.fields?.[AIRTABLE.collections.status],
+          committedStatus,
           dryRun,
-        });
-        if (result.status === 'skipped') printsSkipped.push(result);
-        else printsSynced.push(result);
-      } catch (err) {
-        printErrors.push({recordId: record.id, error: err?.message ?? String(err)});
-      }
+        }),
+      );
     }
 
     const summary = {
-      variantCatalogSize: catalog.length,
-      artists: {total: artistRecords.length, synced: artistsSynced.length, skipped: artistsSkipped.length},
-      collections: {total: collectionRecords.length, synced: collectionsSynced.length, skipped: collectionsSkipped.length},
-      prints: {total: printRecords.length, synced: printsSynced.length, skipped: printsSkipped.length, errors: printErrors.length},
+      printId: printRecord.id,
+      print: printResult,
+      artist: artistResult,
+      artistStatus,
+      collections: {synced: collectionsSynced, skipped: collectionsSkipped},
+      collectionStatuses,
       dryRun,
     };
 
     $.export('summary', summary);
-    return {
-      summary,
-      catalog,
-      artists: {synced: artistsSynced, skipped: artistsSkipped},
-      collections: {synced: collectionsSynced, skipped: collectionsSkipped},
-      prints: {synced: printsSynced, skipped: printsSkipped, errors: printErrors},
-    };
+    return summary;
   },
 });

@@ -7,9 +7,11 @@ export const AIRTABLE = {
   baseId: 'appC7O4qp56Rdaj7c',
   baseName: 'Operations',
   printsTable: 'Prints',
+  printsView: 'Committed',
   variantsTable: 'Variants',
   artistsTable: 'Artists',
   collectionsTable: 'Collections',
+  committedStatus: 'Committed',
   prints: {
     name: 'Name',
     description: 'Description',
@@ -32,6 +34,7 @@ export const AIRTABLE = {
     name: 'Name',
     description: 'Description',
     hometown: 'Hometown',
+    status: 'Status',
   },
   collections: {
     name: 'Name',

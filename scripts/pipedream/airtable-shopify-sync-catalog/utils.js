@@ -89,6 +89,51 @@ export async function listTableRecords($, airtable, tableName, {sortField} = {})
   return records;
 }
 
+export async function getTableRecord($, airtable, tableName, recordId) {
+  return airtableRequest($, airtable, {
+    path: `/${AIRTABLE.baseId}/${encodeURIComponent(tableName)}/${recordId}`,
+  });
+}
+
+export async function updateTableRecord($, airtable, tableName, recordId, fields) {
+  return airtableRequest($, airtable, {
+    method: 'patch',
+    path: `/${AIRTABLE.baseId}/${encodeURIComponent(tableName)}/${recordId}`,
+    data: {fields},
+  });
+}
+
+export function getTriggerPrintRecord(steps) {
+  const event = steps?.trigger?.event ?? steps?.trigger;
+  if (event?.id && event?.fields) return event;
+  if (event?.record?.id && event?.record?.fields) return event.record;
+  throw new Error(
+    'No print record found in trigger step. Use an Airtable "New Record in View" trigger on the Prints → Committed view.',
+  );
+}
+
+export async function markRecordCommitted($, airtable, {
+  tableName,
+  statusField,
+  recordId,
+  currentStatus,
+  committedStatus,
+  dryRun,
+}) {
+  if (textValue(currentStatus) === committedStatus) {
+    return {recordId, status: 'already_committed'};
+  }
+
+  if (dryRun) {
+    return {recordId, status: 'pending', dryRun: true};
+  }
+
+  await updateTableRecord($, airtable, tableName, recordId, {
+    [statusField]: committedStatus,
+  });
+  return {recordId, status: 'committed'};
+}
+
 export async function fetchVariantCatalog($, airtable) {
   const records = await listTableRecords($, airtable, AIRTABLE.variantsTable, {
     sortField: AIRTABLE.variants.rank,
