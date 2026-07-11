@@ -26,8 +26,7 @@ import {
 export default defineComponent({
   props: {
     airtable_oauth: {type: 'app', app: 'airtable_oauth'},
-    shopify_developer_app: {type: 'app', app: 'shopify_developer_app', optional: true},
-    shopify: {type: 'app', app: 'shopify', optional: true},
+    shopify_developer_app: {type: 'app', app: 'shopify_developer_app'},
     printRecordId: {
       type: 'string',
       label: 'Print record ID',

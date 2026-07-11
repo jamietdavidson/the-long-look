@@ -165,7 +165,7 @@ export function getTriggerPrintRecord(steps) {
 }
 
 export function getShopifyConnection(component) {
-  const raw = component.shopify_developer_app ?? component.shopify;
+  const raw = component.shopify_developer_app;
   const auth = raw?.$auth;
   if (!auth) {
     throw new Error(
