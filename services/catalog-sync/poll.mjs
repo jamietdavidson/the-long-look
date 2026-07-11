@@ -38,7 +38,7 @@ async function listCommittedPrintIds() {
 
 export function startPolling({intervalMs, onResult, onError}) {
   if (!intervalMs || intervalMs < 60_000) {
-    console.log('[poll] Polling disabled (set POLL_INTERVAL_MS >= 60000 to enable)');
+    console.log('[poll] Polling disabled (POLL_INTERVAL_MS must be >= 60000)');
     return () => {};
   }
 
