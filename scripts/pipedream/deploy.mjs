@@ -523,7 +523,7 @@ async function deployWorkflow(apiKey, orgId, workflowConfig, projectId, sourceSh
   );
 
   const componentCode = existingKey
-    ? buildPublishCode(bundled, {
+    ? injectComponentMetadata(bundled, {
         componentKey: existingKey,
         name: workflowConfig.name,
         version: nextVersion,

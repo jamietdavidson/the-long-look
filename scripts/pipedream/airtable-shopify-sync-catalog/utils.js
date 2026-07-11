@@ -403,7 +403,7 @@ export async function syncPrint($, {
     return {recordId: record.id, status: 'skipped', reason: 'Missing or unsynced artist'};
   }
 
-  const collectionShopifyIds = linkedRecordIds(fields[f.collections])
+  const collectionShopifyIds = linkedRecordIds(fields[f.collection])
     .map((id) => collectionMap.get(id))
     .filter((id) => id && !String(id).startsWith('dry-run:'));
 

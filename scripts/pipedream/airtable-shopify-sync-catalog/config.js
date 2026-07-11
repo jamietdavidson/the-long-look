@@ -17,7 +17,7 @@ export const AIRTABLE = {
     description: 'Description',
     image: 'Picture',
     artist: 'Artist',
-    collections: 'Collections',
+    collection: 'Collection',
     orientation: 'Orientation',
   },
   variants: {

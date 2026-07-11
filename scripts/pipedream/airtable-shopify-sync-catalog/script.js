@@ -69,7 +69,7 @@ export default defineComponent({
       [artistRecord.id, textValue(artistRecord.fields?.[AIRTABLE.artists.name])],
     ]);
 
-    const collectionRecordIds = linkedRecordIds(printFields[AIRTABLE.prints.collections]);
+    const collectionRecordIds = linkedRecordIds(printFields[AIRTABLE.prints.collection]);
     const collectionMap = new Map();
     const collectionsSynced = [];
     const collectionsSkipped = [];
