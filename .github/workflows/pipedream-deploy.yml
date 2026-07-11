@@ -1,0 +1,35 @@
+name: Deploy Pipedream workflows
+
+on:
+  push:
+    paths:
+      - 'scripts/pipedream/**'
+      - '.github/workflows/pipedream-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Pipedream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          check-latest: true
+
+      - name: Install Pipedream CLI
+        run: curl -fsSL https://cli.pipedream.com/install | sh
+
+      - name: Publish workflows via Pipedream API
+        env:
+          PIPEDREAM_API_KEY: ${{ secrets.PIPEDREAM_API_KEY }}
+          PIPEDREAM_ORG_ID: ${{ secrets.PIPEDREAM_ORG_ID }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: node scripts/pipedream/deploy.mjs

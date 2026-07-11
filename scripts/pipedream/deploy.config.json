@@ -1,0 +1,16 @@
+{
+  "workflows": [
+    {
+      "source": "airtable-shopify-sync-catalog",
+      "workflowId": "p_n1CGZzK",
+      "componentKey": "thelonglook-airtable-shopify-sync-catalog",
+      "name": "Airtable Shopify Sync Catalog"
+    },
+    {
+      "source": "shopify-airtable-sync-orders",
+      "workflowId": "p_8rCVdYp",
+      "componentKey": "thelonglook-shopify-airtable-product-ordered",
+      "name": "Shopify Airtable Product Ordered"
+    }
+  ]
+}
