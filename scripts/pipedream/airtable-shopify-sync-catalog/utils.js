@@ -366,6 +366,47 @@ export async function listFineArtPrintProducts($, shopify) {
   return products;
 }
 
+export async function listPictureMetaobjects($, shopify) {
+  const pictures = [];
+  let cursor = null;
+  const fieldKey = SHOPIFY.airtableRecordIdField;
+  const type = SHOPIFY.metaobjectTypes.picture;
+
+  do {
+    const data = await shopifyRequest($, shopify, {
+      query: `query($cursor: String, $type: String!) {
+        metaobjects(first: 100, after: $cursor, type: $type) {
+          nodes {
+            id
+            handle
+            airtableId: field(key: "${fieldKey}") { value }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }`,
+      variables: {cursor, type},
+    });
+
+    pictures.push(
+      ...(data.metaobjects?.nodes ?? []).map((node) => ({
+        id: node.id,
+        handle: node.handle,
+        airtableRecordId: node.airtableId?.value ?? null,
+      })),
+    );
+    const pageInfo = data.metaobjects?.pageInfo;
+    cursor = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
+  } while (cursor);
+
+  return pictures;
+}
+
+function isPrintInAirtable({airtableRecordId, handle}, validRecordIds, validHandles) {
+  if (airtableRecordId && validRecordIds.has(airtableRecordId)) return true;
+  if (handle && validHandles.has(handle)) return true;
+  return false;
+}
+
 export async function deleteProduct($, shopify, productId) {
   const data = await shopifyRequest($, shopify, {
     query: `mutation($id: ID!) {
@@ -429,36 +470,65 @@ export async function pruneOrphanedPrints($, airtable, shopify, dryRun) {
   const validRecordIds = new Set(airtablePrints.map((record) => record.id));
   const validHandles = new Set(airtablePrints.map((record) => printHandle(record)));
 
-  const shopifyProducts = await listFineArtPrintProducts($, shopify);
-  const orphans = shopifyProducts.filter((product) => {
-    if (product.airtableRecordId && validRecordIds.has(product.airtableRecordId)) {
-      return false;
-    }
-    if (product.handle && validHandles.has(product.handle)) {
-      return false;
-    }
+  const [shopifyProducts, shopifyPictures] = await Promise.all([
+    listFineArtPrintProducts($, shopify),
+    listPictureMetaobjects($, shopify),
+  ]);
+
+  const productOrphans = shopifyProducts.filter(
+    (product) => !isPrintInAirtable(product, validRecordIds, validHandles),
+  );
+  const productOrphanHandles = new Set(
+    productOrphans.map((product) => product.handle).filter(Boolean),
+  );
+  const pictureOrphans = shopifyPictures.filter((picture) => {
+    if (isPrintInAirtable(picture, validRecordIds, validHandles)) return false;
+    if (picture.handle && productOrphanHandles.has(picture.handle)) return false;
     return true;
   });
 
-  if (!orphans.length) {
-    return {removed: [], wouldRemove: [], count: 0, shopifyTotal: shopifyProducts.length};
+  const orphanTargets = [
+    ...productOrphans.map((product) => ({
+      airtableRecordId: product.airtableRecordId,
+      handle: product.handle,
+      productId: product.id,
+      pictureId: null,
+    })),
+    ...pictureOrphans.map((picture) => ({
+      airtableRecordId: picture.airtableRecordId,
+      handle: picture.handle,
+      productId: null,
+      pictureId: picture.id,
+    })),
+  ];
+
+  if (!orphanTargets.length) {
+    return {
+      removed: [],
+      wouldRemove: [],
+      count: 0,
+      shopifyTotal: shopifyProducts.length,
+      pictureTotal: shopifyPictures.length,
+    };
   }
 
   if (dryRun) {
     return {
       dryRun: true,
-      wouldRemove: orphans.map((product) => ({
-        airtableRecordId: product.airtableRecordId,
-        handle: product.handle,
-        productId: product.id,
+      wouldRemove: orphanTargets.map((target) => ({
+        airtableRecordId: target.airtableRecordId,
+        handle: target.handle,
+        productId: target.productId,
+        pictureId: target.pictureId,
       })),
-      count: orphans.length,
+      count: orphanTargets.length,
       shopifyTotal: shopifyProducts.length,
+      pictureTotal: shopifyPictures.length,
     };
   }
 
   const removed = [];
-  for (const orphan of orphans) {
+  for (const orphan of orphanTargets) {
     const result = await removePrintByAirtableId(
       $,
       shopify,
@@ -469,12 +539,18 @@ export async function pruneOrphanedPrints($, airtable, shopify, dryRun) {
     removed.push({
       airtableRecordId: orphan.airtableRecordId,
       handle: orphan.handle,
-      productId: orphan.id,
+      productId: orphan.productId,
+      pictureId: orphan.pictureId,
       ...result,
     });
   }
 
-  return {removed, count: removed.length, shopifyTotal: shopifyProducts.length};
+  return {
+    removed,
+    count: removed.length,
+    shopifyTotal: shopifyProducts.length,
+    pictureTotal: shopifyPictures.length,
+  };
 }
 
 export async function fetchVariantCatalog($, airtable) {
