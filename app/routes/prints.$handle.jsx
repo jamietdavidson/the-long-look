@@ -4,7 +4,7 @@ import {PrintDetail} from '~/components/PrintDetail';
 import {
   loadPrintProductByHandle,
   loadRecommendedPrintProducts,
-  resolveArtistForVendor,
+  resolveArtistForProduct,
   loadArtistIndex,
 } from '~/lib/print-catalog';
 
@@ -41,7 +41,7 @@ export async function loader({context, request, params}) {
     loadRecommendedPrintProducts(context.storefront, handle, 12),
   ]);
 
-  const artist = resolveArtistForVendor(product.vendor, artists);
+  const artist = resolveArtistForProduct(product, artists);
 
   return {product, artist, recommended};
 }

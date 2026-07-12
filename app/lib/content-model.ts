@@ -35,6 +35,7 @@ export interface Artist {
   id: string;
   handle: string;
   name: string;
+  airtableRecordId?: string | null;
   bio?: string | null;
   birthYear?: number | null;
   location?: string | null;
@@ -49,6 +50,7 @@ export interface Collection {
   id: string;
   handle: string;
   title: string;
+  airtableRecordId?: string | null;
   description?: string | null;
   coverImage?: {url: string; altText?: string | null; width?: number | null; height?: number | null} | null;
   tags: Tag[];

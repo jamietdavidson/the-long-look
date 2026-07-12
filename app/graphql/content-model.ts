@@ -32,6 +32,9 @@ export const ARTIST_FRAGMENT = `#graphql
     instagramHandle: field(key: "instagram_handle") {
       value
     }
+    airtableRecordId: field(key: "airtable_record_id") {
+      value
+    }
     portrait: field(key: "portrait") {
       reference {
         ... on MediaImage {
@@ -62,6 +65,9 @@ export const COLLECTION_FRAGMENT = `#graphql
       value
     }
     description: field(key: "description") {
+      value
+    }
+    airtableRecordId: field(key: "airtable_record_id") {
       value
     }
     coverImage: field(key: "cover_image") {

@@ -12,7 +12,9 @@ import {
   loadArtistIndex,
   getProductCollectionHandles,
   productsToPrintCards,
-  resolveArtistForVendor,
+  productBelongsToCollection,
+  collectionAirtableRecordId,
+  resolveArtistForProduct,
   type PictureCard,
 } from '~/lib/print-catalog';
 
@@ -100,6 +102,7 @@ function parseArtist(node: Record<string, unknown>): Artist {
     id: string;
     handle: string;
     name?: FieldValue;
+    airtableRecordId?: FieldValue;
     bio?: FieldValue;
     birthYear?: FieldValue;
     location?: FieldValue;
@@ -112,6 +115,7 @@ function parseArtist(node: Record<string, unknown>): Artist {
     id: n.id,
     handle: n.handle,
     name: n.name?.value ?? '',
+    airtableRecordId: n.airtableRecordId?.value ?? null,
     bio: n.bio?.value,
     birthYear: n.birthYear?.value ? Number(n.birthYear.value) : null,
     location: n.location?.value,
@@ -126,6 +130,7 @@ function parseCollection(node: Record<string, unknown>): Collection {
     id: string;
     handle: string;
     title?: FieldValue;
+    airtableRecordId?: FieldValue;
     description?: FieldValue;
     coverImage?: ImageRef;
     tags?: {references?: {nodes?: Array<Record<string, unknown>> | null} | null};
@@ -135,6 +140,7 @@ function parseCollection(node: Record<string, unknown>): Collection {
     id: n.id,
     handle: n.handle,
     title: n.title?.value ?? '',
+    airtableRecordId: n.airtableRecordId?.value ?? null,
     description: n.description?.value,
     coverImage: parseImage(n.coverImage),
     tags: (n.tags?.references?.nodes ?? []).map((tag) => parseTag(tag as Parameters<typeof parseTag>[0])),
@@ -272,16 +278,27 @@ export async function loadContentNav(storefront: Storefront): Promise<ContentNav
 
   const artistCounts = new Map<string, number>();
   for (const product of products) {
-    const artist = resolveArtistForVendor(product.vendor, artists);
+    const artist = resolveArtistForProduct(product, artists);
     if (artist) {
       artistCounts.set(artist.handle, (artistCounts.get(artist.handle) ?? 0) + 1);
     }
   }
 
   const collectionCounts = new Map<string, number>();
+  const collections = collectionNodes.map((node) => parseCollection(node));
   for (const product of products) {
-    for (const handle of getProductCollectionHandles(product)) {
-      collectionCounts.set(handle, (collectionCounts.get(handle) ?? 0) + 1);
+    for (const collection of collections) {
+      if (
+        productBelongsToCollection(product, {
+          recordId: collectionAirtableRecordId(collection),
+          handle: collection.handle,
+        })
+      ) {
+        collectionCounts.set(
+          collection.handle,
+          (collectionCounts.get(collection.handle) ?? 0) + 1,
+        );
+      }
     }
   }
 
@@ -381,8 +398,7 @@ export async function loadArtistsIndex(storefront: Storefront) {
   return artists.map((artist) => {
     const works = productsToPrintCards(
       products.filter(
-        (product) =>
-          resolveArtistForVendor(product.vendor, artistIndex)?.handle === artist.handle,
+        (product) => resolveArtistForProduct(product, artistIndex)?.handle === artist.handle,
       ),
       artistIndex,
     );
@@ -430,7 +446,7 @@ export async function searchContent(
   const artistIndex = await loadArtistIndex(storefront).catch(() => []);
 
   const matchedPrints = products.filter((product) => {
-    const artist = resolveArtistForVendor(product.vendor, artistIndex);
+    const artist = resolveArtistForProduct(product, artistIndex);
     if (artist && matchedArtistHandles.has(artist.handle)) {
       return true;
     }

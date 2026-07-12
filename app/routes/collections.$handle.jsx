@@ -50,7 +50,11 @@ export async function loader(args) {
   const contentCollection = await loadContentCollectionByHandle(storefront, handle);
   if (contentCollection) {
     const [products, artists] = await Promise.all([
-      loadPrintProductsForCollection(storefront, handle),
+      loadPrintProductsForCollection(
+        storefront,
+        handle,
+        contentCollection.airtableRecordId,
+      ),
       loadArtistIndex(storefront),
     ]);
 

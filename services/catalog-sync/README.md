@@ -6,7 +6,7 @@ Replaces Pipedream for **Airtable → Shopify** print catalog sync. Uses the sam
 
 ## How it works
 
-The service **polls** the Airtable **Prints → Committed** view every minute (configurable), and syncs each print to Shopify. No Airtable automations or webhooks required.
+The service **polls** the Airtable **Prints → Committed** view every minute (configurable), syncs each print to Shopify, and also refreshes any Artists/Collections with Status **Commited** so renames update existing metaobjects in place. No Airtable automations or webhooks required.
 
 ## Endpoints
 

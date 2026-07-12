@@ -89,7 +89,7 @@ async function loadUtils() {
   const modulePath = join(tempDir, 'utils-bundle.mjs');
   writeFileSync(
     modulePath,
-    `${parts.join('\n\n')}\nexport { pruneOrphanedPrints };\n`,
+    `${parts.join('\n\n')}\nexport { pruneOrphanedPrints, syncCommittedArtistsAndCollections };\n`,
     'utf8',
   );
 
@@ -127,6 +127,16 @@ export async function pruneDeletedPrints({dryRun = false} = {}) {
   const {pruneOrphanedPrints} = await loadUtils();
   const {$, airtable, shopify} = createClients();
   return pruneOrphanedPrints($, airtable, shopify, dryRun);
+}
+
+/**
+ * Sync committed artists and collections (stable Airtable id matching).
+ * @param {{ dryRun?: boolean }} [options]
+ */
+export async function syncCommittedArtistsAndCollections({dryRun = false} = {}) {
+  const {syncCommittedArtistsAndCollections: syncLinked} = await loadUtils();
+  const {$, airtable, shopify} = createClients();
+  return syncLinked($, airtable, shopify, dryRun);
 }
 
 /**

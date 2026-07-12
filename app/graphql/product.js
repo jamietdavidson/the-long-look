@@ -140,6 +140,12 @@ export const PRINT_CATALOG_PRODUCT_FRAGMENT = `#graphql
     collectionHandles: metafield(namespace: "print", key: "collection_handles") {
       value
     }
+    artistRecordId: metafield(namespace: "print", key: "artist_record_id") {
+      value
+    }
+    collectionRecordIds: metafield(namespace: "print", key: "collection_record_ids") {
+      value
+    }
     priceRange {
       minVariantPrice {
         amount

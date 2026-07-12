@@ -354,10 +354,29 @@ export async function listFineArtPrintProducts($, shopify) {
   return products;
 }
 
+const METAOBJECT_DISPLAY_FIELD = {
+  artist: 'name',
+  collection: 'title',
+};
+
+/** Stable Shopify handle derived from an Airtable record id (fallback when airtable_record_id field is unavailable). */
+export function airtableStableHandle(recordId) {
+  return String(recordId ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+function metaobjectDisplayFieldKey(type) {
+  return METAOBJECT_DISPLAY_FIELD[type] ?? 'name';
+}
+
 export async function listMetaobjectsByType($, shopify, type) {
   const metaobjects = [];
   let cursor = null;
   const fieldKey = SHOPIFY.airtableRecordIdField;
+  const displayFieldKey = metaobjectDisplayFieldKey(type);
 
   do {
     const data = await shopifyRequest($, shopify, {
@@ -367,6 +386,7 @@ export async function listMetaobjectsByType($, shopify, type) {
             id
             handle
             airtableId: field(key: "${fieldKey}") { value }
+            display: field(key: "${displayFieldKey}") { value }
           }
           pageInfo { hasNextPage endCursor }
         }
@@ -379,6 +399,7 @@ export async function listMetaobjectsByType($, shopify, type) {
         id: node.id,
         handle: node.handle,
         airtableRecordId: node.airtableId?.value ?? null,
+        displayValue: node.display?.value ?? null,
       })),
     );
     const pageInfo = data.metaobjects?.pageInfo;
@@ -386,6 +407,55 @@ export async function listMetaobjectsByType($, shopify, type) {
   } while (cursor);
 
   return metaobjects;
+}
+
+async function findMetaobjectIdByDisplayName($, shopify, type, displayName) {
+  const normalized = textValue(displayName).toLowerCase();
+  if (!normalized) return null;
+
+  const metaobjects = await listMetaobjectsByType($, shopify, type);
+  const match = metaobjects.find(
+    (entry) => textValue(entry.displayValue).toLowerCase() === normalized,
+  );
+  return match?.id ?? null;
+}
+
+/**
+ * Resolve an artist/collection metaobject for sync — Airtable record id first, then legacy handle/name.
+ * @returns {{ id: string | null, useStableHandle: boolean }}
+ */
+export async function resolveMetaobjectForSync(
+  $,
+  shopify,
+  type,
+  {recordId, displayName},
+) {
+  const stableHandle = airtableStableHandle(recordId);
+  const displayHandle = slugify(displayName);
+
+  if (recordId) {
+    const byAirtableId = await getMetaobjectIdByAirtableId($, shopify, type, recordId);
+    if (byAirtableId) {
+      return {id: byAirtableId, useStableHandle: false};
+    }
+  }
+
+  const byStableHandle = await getMetaobjectIdByHandle($, shopify, type, stableHandle);
+  if (byStableHandle) {
+    return {id: byStableHandle, useStableHandle: true};
+  }
+
+  const byDisplayHandle = await getMetaobjectIdByHandle($, shopify, type, displayHandle);
+  if (byDisplayHandle) {
+    return {id: byDisplayHandle, useStableHandle: true};
+  }
+
+  const byDisplayName = await findMetaobjectIdByDisplayName($, shopify, type, displayName);
+  if (byDisplayName) {
+    return {id: byDisplayName, useStableHandle: true};
+  }
+
+  return {id: null, useStableHandle: true};
 }
 
 export async function listPictureMetaobjects($, shopify) {
@@ -601,6 +671,14 @@ export async function resolveMetaobjectId($, shopify, type, {recordId, handle}) 
   if (recordId) {
     const byId = await getMetaobjectIdByAirtableId($, shopify, type, recordId);
     if (byId) return byId;
+
+    const byStableHandle = await getMetaobjectIdByHandle(
+      $,
+      shopify,
+      type,
+      airtableStableHandle(recordId),
+    );
+    if (byStableHandle) return byStableHandle;
   }
   if (handle) {
     return getMetaobjectIdByHandle($, shopify, type, handle);
@@ -703,17 +781,25 @@ function stripAirtableRecordId(fields) {
   return fields.filter((field) => field.key !== fieldKey);
 }
 
-async function upsertMetaobject($, shopify, {type, handle, fields, airtableRecordId}) {
-  const payloadFields = airtableRecordId
-    ? withAirtableRecordId(fields, airtableRecordId)
-    : fields;
-  const existingId = await resolveMetaobjectId($, shopify, type, {
-    recordId: airtableRecordId,
-    handle,
-  });
+const metaobjectAirtableFieldSupported = new Map();
 
-  const runMutation = async (mutationFields) => {
-    if (existingId) {
+async function upsertMetaobject(
+  $,
+  shopify,
+  {type, handle, stableHandle, fields, airtableRecordId, existingId},
+) {
+  const resolvedId =
+    existingId ??
+    (await resolveMetaobjectId($, shopify, type, {
+      recordId: airtableRecordId,
+      handle,
+    }));
+  const fallbackHandle = stableHandle ?? handle;
+  const mutationHandle =
+    metaobjectAirtableFieldSupported.get(type) === false ? fallbackHandle : handle;
+
+  const runMutation = async (mutationHandleValue, mutationFields) => {
+    if (resolvedId) {
       const data = await shopifyRequest($, shopify, {
         query: `mutation($id: ID!, $metaobject: MetaobjectUpdateInput!) {
           metaobjectUpdate(id: $id, metaobject: $metaobject) {
@@ -721,7 +807,10 @@ async function upsertMetaobject($, shopify, {type, handle, fields, airtableRecor
             userErrors { field message }
           }
         }`,
-        variables: {id: existingId, metaobject: {handle, fields: mutationFields}},
+        variables: {
+          id: resolvedId,
+          metaobject: {handle: mutationHandleValue, fields: mutationFields},
+        },
       });
       const errors = data.metaobjectUpdate?.userErrors ?? [];
       if (errors.length) throw new Error(`metaobjectUpdate: ${JSON.stringify(errors)}`);
@@ -735,19 +824,27 @@ async function upsertMetaobject($, shopify, {type, handle, fields, airtableRecor
           userErrors { field message }
         }
       }`,
-      variables: {metaobject: {type, handle, fields: mutationFields}},
+      variables: {metaobject: {type, handle: mutationHandleValue, fields: mutationFields}},
     });
     const errors = data.metaobjectCreate?.userErrors ?? [];
     if (errors.length) throw new Error(`metaobjectCreate: ${JSON.stringify(errors)}`);
     return data.metaobjectCreate.metaobject;
   };
 
+  const payloadFields = airtableRecordId
+    ? withAirtableRecordId(fields, airtableRecordId)
+    : fields;
+
   try {
-    return await runMutation(payloadFields);
+    const metaobject = await runMutation(mutationHandle, payloadFields);
+    if (airtableRecordId) metaobjectAirtableFieldSupported.set(type, true);
+    return metaobject;
   } catch (error) {
     const message = String(error.message);
     if (!airtableRecordId || !isMissingAirtableFieldError(message)) throw error;
-    return runMutation(stripAirtableRecordId(fields));
+
+    metaobjectAirtableFieldSupported.set(type, false);
+    return runMutation(fallbackHandle, stripAirtableRecordId(fields));
   }
 }
 
@@ -760,6 +857,8 @@ export function buildProductInput({
   vendor,
   handle,
   airtableRecordId,
+  artistRecordId,
+  collectionRecordIds = [],
   collectionHandles = [],
 }) {
   const sizeNames = [...new Set(catalog.map((v) => v.sizeName))].sort((a, b) => {
@@ -778,14 +877,26 @@ export function buildProductInput({
   if (airtableRecordId) {
     productMetafields.push(productAirtableMetafield(airtableRecordId));
   }
-  if (collectionHandles.length) {
+  if (artistRecordId) {
     productMetafields.push({
       namespace: mf.namespace,
-      key: mf.collectionHandles,
-      type: 'json',
-      value: JSON.stringify(collectionHandles),
+      key: mf.artistRecordId,
+      type: 'single_line_text_field',
+      value: artistRecordId,
     });
   }
+  productMetafields.push({
+    namespace: mf.namespace,
+    key: mf.collectionRecordIds,
+    type: 'json',
+    value: JSON.stringify(collectionRecordIds),
+  });
+  productMetafields.push({
+    namespace: mf.namespace,
+    key: mf.collectionHandles,
+    type: 'json',
+    value: JSON.stringify(collectionHandles),
+  });
 
   const input = {
     title,
@@ -849,6 +960,55 @@ async function updateProductScalars(
   const errors = data.productUpdate?.userErrors ?? [];
   if (errors.length) throw new Error(`productUpdate: ${JSON.stringify(errors)}`);
   return data.productUpdate.product;
+}
+
+/** Force link metafields on an existing product (artist/collection membership). */
+async function updateProductLinkMetafields(
+  $,
+  shopify,
+  {productId, artistRecordId, collectionRecordIds = [], collectionHandles = []},
+) {
+  const mf = SHOPIFY.metafields;
+  const metafields = [
+    {
+      namespace: mf.namespace,
+      key: mf.collectionRecordIds,
+      type: 'json',
+      value: JSON.stringify(collectionRecordIds),
+    },
+    {
+      namespace: mf.namespace,
+      key: mf.collectionHandles,
+      type: 'json',
+      value: JSON.stringify(collectionHandles),
+    },
+  ];
+
+  if (artistRecordId) {
+    metafields.unshift({
+      namespace: mf.namespace,
+      key: mf.artistRecordId,
+      type: 'single_line_text_field',
+      value: artistRecordId,
+    });
+  }
+
+  const data = await shopifyRequest($, shopify, {
+    query: `mutation($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        metafields { id key namespace }
+        userErrors { field message }
+      }
+    }`,
+    variables: {
+      metafields: metafields.map((field) => ({
+        ownerId: productId,
+        ...field,
+      })),
+    },
+  });
+  const errors = data.metafieldsSet?.userErrors ?? [];
+  if (errors.length) throw new Error(`metafieldsSet: ${JSON.stringify(errors)}`);
 }
 
 export async function upsertProduct($, shopify, input) {
@@ -923,33 +1083,43 @@ export async function syncArtist($, shopify, record, dryRun) {
   const name = textValue(fields[f.name]);
   if (!name) return {recordId: record.id, status: 'skipped', reason: 'Missing name'};
 
-  const handle = slugify(name);
+  const displayHandle = slugify(name);
+  const stableHandle = airtableStableHandle(record.id);
   const bio = plainText(fields[f.description]);
   const location = textValue(fields[f.hometown]);
 
   if (dryRun) {
-    return {recordId: record.id, status: 'pending', dryRun: true, handle, name};
+    return {
+      recordId: record.id,
+      status: 'pending',
+      dryRun: true,
+      handle: displayHandle,
+      stableHandle,
+      name,
+    };
   }
 
   const metaFields = [{key: 'name', value: name}];
   if (bio) metaFields.push({key: 'bio', value: bio});
   if (location) metaFields.push({key: 'location', value: location});
 
-  const existingId = await resolveMetaobjectId($, shopify, 'artist', {
+  const resolved = await resolveMetaobjectForSync($, shopify, 'artist', {
     recordId: record.id,
-    handle,
+    displayName: name,
   });
   const metaobject = await upsertMetaobject($, shopify, {
     type: 'artist',
-    handle,
+    handle: displayHandle,
+    stableHandle,
     airtableRecordId: record.id,
     fields: metaFields,
+    existingId: resolved.id,
   });
 
   return {
     recordId: record.id,
     status: 'synced',
-    mode: existingId ? 'updated' : 'created',
+    mode: resolved.id ? 'updated' : 'created',
     handle: metaobject.handle,
     name,
     shopifyId: metaobject.id,
@@ -962,34 +1132,85 @@ export async function syncCollection($, shopify, record, dryRun) {
   const title = textValue(fields[f.name]);
   if (!title) return {recordId: record.id, status: 'skipped', reason: 'Missing name'};
 
-  const handle = slugify(title);
+  const displayHandle = slugify(title);
+  const stableHandle = airtableStableHandle(record.id);
   const description = plainText(fields[f.description]);
 
   if (dryRun) {
-    return {recordId: record.id, status: 'pending', dryRun: true, handle, title};
+    return {
+      recordId: record.id,
+      status: 'pending',
+      dryRun: true,
+      handle: displayHandle,
+      stableHandle,
+      title,
+    };
   }
 
   const metaFields = [{key: 'title', value: title}];
   if (description) metaFields.push({key: 'description', value: description});
 
-  const existingId = await resolveMetaobjectId($, shopify, 'collection', {
+  const resolved = await resolveMetaobjectForSync($, shopify, 'collection', {
     recordId: record.id,
-    handle,
+    displayName: title,
   });
   const metaobject = await upsertMetaobject($, shopify, {
     type: 'collection',
-    handle,
+    handle: displayHandle,
+    stableHandle,
     airtableRecordId: record.id,
     fields: metaFields,
+    existingId: resolved.id,
   });
 
   return {
     recordId: record.id,
     status: 'synced',
-    mode: existingId ? 'updated' : 'created',
+    mode: resolved.id ? 'updated' : 'created',
     handle: metaobject.handle,
     title,
     shopifyId: metaobject.id,
+  };
+}
+
+function isCommittedLinkedRecord(record, statusField) {
+  return textValue(record?.fields?.[statusField]) === AIRTABLE.linkedCommittedStatus;
+}
+
+export async function listCommittedArtists($, airtable) {
+  const records = await listTableRecords($, airtable, 'artists');
+  return records.filter((record) =>
+    isCommittedLinkedRecord(record, AIRTABLE.artists.status),
+  );
+}
+
+export async function listCommittedCollections($, airtable) {
+  const records = await listTableRecords($, airtable, 'collections');
+  return records.filter((record) =>
+    isCommittedLinkedRecord(record, AIRTABLE.collections.status),
+  );
+}
+
+/** Sync artists and collections already marked Commited in Airtable (handles renames without a print re-commit). */
+export async function syncCommittedArtistsAndCollections($, airtable, shopify, dryRun) {
+  const artists = await listCommittedArtists($, airtable);
+  const collections = await listCommittedCollections($, airtable);
+
+  const artistResults = [];
+  for (const record of artists) {
+    artistResults.push(await syncArtist($, shopify, record, dryRun));
+  }
+
+  const collectionResults = [];
+  for (const record of collections) {
+    collectionResults.push(await syncCollection($, shopify, record, dryRun));
+  }
+
+  return {
+    artists: artistResults,
+    collections: collectionResults,
+    artistCount: artistResults.length,
+    collectionCount: collectionResults.length,
   };
 }
 
@@ -998,7 +1219,7 @@ export async function syncPrint($, {
   record,
   catalog,
   artistNameByRecordId,
-  collectionHandles = [],
+  collectionHandleByRecordId = new Map(),
   publicationIds,
   dryRun,
 }) {
@@ -1017,6 +1238,11 @@ export async function syncPrint($, {
     return {recordId: record.id, status: 'skipped', reason: 'Missing or unsynced artist'};
   }
 
+  const collectionRecordIds = linkedRecordIds(fields[f.collection]);
+  const collectionHandles = collectionRecordIds
+    .map((id) => collectionHandleByRecordId.get(id))
+    .filter(Boolean);
+
   if (dryRun) {
     return {
       recordId: record.id,
@@ -1024,8 +1250,10 @@ export async function syncPrint($, {
       dryRun: true,
       handle,
       title,
+      artistRecordId,
+      collectionRecordIds,
       variantCount: catalog.length,
-      collectionCount: collectionHandles.length,
+      collectionCount: collectionRecordIds.length,
     };
   }
 
@@ -1043,10 +1271,18 @@ export async function syncPrint($, {
     vendor,
     handle,
     airtableRecordId: record.id,
+    artistRecordId,
+    collectionRecordIds,
     collectionHandles,
   });
 
   const product = await upsertProduct($, shopify, productInput);
+  await updateProductLinkMetafields($, shopify, {
+    productId: product.id,
+    artistRecordId,
+    collectionRecordIds,
+    collectionHandles,
+  });
   await publishProduct($, shopify, product.id, publicationIds);
 
   return {
@@ -1055,8 +1291,10 @@ export async function syncPrint($, {
     mode: productId ? 'updated' : 'created',
     handle,
     title,
+    artistRecordId,
+    collectionRecordIds,
     productId: product.id,
     variantCount: product.variantsCount?.count ?? catalog.length,
-    collectionCount: collectionHandles.length,
+    collectionCount: collectionRecordIds.length,
   };
 }

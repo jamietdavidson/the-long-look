@@ -31,6 +31,8 @@ export type PrintCatalogProduct = {
     height?: number | null;
   } | null;
   collectionHandles?: {value?: string | null} | null;
+  artistRecordId?: {value?: string | null} | null;
+  collectionRecordIds?: {value?: string | null} | null;
   priceRange: {
     minVariantPrice: {amount: string; currencyCode: string};
   };
@@ -65,13 +67,56 @@ function slugify(value: string) {
     .slice(0, 60);
 }
 
+function normalizeAirtableRecordId(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function airtableRecordIdFromHandle(handle: string | null | undefined) {
+  const normalized = normalizeAirtableRecordId(handle);
+  return /^rec[a-z0-9]+$/.test(normalized) ? normalized : '';
+}
+
+export function artistAirtableRecordId(artist: Pick<Artist, 'handle' | 'airtableRecordId'>) {
+  return (
+    normalizeAirtableRecordId(artist.airtableRecordId) ||
+    airtableRecordIdFromHandle(artist.handle)
+  );
+}
+
+export function collectionAirtableRecordId(
+  collection: Pick<import('~/lib/content-model').Collection, 'handle' | 'airtableRecordId'>,
+) {
+  return (
+    normalizeAirtableRecordId(collection.airtableRecordId) ||
+    airtableRecordIdFromHandle(collection.handle)
+  );
+}
+
+function parseJsonStringArray(raw: string | null | undefined) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseArtistIndex(nodes: Array<Record<string, unknown>>): Artist[] {
   return nodes.map((node) => {
-    const n = node as {id: string; handle: string; name?: {value?: string | null}};
+    const n = node as {
+      id: string;
+      handle: string;
+      name?: {value?: string | null};
+      airtableRecordId?: {value?: string | null};
+    };
     return {
       id: n.id,
       handle: n.handle,
       name: n.name?.value ?? '',
+      airtableRecordId: n.airtableRecordId?.value ?? null,
       tags: [],
     };
   });
@@ -90,11 +135,14 @@ function isFineArtPrint(product: {productType?: string | null}) {
 function buildArtistLookup(artists: Artist[]) {
   const byName = new Map<string, Artist>();
   const byHandle = new Map<string, Artist>();
+  const byRecordId = new Map<string, Artist>();
   for (const artist of artists) {
     byName.set(artist.name.toLowerCase(), artist);
     byHandle.set(artist.handle, artist);
+    const recordId = artistAirtableRecordId(artist);
+    if (recordId) byRecordId.set(recordId, artist);
   }
-  return {byName, byHandle};
+  return {byName, byHandle, byRecordId};
 }
 
 export function resolveArtistForVendor(
@@ -112,11 +160,25 @@ export function resolveArtistForVendor(
   );
 }
 
+export function resolveArtistForProduct(
+  product: Pick<PrintCatalogProduct, 'vendor' | 'artistRecordId'>,
+  artists: Artist[],
+) {
+  const recordId = normalizeAirtableRecordId(product.artistRecordId?.value);
+  if (recordId) {
+    const {byRecordId} = buildArtistLookup(artists);
+    const match = byRecordId.get(recordId);
+    if (match) return match;
+  }
+
+  return resolveArtistForVendor(product.vendor, artists);
+}
+
 export function productToPrintCard(
   product: PrintCatalogProduct,
   artists: Artist[] = [],
 ): PrintCatalogCard {
-  const artist = resolveArtistForVendor(product.vendor, artists);
+  const artist = resolveArtistForProduct(product, artists);
 
   return {
     id: product.id,
@@ -130,27 +192,45 @@ export function productToPrintCard(
 }
 
 function parseCollectionHandles(product: PrintCatalogProduct) {
-  const raw = product.collectionHandles?.value;
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter((handle): handle is string => typeof handle === 'string')
-      : [];
-  } catch {
-    return [];
-  }
+  return parseJsonStringArray(product.collectionHandles?.value);
+}
+
+export function parseCollectionRecordIds(product: PrintCatalogProduct) {
+  return parseJsonStringArray(product.collectionRecordIds?.value).map((id) =>
+    normalizeAirtableRecordId(id),
+  );
 }
 
 export function getProductCollectionHandles(product: PrintCatalogProduct) {
   return parseCollectionHandles(product);
 }
 
+export function productBelongsToCollection(
+  product: PrintCatalogProduct,
+  {
+    recordId,
+    handle,
+  }: {
+    recordId?: string | null;
+    handle?: string | null;
+  },
+) {
+  const normalizedRecordId = normalizeAirtableRecordId(recordId);
+  const recordIds = parseCollectionRecordIds(product);
+  if (normalizedRecordId && recordIds.length > 0) {
+    return recordIds.includes(normalizedRecordId);
+  }
+
+  const collectionHandle = handle?.trim();
+  if (!collectionHandle) return false;
+  return parseCollectionHandles(product).includes(collectionHandle);
+}
+
 export function productToFilterSource(
   product: PrintCatalogProduct,
   artists: Artist[] = [],
 ): PrintFilterSource {
-  const artist = resolveArtistForVendor(product.vendor, artists);
+  const artist = resolveArtistForProduct(product, artists);
 
   return {
     title: product.title,
@@ -239,8 +319,16 @@ export async function loadPrintProductsForArtist(
     loadArtistIndex(storefront),
   ]);
 
+  const artist = artists.find((entry) => entry.handle === artistHandle);
+  const artistRecordId = artist ? artistAirtableRecordId(artist) : '';
+
   return products.filter((product) => {
-    const match = resolveArtistForVendor(product.vendor, artists);
+    const productArtistRecordId = normalizeAirtableRecordId(product.artistRecordId?.value);
+    if (artistRecordId && productArtistRecordId) {
+      return productArtistRecordId === artistRecordId;
+    }
+
+    const match = resolveArtistForProduct(product, artists);
     return match?.handle === artistHandle;
   });
 }
@@ -248,10 +336,18 @@ export async function loadPrintProductsForArtist(
 export async function loadPrintProductsForCollection(
   storefront: Storefront,
   collectionHandle: string,
+  collectionRecordId?: string | null,
 ) {
   const products = await loadAllPrintProducts(storefront);
+  const recordId =
+    normalizeAirtableRecordId(collectionRecordId) ||
+    airtableRecordIdFromHandle(collectionHandle);
+
   return products.filter((product) =>
-    parseCollectionHandles(product).includes(collectionHandle),
+    productBelongsToCollection(product, {
+      recordId,
+      handle: collectionHandle,
+    }),
   );
 }
 
@@ -268,17 +364,17 @@ export async function loadRecommendedPrintProducts(
   const current = products.find((product) => product.handle === currentHandle);
   if (!current) return [];
 
-  const currentArtist = resolveArtistForVendor(current.vendor, artists);
+  const currentArtist = resolveArtistForProduct(current, artists);
   const others = products.filter((product) => product.handle !== currentHandle);
 
   const score = (product: PrintCatalogProduct) => {
     if (!currentArtist) return 0;
-    const artist = resolveArtistForVendor(product.vendor, artists);
+    const artist = resolveArtistForProduct(product, artists);
     return artist?.handle === currentArtist.handle ? 1 : 0;
   };
 
   return productsToPrintCards(
-    [...others].sort((a, b) => score(b) - score(a)).slice(0, limit),
+    others.sort((a, b) => score(b) - score(a)).slice(0, limit),
     artists,
   );
 }

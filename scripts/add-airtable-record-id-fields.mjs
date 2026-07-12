@@ -5,6 +5,8 @@
  *
  * Usage:
  *   SHOPIFY_ACCESS_TOKEN=shpat_… node scripts/add-airtable-record-id-fields.mjs
+ *
+ * Requires Shopify Admin API scopes: read_metaobject_definitions, write_metaobject_definitions
  */
 const STORE = process.env.SHOPIFY_STORE ?? 'thelonglookco.myshopify.com';
 const TOKEN = process.env.SHOPIFY_ACCESS_TOKEN ?? process.env.SHOPIFY_ADMIN_TOKEN;
@@ -133,6 +135,20 @@ async function ensureProductMetafieldDefinitions() {
       type: 'json',
       access: {storefront: 'PUBLIC_READ'},
     },
+    {
+      name: 'Artist Record ID',
+      namespace: 'print',
+      key: 'artist_record_id',
+      type: 'single_line_text_field',
+      access: {storefront: 'PUBLIC_READ'},
+    },
+    {
+      name: 'Collection Record IDs',
+      namespace: 'print',
+      key: 'collection_record_ids',
+      type: 'json',
+      access: {storefront: 'PUBLIC_READ'},
+    },
   ]);
 }
 
@@ -148,7 +164,11 @@ async function ensureVariantMetafieldDefinitions() {
 }
 
 for (const type of ['artist', 'collection', 'picture']) {
-  await addMetaobjectField(type);
+  try {
+    await addMetaobjectField(type);
+  } catch (error) {
+    console.warn(`${type}: skipped metaobject field (${error.message})`);
+  }
 }
 await ensureProductMetafieldDefinitions();
 await ensureVariantMetafieldDefinitions();

@@ -119,7 +119,7 @@ export default defineComponent({
       record: printRecord,
       catalog,
       artistNameByRecordId,
-      collectionHandles,
+      collectionHandleByRecordId: collectionHandleMap,
       publicationIds,
       dryRun,
     });
