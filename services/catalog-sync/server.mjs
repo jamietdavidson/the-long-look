@@ -1,7 +1,7 @@
 /**
  * Airtable → Shopify catalog sync service (Railway).
  *
- * Polls the Airtable Committed view on an interval (default: every 60s).
+ * Polls Airtable for Queued records on an interval (default: every 60s).
  *
  * Endpoints:
  *   GET  /health

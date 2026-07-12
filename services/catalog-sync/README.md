@@ -6,7 +6,11 @@ Replaces Pipedream for **Airtable → Shopify** print catalog sync. Core logic l
 
 ## How it works
 
-The service **polls** the Airtable **Prints → Committed** view every minute (configurable), syncs each print to Shopify, and also refreshes any Artists/Collections with Status **Commited** so renames update existing metaobjects in place. No Airtable automations or webhooks required.
+The service **polls** Airtable every minute (configurable) for Prints, Artists, Collections, and Variants with Status **Queued**, syncs them to Shopify, then marks them **Committed**. Queued artists and collections sync even when they have no linked prints. Related artist/collection rows are still created or updated when a print is queued.
+
+Queued **variants** update shipping packages and push the catalog (prices, dimensions, new Size/Frame/Mount combinations) to every Fine Art Print product. Print sync uses only **Committed** variant rows.
+
+Each poll also lists all Airtable record ids and linked Shopify entities, then removes orphans (deleted print products, artist/collection metaobjects, and product variants whose Airtable row or Size/Frame/Mount combo no longer exists). Variant rows write an `airtable.record_id` metafield on sync for stable matching; older variants without that metafield fall back to Size/Frame/Mount.
 
 ## Endpoints
 

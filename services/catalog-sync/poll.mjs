@@ -1,45 +1,13 @@
 /**
- * Poll Airtable Prints → Committed view and sync each record.
+ * Poll Airtable for Queued Prints, Artists, Collections, and Variants.
  */
-import {AIRTABLE} from '../../lib/catalog-sync/config.js';
 import {
+  listQueuedEntityIds,
+  syncDeletionsJob,
   syncPrint,
-  pruneDeletedPrints,
-  syncCommittedArtistsAndCollectionsJob,
-  syncShippingPackagesJob,
+  syncQueuedArtistsAndCollectionsJob,
+  syncQueuedVariantsJob,
 } from './run-sync.mjs';
-
-const BASE = 'https://api.airtable.com/v0';
-
-async function listCommittedPrintIds() {
-  const pat = process.env.AIRTABLE_PAT?.trim();
-  if (!pat) throw new Error('AIRTABLE_PAT is required for polling');
-
-  const ids = [];
-  let offset;
-
-  do {
-    const params = new URLSearchParams();
-    params.set('view', AIRTABLE.printsViewId);
-    if (offset) params.set('offset', offset);
-
-    const response = await fetch(
-      `${BASE}/${AIRTABLE.baseId}/${AIRTABLE.printsTableId}?${params}`,
-      {headers: {Authorization: `Bearer ${pat}`}},
-    );
-    if (!response.ok) {
-      throw new Error(`Airtable list failed (${response.status}): ${await response.text()}`);
-    }
-
-    const payload = await response.json();
-    for (const record of payload.records ?? []) {
-      if (record.id) ids.push(record.id);
-    }
-    offset = payload.offset;
-  } while (offset);
-
-  return ids;
-}
 
 export function startPolling({intervalMs, onResult, onError}) {
   if (!intervalMs || intervalMs < 60_000) {
@@ -47,7 +15,7 @@ export function startPolling({intervalMs, onResult, onError}) {
     return () => {};
   }
 
-  console.log(`[poll] Watching Committed view every ${intervalMs / 1000}s`);
+  console.log(`[poll] Watching Queued records every ${intervalMs / 1000}s`);
 
   let running = false;
 
@@ -55,41 +23,48 @@ export function startPolling({intervalMs, onResult, onError}) {
     if (running) return;
     running = true;
     try {
-      const linked = await syncCommittedArtistsAndCollectionsJob();
-      console.log(
-        `[poll] linked entities: ${linked.artistCount} artist(s), ${linked.collectionCount} collection(s)`,
-      );
-
-      const shipping = await syncShippingPackagesJob();
-      if (shipping.specs?.length) {
+      const {printIds, artistIds, collectionIds, variantIds} = await listQueuedEntityIds();
+      const queuedTotal =
+        printIds.length + artistIds.length + collectionIds.length + variantIds.length;
+      if (queuedTotal > 0) {
         console.log(
-          `[poll] shipping packages: ${shipping.updated.length} updated, ${shipping.pending.length} pending bootstrap`,
+          `[poll] queued: ${printIds.length} print(s), ${variantIds.length} variant(s), ` +
+            `${artistIds.length} artist(s), ${collectionIds.length} collection(s)`,
         );
-        if (shipping.pending.length) {
-          console.log(
-            `[poll] pending packages: ${shipping.pending.map((entry) => entry.sizeName).join(', ')}`,
-          );
-        }
-        onResult?.({shipping});
       }
 
-      const ids = await listCommittedPrintIds();
-      console.log(`[poll] ${ids.length} print(s) in Committed view`);
+      const deletions = await syncDeletionsJob();
+      if (deletions.count > 0) {
+        console.log(
+          `[poll] deletions: ${deletions.removed.prints.length} print(s), ` +
+            `${deletions.removed.variants.length} product variant group(s), ` +
+            `${deletions.removed.artists.length} artist(s), ` +
+            `${deletions.removed.collections.length} collection(s)`,
+        );
+        onResult?.({deletions});
+      }
+
+      const variants = await syncQueuedVariantsJob();
+      if (!variants.skipped) {
+        console.log(
+          `[poll] variants: ${variants.queuedCount} row(s) → ${variants.catalogSize} catalog entries, ` +
+            `${variants.products?.productCount ?? 0} product(s) updated`,
+        );
+        onResult?.({variants});
+      }
+
+      const linked = await syncQueuedArtistsAndCollectionsJob();
       if (linked.artistCount > 0 || linked.collectionCount > 0) {
+        console.log(
+          `[poll] synced queued entities: ${linked.artistCount} artist(s), ${linked.collectionCount} collection(s)`,
+        );
         onResult?.({linked});
       }
 
-      for (const printId of ids) {
+      for (const printId of printIds) {
         const result = await syncPrint(printId);
         onResult?.({printId, result});
       }
-
-      const prune = await pruneDeletedPrints();
-      console.log(
-        `[poll] prune: ${prune.count} removed` +
-          (prune.shopifyTotal != null ? ` (${prune.shopifyTotal} Fine Art Print products checked)` : ''),
-      );
-      if (prune.count > 0) onResult?.({prune});
     } catch (error) {
       onError?.(error);
       console.error('[poll] Error:', error.message);
