@@ -9,7 +9,6 @@ import {
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
 import {
-  FRAMED_PICTURE_GRID_CONTAINER_FILL,
   getDetailMaxHeightFillForNamedSize,
   getDetailTierFitCaps,
   getFramedSizeFromVariant,
@@ -187,7 +186,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
         className="h-full w-full"
       >
         <div
-          className="relative flex h-full w-full items-center justify-center overflow-hidden"
+          className="relative flex h-full w-full items-center justify-center overflow-hidden px-5 pt-10 pb-8"
           aria-live="polite"
           aria-label={`Image gallery, ${activeSlide.label}`}
         >
@@ -221,7 +220,6 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
                   size={activeSlide.spec}
                   loading="eager"
                   sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
-                  containerFill={FRAMED_PICTURE_GRID_CONTAINER_FILL}
                   maxWidthCqi={tierCaps?.maxWidthCqi}
                   maxLongSideCqi={tierCaps?.maxLongSideCqi}
                   detailHeightFillCqh={detailHeightFillCqh}

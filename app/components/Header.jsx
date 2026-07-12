@@ -22,6 +22,11 @@ const SHOW_DELAY_MS = 280;
 const SURFACE_TRANSITION_MS = 550;
 const TOPBAR_VISIBILITY_TRANSITION = {duration: 0.55, ease: 'easeOut'};
 const HEADER_ACTION_ICON_SIZE = 20;
+const HEADER_ACTION_ICON_STROKE = 1.5;
+const TOPBAR_DIM_OPACITY_CLASS = 'opacity-40';
+const TOPBAR_DIM_TRANSITION_CLASS = 'transition-opacity duration-200';
+const TOPBAR_ICON_STROKE_CLASS =
+  '[&_svg]:transition-[stroke-width] [&_svg]:duration-200 hover:[&_svg]:stroke-2';
 
 /** @param {import('~/components/AppPageLayout').TopbarColor} color */
 function getNavLinkClass(color) {
@@ -253,6 +258,10 @@ function stylesEqual(a, b) {
  */
 export function Header({color = 'black', mode = 'filled', autohide = true}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isRightIconsHovered, setIsRightIconsHovered] = useState(false);
+  const [hoveredRightIcon, setHoveredRightIcon] = useState(
+    /** @type {string | null} */ (null),
+  );
   const {open: openAside} = useAside();
   const {cart: resolvedCart} = useDeferredCart();
   const cart = useOptimisticCart(resolvedCart);
@@ -270,39 +279,75 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
     mode === 'filled' ||
     (mode === 'transparent' && color === 'black' && backgroundProgress > 0);
 
+  /** @param {string} id */
+  const getRightIconDimClass = (id) =>
+    cn(
+      TOPBAR_DIM_TRANSITION_CLASS,
+      isRightIconsHovered &&
+        hoveredRightIcon !== id &&
+        TOPBAR_DIM_OPACITY_CLASS,
+    );
+
+  const rightIconsHoverHandlers = {
+    onMouseEnter: () => setIsRightIconsHovered(true),
+    onMouseLeave: () => {
+      setIsRightIconsHovered(false);
+      setHoveredRightIcon(null);
+    },
+  };
+
+  /** @param {string} id */
+  const getRightIconHoverHandlers = (id) => ({
+    onMouseEnter: () => setHoveredRightIcon(id),
+    onMouseLeave: () => setHoveredRightIcon(null),
+  });
+
   return (
     <>
-      <motion.button
-        type="button"
-        data-shop-toggle
-        className={cn(
-          'fixed top-0 left-0 z-60 flex h-[var(--header-height)] items-center border-0 bg-transparent pl-5 md:pl-6',
-          navClass,
-        )}
+      <motion.div
+        className="fixed top-0 left-0 z-60 flex h-[var(--header-height)] items-center gap-5 pl-5 md:pl-6"
         initial={false}
         animate={{opacity: isVisible ? 1 : 0}}
         transition={TOPBAR_VISIBILITY_TRANSITION}
         style={{pointerEvents: isVisible ? 'auto' : 'none'}}
-        aria-expanded={sidebarOpen}
-        aria-haspopup="dialog"
-        aria-label={sidebarOpen ? 'Close shop menu' : 'Open shop menu'}
-        onClick={() => {
-          setSidebarOpen(!sidebarOpen);
-        }}
       >
-        <span className="inline-flex items-center gap-1.5">
-          Shop
-          <ChevronDown
-            size={14}
-            strokeWidth={2}
-            className={cn(
-              'shrink-0 transition-transform duration-200',
-              sidebarOpen && 'rotate-180',
-            )}
-            aria-hidden
-          />
-        </span>
-      </motion.button>
+        <button
+          type="button"
+          data-shop-toggle
+          className={cn(
+            'flex items-center border-0 bg-transparent p-0',
+            navClass,
+          )}
+          aria-expanded={sidebarOpen}
+          aria-haspopup="dialog"
+          aria-label={sidebarOpen ? 'Close shop menu' : 'Open shop menu'}
+          onClick={() => {
+            setSidebarOpen(!sidebarOpen);
+          }}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            Shop
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              className={cn(
+                'shrink-0 transition-transform duration-200',
+                sidebarOpen && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </span>
+        </button>
+
+        <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
+          <NavLink to={printsPath()} className={navClass}>
+            Prints
+          </NavLink>
+          <NavLink to={artistsPath()} className={navClass}>
+            Artists
+          </NavLink>
+        </nav>
+      </motion.div>
 
       <motion.header
         className={cn(
@@ -319,26 +364,7 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
         }}
       >
         <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-5 md:px-6">
-          <div className="flex min-w-0 items-center justify-self-start">
-            <nav className="flex items-center gap-5" aria-label="Primary">
-              <span
-                className={cn(
-                  'pointer-events-none invisible inline-flex select-none items-center gap-1.5',
-                  navClass,
-                )}
-                aria-hidden="true"
-              >
-                Shop
-                <ChevronDown size={14} strokeWidth={2} className="shrink-0" aria-hidden />
-              </span>
-              <NavLink to={printsPath()} className={cn('hidden lg:inline', navClass)}>
-                Prints
-              </NavLink>
-              <NavLink to={artistsPath()} className={cn('hidden lg:inline', navClass)}>
-                Artists
-              </NavLink>
-            </nav>
-          </div>
+          <div aria-hidden="true" className="min-w-0 justify-self-start" />
 
           <Link
             to="/"
@@ -347,19 +373,37 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
             <Logo color={color} format="long" />
           </Link>
 
-          <div className="flex min-w-0 items-center justify-end justify-self-end gap-5">
+          <div
+            className="flex min-w-0 items-center justify-end justify-self-end gap-5"
+            {...rightIconsHoverHandlers}
+          >
             <NavLink
               to={searchPath()}
-              className={cn('cursor-pointer', iconClass)}
+              className={cn(
+                'cursor-pointer',
+                iconClass,
+                TOPBAR_ICON_STROKE_CLASS,
+                getRightIconDimClass('search'),
+              )}
               aria-label="Search"
+              {...getRightIconHoverHandlers('search')}
             >
-              <Search size={HEADER_ACTION_ICON_SIZE} strokeWidth={1.5} />
+              <Search
+                size={HEADER_ACTION_ICON_SIZE}
+                strokeWidth={HEADER_ACTION_ICON_STROKE}
+              />
             </NavLink>
-            <FavouritesLink color={color} />
+            <FavouritesLink
+              color={color}
+              dimClass={getRightIconDimClass('favourites')}
+              hoverHandlers={getRightIconHoverHandlers('favourites')}
+            />
             <CartBadge
               count={cart?.totalQuantity ?? 0}
               color={color}
               onClick={() => openAside('cart')}
+              dimClass={getRightIconDimClass('cart')}
+              hoverHandlers={getRightIconHoverHandlers('cart')}
             />
           </div>
         </div>
@@ -370,18 +414,31 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
   );
 }
 
-/** @param {{color: import('~/components/AppPageLayout').TopbarColor}} */
-function FavouritesLink({color}) {
+/** @param {{
+ *   color: import('~/components/AppPageLayout').TopbarColor;
+ *   dimClass?: string;
+ *   hoverHandlers?: {
+ *     onMouseEnter: () => void;
+ *     onMouseLeave: () => void;
+ *   };
+ * }} */
+function FavouritesLink({color, dimClass, hoverHandlers}) {
   const hasHydrated = useFavoritesStore((state) => state.hasHydrated);
   const count = useFavoritesStore((state) => state.handles.length);
 
   return (
     <NavLink
       to={favouritesPath()}
-      className={cn('relative cursor-pointer', getIconClass(color))}
+      className={cn(
+        'relative cursor-pointer',
+        getIconClass(color),
+        TOPBAR_ICON_STROKE_CLASS,
+        dimClass,
+      )}
       aria-label="Favourites"
+      {...hoverHandlers}
     >
-      <Heart size={HEADER_ACTION_ICON_SIZE} strokeWidth={1.5} />
+      <Heart size={HEADER_ACTION_ICON_SIZE} strokeWidth={HEADER_ACTION_ICON_STROKE} />
       {hasHydrated && count > 0 ? (
         <span
           className={cn(
@@ -396,15 +453,30 @@ function FavouritesLink({color}) {
   );
 }
 
-/** @param {{count: number, color: import('~/components/AppPageLayout').TopbarColor, onClick: () => void}} */
-function CartBadge({count, color, onClick}) {
+/** @param {{
+ *   count: number;
+ *   color: import('~/components/AppPageLayout').TopbarColor;
+ *   onClick: () => void;
+ *   dimClass?: string;
+ *   hoverHandlers?: {
+ *     onMouseEnter: () => void;
+ *     onMouseLeave: () => void;
+ *   };
+ * }} */
+function CartBadge({count, color, onClick, dimClass, hoverHandlers}) {
   return (
     <button
       onClick={onClick}
-      className={cn('relative cursor-pointer', getIconClass(color))}
+      className={cn(
+        'relative cursor-pointer',
+        getIconClass(color),
+        TOPBAR_ICON_STROKE_CLASS,
+        dimClass,
+      )}
       aria-label="Open cart"
+      {...hoverHandlers}
     >
-      <ShoppingBag size={HEADER_ACTION_ICON_SIZE} strokeWidth={1.5} />
+      <ShoppingBag size={HEADER_ACTION_ICON_SIZE} strokeWidth={HEADER_ACTION_ICON_STROKE} />
       {count > 0 && (
         <span
           className={cn(
