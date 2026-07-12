@@ -44,8 +44,15 @@ Production webhook receiver: `services/order-sync/` on Railway.
 ## Mock checkout → Airtable order
 
 1. Deploy `services/order-sync` on Railway and set `AIRTABLE_PAT` + `SHOPIFY_WEBHOOK_SECRET`.
-2. Register webhook: `ORDER_SYNC_URL=https://… node scripts/register-shopify-order-webhook.mjs`
+2. Release app config (scopes + webhooks) from `integrations/shopify-app/`:
+   ```bash
+   cd integrations/shopify-app
+   shopify app deploy --allow-updates --no-build
+   ```
+   Then in Shopify Admin → **Settings → Apps → from-airtable-sync-catalog**, approve the updated scopes if prompted.
 3. In Shopify Admin → Payments, enable **Bogus Gateway** or **test mode**.
 4. Buy a print on the storefront; confirm a row appears in Airtable **Orders**.
+
+Alternative: `ORDER_SYNC_URL=https://… node scripts/register-shopify-order-webhook.mjs` (requires `read_orders` on the Admin API token).
 
 See `services/order-sync/README.md` for webhook URL and field mapping.
