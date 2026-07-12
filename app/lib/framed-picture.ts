@@ -55,6 +55,10 @@ export const FRAMED_PICTURE_GRID_CONTAINER_FILL = 0.85;
 /** Catalog cards use the collector tier with physical inch proportions. */
 export const FRAMED_PICTURE_CATALOG_DISPLAY_SIZE = 'collector' as const;
 
+/** Default frame/mount for catalog card previews. */
+export const FRAMED_PICTURE_CATALOG_DISPLAY_FRAME = 'Black';
+export const FRAMED_PICTURE_CATALOG_DISPLAY_MOUNT = 'Border';
+
 /** Default size on print detail when no variant is selected in the URL (Gallery — fourth largest tier). */
 export const FRAMED_PICTURE_DEFAULT_NAMED_SIZE = 'giant' as const;
 
@@ -998,6 +1002,24 @@ export function getFramedPictureSpecFromVariant(
   }
 
   return spec;
+}
+
+/** Framed-picture spec for catalog grid cards (collector / black / border). */
+export function getCatalogFramedPictureSpec(product: {
+  catalogDisplayVariant?: {
+    metafields?: VariantMetafield[] | null;
+    selectedOptions?: Array<{name: string; value: string}>;
+    title?: string | null;
+  } | null;
+}): FramedPictureSizeSpec {
+  return getFramedPictureSpecFromVariant(
+    product.catalogDisplayVariant,
+    FRAMED_PICTURE_CATALOG_DISPLAY_SIZE,
+    {
+      frame: FRAMED_PICTURE_CATALOG_DISPLAY_FRAME,
+      mount: FRAMED_PICTURE_CATALOG_DISPLAY_MOUNT,
+    },
+  );
 }
 
 /** Sort Shopify size option values — prefers Airtable rank metafield, then legacy order. */

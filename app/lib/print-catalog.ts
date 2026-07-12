@@ -16,6 +16,17 @@ type Storefront = {
   ) => Promise<Record<string, unknown>>;
 };
 
+type CatalogDisplayVariant = {
+  metafields?: Array<{
+    namespace?: string | null;
+    key?: string | null;
+    value?: string | null;
+    type?: string | null;
+  }> | null;
+  selectedOptions?: Array<{name: string; value: string}>;
+  title?: string | null;
+};
+
 export type PrintCatalogProduct = {
   id: string;
   title: string;
@@ -36,6 +47,7 @@ export type PrintCatalogProduct = {
   priceRange: {
     minVariantPrice: {amount: string; currencyCode: string};
   };
+  catalogDisplayVariant?: CatalogDisplayVariant | null;
 };
 
 export type PrintCatalogCard = {
@@ -54,6 +66,7 @@ export type PrintCatalogCard = {
   priceRange: {
     minVariantPrice: {amount: string; currencyCode: string};
   };
+  catalogDisplayVariant?: CatalogDisplayVariant | null;
 };
 
 /** @deprecated Use PrintCatalogCard — kept for existing grid components. */
@@ -188,6 +201,7 @@ export function productToPrintCard(
     artistHandle: artist?.handle ?? (product.vendor ? slugify(product.vendor) : null),
     featuredImage: product.featuredImage,
     priceRange: product.priceRange,
+    catalogDisplayVariant: product.catalogDisplayVariant ?? null,
   };
 }
 

@@ -152,7 +152,19 @@ export const PRINT_CATALOG_PRODUCT_FRAGMENT = `#graphql
         currencyCode
       }
     }
+    catalogDisplayVariant: selectedOrFirstAvailableVariant(
+      selectedOptions: [
+        {name: "Size", value: "Collector"}
+        {name: "Frame", value: "Black"}
+        {name: "Mount", value: "Border"}
+      ]
+      ignoreUnknownOptions: true
+      caseInsensitiveMatch: true
+    ) {
+      ...ProductVariant
+    }
   }
+  ${PRODUCT_VARIANT_FRAGMENT}
 `;
 
 export const PRINT_PRODUCTS_QUERY = `#graphql

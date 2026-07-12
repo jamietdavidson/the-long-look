@@ -52,6 +52,20 @@ export const CART_QUERY_FRAGMENT = `#graphql
           name
           value
         }
+        metafields(
+          identifiers: [
+            {namespace: "print", key: "short_inches"}
+            {namespace: "print", key: "long_inches"}
+            {namespace: "print", key: "padding_inches"}
+            {namespace: "print", key: "frame_width_inches"}
+            {namespace: "print", key: "rank"}
+          ]
+        ) {
+          namespace
+          key
+          value
+          type
+        }
       }
     }
     parentRelationship {
@@ -106,6 +120,20 @@ export const CART_QUERY_FRAGMENT = `#graphql
         selectedOptions {
           name
           value
+        }
+        metafields(
+          identifiers: [
+            {namespace: "print", key: "short_inches"}
+            {namespace: "print", key: "long_inches"}
+            {namespace: "print", key: "padding_inches"}
+            {namespace: "print", key: "frame_width_inches"}
+            {namespace: "print", key: "rank"}
+          ]
+        ) {
+          namespace
+          key
+          value
+          type
         }
       }
     }

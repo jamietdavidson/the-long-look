@@ -60,6 +60,11 @@ export type CartLineFragment = Pick<
     selectedOptions: Array<
       Pick<StorefrontAPI.SelectedOption, 'name' | 'value'>
     >;
+    metafields: Array<
+      StorefrontAPI.Maybe<
+        Pick<StorefrontAPI.Metafield, 'namespace' | 'key' | 'value' | 'type'>
+      >
+    >;
   };
   parentRelationship?: StorefrontAPI.Maybe<{
     parent: Pick<StorefrontAPI.CartLine, 'id'>;
@@ -92,6 +97,11 @@ export type CartLineComponentFragment = Pick<
     product: Pick<StorefrontAPI.Product, 'handle' | 'title' | 'id' | 'vendor'>;
     selectedOptions: Array<
       Pick<StorefrontAPI.SelectedOption, 'name' | 'value'>
+    >;
+    metafields: Array<
+      StorefrontAPI.Maybe<
+        Pick<StorefrontAPI.Metafield, 'namespace' | 'key' | 'value' | 'type'>
+      >
     >;
   };
   lineComponents: Array<
@@ -127,6 +137,14 @@ export type CartLineComponentFragment = Pick<
         >;
         selectedOptions: Array<
           Pick<StorefrontAPI.SelectedOption, 'name' | 'value'>
+        >;
+        metafields: Array<
+          StorefrontAPI.Maybe<
+            Pick<
+              StorefrontAPI.Metafield,
+              'namespace' | 'key' | 'value' | 'type'
+            >
+          >
         >;
       };
       parentRelationship?: StorefrontAPI.Maybe<{
@@ -191,6 +209,14 @@ export type CartApiQueryFragment = Pick<
             selectedOptions: Array<
               Pick<StorefrontAPI.SelectedOption, 'name' | 'value'>
             >;
+            metafields: Array<
+              StorefrontAPI.Maybe<
+                Pick<
+                  StorefrontAPI.Metafield,
+                  'namespace' | 'key' | 'value' | 'type'
+                >
+              >
+            >;
           };
           parentRelationship?: StorefrontAPI.Maybe<{
             parent: Pick<StorefrontAPI.CartLine, 'id'>;
@@ -229,6 +255,14 @@ export type CartApiQueryFragment = Pick<
             selectedOptions: Array<
               Pick<StorefrontAPI.SelectedOption, 'name' | 'value'>
             >;
+            metafields: Array<
+              StorefrontAPI.Maybe<
+                Pick<
+                  StorefrontAPI.Metafield,
+                  'namespace' | 'key' | 'value' | 'type'
+                >
+              >
+            >;
           };
           lineComponents: Array<
             Pick<StorefrontAPI.CartLine, 'id' | 'quantity'> & {
@@ -266,6 +300,14 @@ export type CartApiQueryFragment = Pick<
                 >;
                 selectedOptions: Array<
                   Pick<StorefrontAPI.SelectedOption, 'name' | 'value'>
+                >;
+                metafields: Array<
+                  StorefrontAPI.Maybe<
+                    Pick<
+                      StorefrontAPI.Metafield,
+                      'namespace' | 'key' | 'value' | 'type'
+                    >
+                  >
                 >;
               };
               parentRelationship?: StorefrontAPI.Maybe<{

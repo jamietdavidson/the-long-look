@@ -11,6 +11,7 @@ import {
 import {
   FRAMED_PICTURE_CATALOG_DISPLAY_SIZE,
   FRAMED_PICTURE_GRID_CONTAINER_FILL,
+  getCatalogFramedPictureSpec,
 } from '~/lib/framed-picture';
 import {useContainerReady} from '~/lib/use-container-size';
 import {cn} from '~/lib/utils';
@@ -85,6 +86,7 @@ export function ProductCard({
   const variantUrl = printPath(product.handle);
   const isCompact = size === 'compact';
   const [hovered, setHovered] = useState(false);
+  const catalogFramedSpec = getCatalogFramedPictureSpec(product);
 
   return (
     <article
@@ -104,7 +106,7 @@ export function ProductCard({
               <FramedPicture
                 image={product.featuredImage}
                 alt={product.title}
-                size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
+                size={catalogFramedSpec}
                 loading={loading}
                 sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
                 containerFill={containerFill}
@@ -155,6 +157,7 @@ function SplitProductCard({
   const [hovered, setHovered] = useState(false);
   const wellRef = useRef(null);
   const containerReady = useContainerReady(wellRef);
+  const catalogFramedSpec = getCatalogFramedPictureSpec(product);
 
   return (
     <article className={cn('block h-full bg-white', className)}>
@@ -180,7 +183,7 @@ function SplitProductCard({
                 <FramedPicture
                   image={product.featuredImage}
                   alt={product.title}
-                  size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
+                  size={catalogFramedSpec}
                   loading={loading}
                   sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
                   containerFill={containerFill}
