@@ -7,7 +7,6 @@ on:
       - 'services/catalog-sync/**'
       - 'lib/catalog-sync/**'
       - 'lib/http.mjs'
-      - 'railway.toml'
       - '.github/workflows/railway-catalog-sync.yml'
   workflow_dispatch:
 
