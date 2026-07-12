@@ -11,7 +11,9 @@ railway variable set \
   "AIRTABLE_PAT=${AIRTABLE_PAT}" \
   "SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}" \
   "POLL_INTERVAL_MS=${POLL_INTERVAL_MS}" \
-  "SHOPIFY_SHOP_ID=thelonglookco"
+  "SHOPIFY_SHOP_ID=thelonglookco" \
+  "RAILWAY_CONFIG_FILE=/services/catalog-sync/railway.toml" \
+  "RAILWAY_DOCKERFILE_PATH=services/catalog-sync/Dockerfile"
 
 echo "Variables set. Deploy with: railway up --detach"
 echo "Polling every ${POLL_INTERVAL_MS}ms"
