@@ -126,19 +126,7 @@ export async function resolvePrintRecord($, airtable, steps, explicitId) {
     );
   }
 
-  const candidates = [
-    steps?.trigger?.event,
-    steps?.trigger?.context?.event,
-    steps?.trigger?.event?.record,
-  ].filter(Boolean);
-
-  for (const event of candidates) {
-    const record = event?.record ?? event;
-    if (record?.id === recordId && record?.fields && Object.keys(record.fields).length) {
-      return normalizePrintRecord(record);
-    }
-  }
-
+  // Always fetch the latest row — trigger payloads can be stale after renames.
   const fetched = await getTableRecord($, airtable, 'prints', recordId);
   return normalizePrintRecord(fetched);
 }
@@ -366,11 +354,10 @@ export async function listFineArtPrintProducts($, shopify) {
   return products;
 }
 
-export async function listPictureMetaobjects($, shopify) {
-  const pictures = [];
+export async function listMetaobjectsByType($, shopify, type) {
+  const metaobjects = [];
   let cursor = null;
   const fieldKey = SHOPIFY.airtableRecordIdField;
-  const type = SHOPIFY.metaobjectTypes.picture;
 
   do {
     const data = await shopifyRequest($, shopify, {
@@ -387,7 +374,7 @@ export async function listPictureMetaobjects($, shopify) {
       variables: {cursor, type},
     });
 
-    pictures.push(
+    metaobjects.push(
       ...(data.metaobjects?.nodes ?? []).map((node) => ({
         id: node.id,
         handle: node.handle,
@@ -398,7 +385,11 @@ export async function listPictureMetaobjects($, shopify) {
     cursor = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
   } while (cursor);
 
-  return pictures;
+  return metaobjects;
+}
+
+export async function listPictureMetaobjects($, shopify) {
+  return listMetaobjectsByType($, shopify, SHOPIFY.metaobjectTypes.picture);
 }
 
 function isPrintInAirtable({airtableRecordId, handle}, validRecordIds, validHandles) {
@@ -580,6 +571,11 @@ export function productAirtableMetafield(recordId) {
   };
 }
 
+async function findMetaobjectIdByAirtableRecordId($, shopify, type, recordId) {
+  const metaobjects = await listMetaobjectsByType($, shopify, type);
+  return metaobjects.find((entry) => entry.airtableRecordId === recordId)?.id ?? null;
+}
+
 export async function getMetaobjectIdByAirtableId($, shopify, type, recordId) {
   if (!recordId) return null;
 
@@ -595,7 +591,10 @@ export async function getMetaobjectIdByAirtableId($, shopify, type, recordId) {
       query: `fields.${fieldKey}:${recordId}`,
     },
   });
-  return data.metaobjects?.nodes?.[0]?.id ?? null;
+  const fromSearch = data.metaobjects?.nodes?.[0]?.id ?? null;
+  if (fromSearch) return fromSearch;
+
+  return findMetaobjectIdByAirtableRecordId($, shopify, type, recordId);
 }
 
 export async function resolveMetaobjectId($, shopify, type, {recordId, handle}) {
@@ -630,6 +629,11 @@ export async function getMetaobjectIdByHandle($, shopify, type, handle) {
   return data.metaobjectByHandle?.id ?? null;
 }
 
+async function findProductIdByAirtableRecordId($, shopify, recordId) {
+  const products = await listFineArtPrintProducts($, shopify);
+  return products.find((product) => product.airtableRecordId === recordId)?.id ?? null;
+}
+
 export async function getProductIdByAirtableId($, shopify, recordId) {
   if (!recordId) return null;
 
@@ -644,7 +648,10 @@ export async function getProductIdByAirtableId($, shopify, recordId) {
       query: `metafields.${mf.namespace}.${mf.key}:${recordId}`,
     },
   });
-  return data.products?.nodes?.[0]?.id ?? null;
+  const fromSearch = data.products?.nodes?.[0]?.id ?? null;
+  if (fromSearch) return fromSearch;
+
+  return findProductIdByAirtableRecordId($, shopify, recordId);
 }
 
 export async function getProductIdByHandle($, shopify, handle) {
@@ -816,12 +823,41 @@ export function buildProductInput({
   return input;
 }
 
+/** Apply scalar product fields (title, handle, description, vendor) on an existing row. */
+async function updateProductScalars(
+  $,
+  shopify,
+  {productId, title, handle, descriptionHtml, vendor},
+) {
+  const data = await shopifyRequest($, shopify, {
+    query: `mutation($product: ProductUpdateInput!) {
+      productUpdate(product: $product) {
+        product { id handle title }
+        userErrors { field message }
+      }
+    }`,
+    variables: {
+      product: {
+        id: productId,
+        title,
+        handle,
+        descriptionHtml,
+        vendor,
+      },
+    },
+  });
+  const errors = data.productUpdate?.userErrors ?? [];
+  if (errors.length) throw new Error(`productUpdate: ${JSON.stringify(errors)}`);
+  return data.productUpdate.product;
+}
+
 export async function upsertProduct($, shopify, input) {
+  const productId = input.id ?? null;
   const run = async (productInput) => {
     const data = await shopifyRequest($, shopify, {
       query: `mutation($input: ProductSetInput!, $sync: Boolean!) {
         productSet(synchronous: $sync, input: $input) {
-          product { id handle variantsCount { count } }
+          product { id handle title variantsCount { count } }
           userErrors { field message }
         }
       }`,
@@ -833,12 +869,32 @@ export async function upsertProduct($, shopify, input) {
   };
 
   try {
-    return await run(input);
+    const product = await run(input);
+    if (productId) {
+      await updateProductScalars($, shopify, {
+        productId: product.id,
+        title: input.title,
+        handle: input.handle,
+        descriptionHtml: input.descriptionHtml,
+        vendor: input.vendor,
+      });
+    }
+    return product;
   } catch (error) {
     const message = String(error.message);
     if (!input.metafields?.length || !isMissingAirtableFieldError(message)) throw error;
     const {metafields, ...rest} = input;
-    return run(rest);
+    const product = await run(rest);
+    if (productId) {
+      await updateProductScalars($, shopify, {
+        productId: product.id,
+        title: rest.title,
+        handle: rest.handle,
+        descriptionHtml: rest.descriptionHtml,
+        vendor: rest.vendor,
+      });
+    }
+    return product;
   }
 }
 
@@ -879,6 +935,10 @@ export async function syncArtist($, shopify, record, dryRun) {
   if (bio) metaFields.push({key: 'bio', value: bio});
   if (location) metaFields.push({key: 'location', value: location});
 
+  const existingId = await resolveMetaobjectId($, shopify, 'artist', {
+    recordId: record.id,
+    handle,
+  });
   const metaobject = await upsertMetaobject($, shopify, {
     type: 'artist',
     handle,
@@ -886,7 +946,14 @@ export async function syncArtist($, shopify, record, dryRun) {
     fields: metaFields,
   });
 
-  return {recordId: record.id, status: 'synced', handle, shopifyId: metaobject.id};
+  return {
+    recordId: record.id,
+    status: 'synced',
+    mode: existingId ? 'updated' : 'created',
+    handle: metaobject.handle,
+    name,
+    shopifyId: metaobject.id,
+  };
 }
 
 export async function syncCollection($, shopify, record, dryRun) {
@@ -905,6 +972,10 @@ export async function syncCollection($, shopify, record, dryRun) {
   const metaFields = [{key: 'title', value: title}];
   if (description) metaFields.push({key: 'description', value: description});
 
+  const existingId = await resolveMetaobjectId($, shopify, 'collection', {
+    recordId: record.id,
+    handle,
+  });
   const metaobject = await upsertMetaobject($, shopify, {
     type: 'collection',
     handle,
@@ -912,7 +983,14 @@ export async function syncCollection($, shopify, record, dryRun) {
     fields: metaFields,
   });
 
-  return {recordId: record.id, status: 'synced', handle, shopifyId: metaobject.id};
+  return {
+    recordId: record.id,
+    status: 'synced',
+    mode: existingId ? 'updated' : 'created',
+    handle: metaobject.handle,
+    title,
+    shopifyId: metaobject.id,
+  };
 }
 
 export async function syncPrint($, {
@@ -956,28 +1034,27 @@ export async function syncPrint($, {
     recordId: record.id,
     handle,
   });
+  const productInput = buildProductInput({
+    title,
+    description,
+    imageUrl,
+    productId,
+    catalog,
+    vendor,
+    handle,
+    airtableRecordId: record.id,
+    collectionHandles,
+  });
 
-  const product = await upsertProduct(
-    $,
-    shopify,
-    buildProductInput({
-      title,
-      description,
-      imageUrl,
-      productId,
-      catalog,
-      vendor,
-      handle,
-      airtableRecordId: record.id,
-      collectionHandles,
-    }),
-  );
+  const product = await upsertProduct($, shopify, productInput);
   await publishProduct($, shopify, product.id, publicationIds);
 
   return {
     recordId: record.id,
     status: 'synced',
+    mode: productId ? 'updated' : 'created',
     handle,
+    title,
     productId: product.id,
     variantCount: product.variantsCount?.count ?? catalog.length,
     collectionCount: collectionHandles.length,

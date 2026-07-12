@@ -131,11 +131,11 @@ export function getLineItemUrl({
     (attr) => attr.key.toLowerCase() === MOUNT_CART_ATTRIBUTE.toLowerCase(),
   )?.value;
 
-  if (frameAttr && !searchParams.has('frame')) {
-    searchParams.set('frame', frameAttr);
+  if (frameAttr && !searchParams.has(FRAME_CART_ATTRIBUTE)) {
+    searchParams.set(FRAME_CART_ATTRIBUTE, frameAttr);
   }
-  if (mountAttr && !searchParams.has('mount')) {
-    searchParams.set('mount', mountAttr);
+  if (mountAttr && !searchParams.has(MOUNT_CART_ATTRIBUTE)) {
+    searchParams.set(MOUNT_CART_ATTRIBUTE, mountAttr);
   }
 
   const base = printHandle

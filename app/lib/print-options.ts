@@ -95,8 +95,15 @@ export function getMountValueFromVariant(variant) {
   );
 }
 
-/** Case-insensitive search param lookup (Shopify uses `Frame`, links may use `frame`). */
+export const SHOPIFY_SIZE_OPTION = 'Size';
+export const SHOPIFY_FRAME_OPTION = 'Frame';
+export const SHOPIFY_MOUNT_OPTION = 'Mount';
+
+/** Case-insensitive search param lookup — prefers the canonical Shopify option key. */
 function getSearchParamValue(searchParams: URLSearchParams, name: string) {
+  const exact = searchParams.get(name);
+  if (exact) return exact;
+
   const target = name.toLowerCase();
   for (const [key, value] of searchParams.entries()) {
     if (key.toLowerCase() === target && value) return value;
@@ -104,12 +111,70 @@ function getSearchParamValue(searchParams: URLSearchParams, name: string) {
   return null;
 }
 
+/** Remove legacy lowercase `frame` / `mount` / `size` duplicates from the URL. */
+export function stripLegacyOptionParams(params: URLSearchParams) {
+  for (const key of [...params.keys()]) {
+    const lower = key.toLowerCase();
+    if (lower === 'frame' && key !== SHOPIFY_FRAME_OPTION) params.delete(key);
+    if (lower === 'mount' && key !== SHOPIFY_MOUNT_OPTION) params.delete(key);
+    if (lower === 'size' && key !== SHOPIFY_SIZE_OPTION) params.delete(key);
+  }
+}
+
+/** Write Shopify product option keys and drop legacy lowercase duplicates. */
+export function setProductOptionParams(
+  params: URLSearchParams,
+  options: {frame?: string; mount?: string; size?: string},
+) {
+  if (options.size) params.set(SHOPIFY_SIZE_OPTION, options.size);
+  if (options.frame) params.set(SHOPIFY_FRAME_OPTION, options.frame);
+  if (options.mount) params.set(SHOPIFY_MOUNT_OPTION, options.mount);
+  stripLegacyOptionParams(params);
+}
+
+/**
+ * Merge a Shopify `variantUriQuery` with frame/mount overrides using canonical
+ * option keys only — keeps `useSelectedOptionInUrlParam` in sync.
+ */
+export function buildVariantSearchParams(
+  variantUriQuery: string,
+  overrides: {frame?: string; mount?: string} = {},
+) {
+  const params = new URLSearchParams(variantUriQuery);
+  const frame =
+    overrides.frame ??
+    getSearchParamValue(params, SHOPIFY_FRAME_OPTION) ??
+    'Black';
+  const mount =
+    overrides.mount ??
+    getSearchParamValue(params, SHOPIFY_MOUNT_OPTION) ??
+    'Border';
+  const reconciled = reconcileIncompatibleFrameMount(frame, mount);
+  setProductOptionParams(params, reconciled);
+  return params;
+}
+
+/** Promote canonical option params and strip legacy lowercase duplicates. */
+export function normalizeProductOptionSearchParams(params: URLSearchParams) {
+  const frame = getSearchParamValue(params, SHOPIFY_FRAME_OPTION);
+  const mount = getSearchParamValue(params, SHOPIFY_MOUNT_OPTION);
+  const size = getSearchParamValue(params, SHOPIFY_SIZE_OPTION);
+  const before = params.toString();
+
+  if (size) params.set(SHOPIFY_SIZE_OPTION, size);
+  if (frame) params.set(SHOPIFY_FRAME_OPTION, frame);
+  if (mount) params.set(SHOPIFY_MOUNT_OPTION, mount);
+  stripLegacyOptionParams(params);
+
+  return before !== params.toString();
+}
+
 export function getResolvedFrameValue(
   variant: {selectedOptions?: Array<{name: string; value: string}>} | null | undefined,
   searchParams: URLSearchParams,
 ) {
   return (
-    getSearchParamValue(searchParams, 'frame') ??
+    getSearchParamValue(searchParams, SHOPIFY_FRAME_OPTION) ??
     getFrameValueFromVariant(variant) ??
     'Black'
   );
@@ -120,7 +185,7 @@ export function getResolvedMountValue(
   searchParams: URLSearchParams,
 ) {
   return (
-    getSearchParamValue(searchParams, 'mount') ??
+    getSearchParamValue(searchParams, SHOPIFY_MOUNT_OPTION) ??
     getMountValueFromVariant(variant) ??
     'Border'
   );

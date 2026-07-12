@@ -6,11 +6,21 @@ export type FramedPictureSizeSpec = {
   shortSide: number;
   /** Longer print edge in inches — sets proportions, not rendered pixels. */
   longSide: number;
-  /** Mat border in inches. */
+  /** Mat border in inches (visual — 0 when mount is full bleed). */
   padding: number;
-  /** Outer frame border in inches. */
+  /** Outer frame border in inches (visual — 0 when unframed). */
   frame: number;
   frameColor?: FrameColor;
+  /**
+   * Border-mount mat width from Airtable (`padding_inches` metafield).
+   * Locks on-screen print area when toggling full bleed.
+   */
+  referencePadding?: number;
+  /**
+   * Moulding width from Airtable (`frame_width_inches` metafield).
+   * Locks on-screen print area when toggling unframed.
+   */
+  referenceFrame?: number;
 };
 
 export type FramedPictureComputed = {
@@ -32,9 +42,9 @@ export type FramedPictureComputed = {
   };
 };
 
-/** Fixed mat and frame width in inches — same physical moulding at every tier. */
-const STANDARD_MAT_INCHES = 1.25;
-const STANDARD_FRAME_INCHES = 0.625;
+/** Fixed mat and frame width in inches — fallback when Airtable metafields are absent. */
+const STANDARD_MAT_INCHES = 2;
+const STANDARD_FRAME_INCHES = 2;
 
 /** Default scale for how much of the @container the outer frame may occupy (1 = no adjustment). */
 export const FRAMED_PICTURE_DEFAULT_CONTAINER_FILL = 1;
@@ -178,7 +188,76 @@ export function getFramedPictureSpecFromVariantMetafields(
       normalizedFrame.includes('none')
         ? 0
         : frameWidthInches,
+    referencePadding: paddingInches,
+    referenceFrame: frameWidthInches,
     frameColor: resolveFrameColorFromOption(frameValue),
+  };
+}
+
+/** Border-mount mat width for layout locking (prefers Airtable metafield). */
+export function getReferencePaddingInches(
+  spec: Pick<FramedPictureSizeSpec, 'padding' | 'referencePadding'>,
+) {
+  if (spec.referencePadding != null && spec.referencePadding > 0) {
+    return spec.referencePadding;
+  }
+  if (spec.padding > 0) return spec.padding;
+  return STANDARD_MAT_INCHES;
+}
+
+/** Moulding width for layout locking (prefers Airtable metafield). */
+export function getReferenceFrameInches(
+  spec: Pick<FramedPictureSizeSpec, 'frame' | 'referenceFrame'>,
+) {
+  if (spec.referenceFrame != null && spec.referenceFrame > 0) {
+    return spec.referenceFrame;
+  }
+  if (spec.frame > 0) return spec.frame;
+  return STANDARD_FRAME_INCHES;
+}
+
+/**
+ * Layout mat/frame inches used to compute picture scale.
+ * Full bleed and unframed keep the bordered+framed print area on screen.
+ */
+export function getLayoutInsetsForPictureLock(spec: FramedPictureSizeSpec) {
+  const referencePadding = getReferencePaddingInches(spec);
+  const referenceFrame = getReferenceFrameInches(spec);
+  const isFullBleed = spec.padding === 0;
+  const isUnframed = spec.frame === 0;
+
+  return {
+    layoutPadding: isFullBleed ? referencePadding : spec.padding,
+    layoutFrame: isUnframed ? referenceFrame : spec.frame,
+  };
+}
+
+/**
+ * Spec for tier viewport caps — size tier only, always bordered+framed insets.
+ * Mount/frame toggles must not change the tier budget.
+ */
+export function getTierCapLayoutSpec(
+  spec: FramedPictureSizeSpec,
+): FramedPictureSizeSpec {
+  const referencePadding = getReferencePaddingInches(spec);
+  const referenceFrame = getReferenceFrameInches(spec);
+
+  return {
+    shortSide: spec.shortSide,
+    longSide: spec.longSide,
+    padding: referencePadding,
+    frame: referenceFrame,
+    referencePadding,
+    referenceFrame,
+    frameColor: spec.frameColor,
+  };
+}
+
+function getTierCapLayoutInsets(spec: FramedPictureSizeSpec) {
+  const tierSpec = getTierCapLayoutSpec(spec);
+  return {
+    layoutPadding: tierSpec.padding,
+    layoutFrame: tierSpec.frame,
   };
 }
 
@@ -331,10 +410,7 @@ export function getDetailTierFitCaps(
   namedSize: FramedPictureNamedSize,
 ) {
   const maxLongSideCqi = getDetailMaxLongSideCqiForNamedSize(namedSize);
-  const isFullBleed = spec.padding === 0;
-  const isUnframed = spec.frame === 0;
-  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : spec.padding;
-  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : spec.frame;
+  const {layoutPadding, layoutFrame} = getTierCapLayoutInsets(spec);
   const verticalOuterAspect = getLayoutOuterAspectForTierCap(
     spec,
     layoutPadding,
@@ -385,10 +461,7 @@ export function getDetailFitMaxWidthCqi(
   );
   if (targetLongSide === undefined) return undefined;
 
-  const isFullBleed = spec.padding === 0;
-  const isUnframed = spec.frame === 0;
-  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : spec.padding;
-  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : spec.frame;
+  const {layoutPadding, layoutFrame} = getTierCapLayoutInsets(spec);
   const verticalOuterAspect = getLayoutOuterAspectForTierCap(
     spec,
     layoutPadding,
@@ -408,10 +481,7 @@ export function getSummaryStripFitLongSideCqi(
   if (containerWidth <= 0 || containerHeight <= 0) return undefined;
 
   const maxWidthCqi = getMaxWidthCqiForNamedSize(namedSize);
-  const isFullBleed = spec.padding === 0;
-  const isUnframed = spec.frame === 0;
-  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : spec.padding;
-  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : spec.frame;
+  const {layoutPadding, layoutFrame} = getTierCapLayoutInsets(spec);
   const verticalOuterAspect = getLayoutOuterAspectForTierCap(
     spec,
     layoutPadding,
@@ -646,10 +716,7 @@ export function computeFramedPictureSize(
   const frameColor = spec.frameColor ?? 'black';
   const isFullBleed = padding === 0;
   const isUnframed = frame === 0;
-  /** Border-mount padding used to lock picture scale when mat is removed. */
-  const layoutPadding = isFullBleed ? STANDARD_MAT_INCHES : padding;
-  /** Framed width used to lock picture scale when moulding is removed. */
-  const layoutFrame = isUnframed ? STANDARD_FRAME_INCHES : frame;
+  const {layoutPadding, layoutFrame} = getLayoutInsetsForPictureLock(spec);
 
   const outerWidth = pictureWidth + 2 * padding + 2 * frame;
   const outerHeight = pictureHeight + 2 * padding + 2 * frame;
@@ -883,7 +950,14 @@ export function getFramedPictureSpecFromVariant(
   const sizeKey = namedSize ?? getFramedSizeFromVariant(variant ?? {});
   const spec: FramedPictureSizeSpec = fromMetafields ?? {
     ...FRAMED_PICTURE_SIZES[sizeKey],
+    referencePadding: FRAMED_PICTURE_SIZES[sizeKey].padding,
+    referenceFrame: FRAMED_PICTURE_SIZES[sizeKey].frame,
   };
+
+  const referencePadding = getReferencePaddingInches(spec);
+  const referenceFrame = getReferenceFrameInches(spec);
+  spec.referencePadding = referencePadding;
+  spec.referenceFrame = referenceFrame;
 
   const frameValue =
     getSelectedOptionValue(variant, 'frame') ?? overrides?.frame ?? null;

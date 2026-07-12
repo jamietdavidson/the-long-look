@@ -1,12 +1,11 @@
-import {useRef} from 'react';
-import {Link} from 'react-router';
+import {useRef, useEffect} from 'react';
+import {Link, useNavigate, useSearchParams} from 'react-router';
 import {
   getAdjacentAndFirstAvailableVariants,
   Money,
   useOptimisticVariant,
   useSelectedOptionInUrlParam,
 } from '@shopify/hydrogen';
-import {useSearchParams} from 'react-router';
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
 import {PrintDetailGallery} from '~/components/PrintDetailGallery';
 import {PrintProductInfoAside} from '~/components/PrintProductInfoTabs';
@@ -25,6 +24,7 @@ import {artistPath} from '~/lib/paths';
 import {
   getResolvedFrameAndMount,
   getResolvedFramedSize,
+  normalizeProductOptionSearchParams,
 } from '~/lib/print-options';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
 
@@ -38,6 +38,7 @@ import {useGalleryInView} from '~/lib/use-gallery-in-view';
 export function PrintDetail({product, artist = null, recommended = []}) {
   const galleryRef = useRef(null);
   const galleryInView = useGalleryInView(galleryRef, 0.15);
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
@@ -45,6 +46,17 @@ export function PrintDetail({product, artist = null, recommended = []}) {
   );
 
   useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (!normalizeProductOptionSearchParams(params)) return;
+
+    const next = params.toString();
+    const current = searchParams.toString();
+    if (next === current) return;
+
+    void navigate(`?${next}`, {replace: true, preventScrollReset: true});
+  }, [navigate, searchParams]);
 
   const imageSource =
     selectedVariant?.image ??

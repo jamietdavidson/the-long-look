@@ -34,11 +34,13 @@ import {
 import {
   applyFrameSelection,
   applyMountSelection,
+  buildVariantSearchParams,
   DEFAULT_FRAME_OPTIONS,
   DEFAULT_MOUNT_OPTIONS,
   FRAME_MOUNT_CONFLICT_MESSAGE,
   getResolvedFrameAndMount,
   isExcludedFrameOption,
+  setProductOptionParams,
 } from '~/lib/print-options';
 import {cn} from '~/lib/utils';
 import {scrollPageToTop} from '~/lib/page-scroll';
@@ -153,12 +155,10 @@ export function PrintPurchasePanel({
 
   const selectOptionValue = (variantUriQuery, selected) => {
     if (!selected) {
-      const params = new URLSearchParams(variantUriQuery);
-      for (const [key, value] of searchParams.entries()) {
-        if (key === 'frame' || key === 'mount') {
-          params.set(key, value);
-        }
-      }
+      const params = buildVariantSearchParams(variantUriQuery, {
+        frame: selectedFrame,
+        mount: selectedMount,
+      });
       void navigate(`?${params.toString()}`, {
         replace: true,
         preventScrollReset: true,
@@ -168,8 +168,7 @@ export function PrintPurchasePanel({
 
   const updateFrameMountParams = (frame, mount) => {
     const params = new URLSearchParams(searchParams);
-    params.set('frame', frame);
-    params.set('mount', mount);
+    setProductOptionParams(params, {frame, mount});
     void navigate(`?${params.toString()}`, {
       replace: true,
       preventScrollReset: true,
@@ -189,10 +188,8 @@ export function PrintPurchasePanel({
   const selectFrameShopify = (variantUriQuery, selected, frameName) => {
     if (selected) return;
 
-    const params = new URLSearchParams(variantUriQuery);
     const {frame, mount} = applyFrameSelection(frameName, selectedMount);
-    params.set('frame', frame);
-    params.set('mount', mount);
+    const params = buildVariantSearchParams(variantUriQuery, {frame, mount});
     void navigate(`?${params.toString()}`, {
       replace: true,
       preventScrollReset: true,
@@ -202,10 +199,8 @@ export function PrintPurchasePanel({
   const selectMountShopify = (variantUriQuery, selected, mountName) => {
     if (selected) return;
 
-    const params = new URLSearchParams(variantUriQuery);
     const {frame, mount} = applyMountSelection(mountName, selectedFrame);
-    params.set('frame', frame);
-    params.set('mount', mount);
+    const params = buildVariantSearchParams(variantUriQuery, {frame, mount});
     void navigate(`?${params.toString()}`, {
       replace: true,
       preventScrollReset: true,

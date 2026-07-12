@@ -1,6 +1,6 @@
 # Airtable → Shopify catalog sync
 
-Triggered when a **Print** enters the **Committed** view in the Operations Airtable base. Syncs that print and its linked entities to Shopify, then marks the linked artist and collections as Committed in Airtable.
+Triggered when a **Print** is created or updated in the **Committed** view. Syncs that print and its linked entities to Shopify, then marks the linked artist and collections as Committed in Airtable.
 
 | | |
 |---|---|
@@ -39,7 +39,7 @@ Airtable trigger: Prints → Committed view (new record)
 7. Write back Collection Status → Commited
 ```
 
-Re-running is safe: products are upserted by **Airtable record ID** (with handle fallback for legacy rows). Prints **deleted from Airtable** are removed from Shopify on the next sync run. Prints that still exist in Airtable (any status) are kept even if they leave the Committed view.
+Re-running is safe: existing Shopify rows are matched by **Airtable record ID** (with handle fallback for legacy rows) and updated in place — renames, descriptions, images, variant metafields, and collection links all refresh on each sync. Prints **deleted from Airtable** are removed from Shopify on the next sync run. Prints that still exist in Airtable (any status) are kept even if they leave the Committed view.
 
 ### Shopify schema (one-time setup)
 

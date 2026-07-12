@@ -26,22 +26,6 @@ export type ContentNavQuery = {
       }
     >;
   };
-  pictures: {
-    nodes: Array<
-      Pick<StorefrontAPI.Metaobject, 'id'> & {
-        artist?: StorefrontAPI.Maybe<{
-          reference?: StorefrontAPI.Maybe<
-            Pick<StorefrontAPI.Metaobject, 'handle'>
-          >;
-        }>;
-        collections?: StorefrontAPI.Maybe<{
-          references?: StorefrontAPI.Maybe<{
-            nodes: Array<Pick<StorefrontAPI.Metaobject, 'handle'>>;
-          }>;
-        }>;
-      }
-    >;
-  };
 };
 
 export type MoneyFragment = Pick<
@@ -724,7 +708,7 @@ export type PoliciesQuery = {
 };
 
 interface GeneratedQueryTypes {
-  '#graphql\n  query ContentNav {\n    artists: metaobjects(type: "artist", first: 50) {\n      nodes {\n        id\n        handle\n        name: field(key: "name") {\n          value\n        }\n      }\n    }\n    collections: metaobjects(type: "collection", first: 50) {\n      nodes {\n        id\n        handle\n        title: field(key: "title") {\n          value\n        }\n      }\n    }\n    pictures: metaobjects(type: "picture", first: 100) {\n      nodes {\n        id\n        artist: field(key: "artist") {\n          reference {\n            ... on Metaobject {\n              handle\n            }\n          }\n        }\n        collections: field(key: "collections") {\n          references(first: 20) {\n            nodes {\n              ... on Metaobject {\n                handle\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n': {
+  '#graphql\n  query ContentNav {\n    artists: metaobjects(type: "artist", first: 50) {\n      nodes {\n        id\n        handle\n        name: field(key: "name") {\n          value\n        }\n      }\n    }\n    collections: metaobjects(type: "collection", first: 50) {\n      nodes {\n        id\n        handle\n        title: field(key: "title") {\n          value\n        }\n      }\n    }\n  }\n': {
     return: ContentNavQuery;
     variables: ContentNavQueryVariables;
   };

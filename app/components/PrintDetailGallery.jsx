@@ -13,6 +13,7 @@ import {
   getDetailFitMaxWidthCqi,
   getDetailTierFitCaps,
   getFramedSizeFromVariant,
+  getTierCapLayoutSpec,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
 import {getFramedSizeFromSearchParams} from '~/lib/print-options';
@@ -113,34 +114,46 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     resolveNamedSizeFromSpec(framedSpec) ??
     (selectedVariant ? getFramedSizeFromVariant(selectedVariant) : undefined);
 
+  const tierCapSpec = useMemo(
+    () => getTierCapLayoutSpec(framedSpec),
+    [
+      framedSpec.shortSide,
+      framedSpec.longSide,
+      framedSpec.referencePadding,
+      framedSpec.referenceFrame,
+      framedSpec.padding,
+      framedSpec.frame,
+    ],
+  );
+
   const slides = useMemo(() => buildGallerySlides(framedSpec), [framedSpec]);
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
   const slideFitCaps = useMemo(() => {
-    return slides.map((slide) => {
+    return slides.map(() => {
       if (!containerSize || !tierForCaps) {
         return tierForCaps
-          ? getDetailTierFitCaps(slide.spec, tierForCaps)
+          ? getDetailTierFitCaps(tierCapSpec, tierForCaps)
           : {maxWidthCqi: undefined, maxLongSideCqi: undefined};
       }
 
       return {
         maxWidthCqi: getDetailFitMaxWidthCqi(
-          slide.spec,
+          tierCapSpec,
           tierForCaps,
           containerSize.width,
           containerSize.height,
         ),
         maxLongSideCqi: getDetailFitLongSideCqi(
-          slide.spec,
+          tierCapSpec,
           tierForCaps,
           containerSize.width,
           containerSize.height,
         ),
       };
     });
-  }, [slides, tierForCaps, containerSize]);
+  }, [slides, tierCapSpec, tierForCaps, containerSize]);
 
   useEffect(() => {
     setSlideIndex(0);
