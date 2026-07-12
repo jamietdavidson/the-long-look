@@ -78,8 +78,48 @@ async function addMetaobjectField(type) {
   console.log(`${type}: added airtable_record_id`);
 }
 
+async function ensureMetafieldDefinitions(ownerType, definitions) {
+  for (const definition of definitions) {
+    const data = await graphql(`mutation($definition: MetafieldDefinitionInput!) {
+      metafieldDefinitionCreate(definition: $definition) {
+        createdDefinition { id namespace key access { storefront } }
+        userErrors { field message code }
+      }
+    }`, {definition: {...definition, ownerType}});
+
+    const errors = data.metafieldDefinitionCreate?.userErrors ?? [];
+    const alreadyExists = errors.some((error) =>
+      /already|taken|in use/i.test(`${error.message} ${error.code ?? ''}`),
+    );
+    if (alreadyExists) {
+      const updated = await graphql(`mutation {
+        metafieldDefinitionUpdate(definition: {
+          namespace: "${definition.namespace}"
+          key: "${definition.key}"
+          ownerType: ${ownerType}
+          access: { storefront: PUBLIC_READ }
+        }) {
+          updatedDefinition { access { storefront } }
+          userErrors { message }
+        }
+      }`);
+      const updateErrors = updated.metafieldDefinitionUpdate?.userErrors ?? [];
+      if (updateErrors.length) {
+        console.warn(`${ownerType} ${definition.namespace}.${definition.key}: ${JSON.stringify(updateErrors)}`);
+      } else {
+        console.log(`${ownerType} ${definition.namespace}.${definition.key} storefront access ensured`);
+      }
+      continue;
+    }
+    if (errors.length) {
+      throw new Error(`${ownerType} ${definition.namespace}.${definition.key}: ${JSON.stringify(errors)}`);
+    }
+    console.log(`${ownerType} metafield ${definition.namespace}.${definition.key} created`);
+  }
+}
+
 async function ensureProductMetafieldDefinitions() {
-  const definitions = [
+  await ensureMetafieldDefinitions('PRODUCT', [
     {
       name: 'Airtable Record ID',
       namespace: 'airtable',
@@ -93,33 +133,23 @@ async function ensureProductMetafieldDefinitions() {
       type: 'json',
       access: {storefront: 'PUBLIC_READ'},
     },
-  ];
+  ]);
+}
 
-  for (const definition of definitions) {
-    const data = await graphql(`mutation($definition: MetafieldDefinitionInput!) {
-      metafieldDefinitionCreate(definition: $definition) {
-        createdDefinition { id namespace key }
-        userErrors { field message code }
-      }
-    }`, {definition: {...definition, ownerType: 'PRODUCT'}});
-
-    const errors = data.metafieldDefinitionCreate?.userErrors ?? [];
-    const alreadyExists = errors.some((error) =>
-      /already|taken|in use/i.test(`${error.message} ${error.code ?? ''}`),
-    );
-    if (alreadyExists) {
-      console.log(`product metafield ${definition.namespace}.${definition.key} already exists`);
-      continue;
-    }
-    if (errors.length) {
-      throw new Error(`product metafield ${definition.namespace}.${definition.key}: ${JSON.stringify(errors)}`);
-    }
-    console.log(`product metafield ${definition.namespace}.${definition.key} created`);
-  }
+async function ensureVariantMetafieldDefinitions() {
+  const storefrontAccess = {storefront: 'PUBLIC_READ'};
+  await ensureMetafieldDefinitions('PRODUCTVARIANT', [
+    {name: 'Short Inches', namespace: 'print', key: 'short_inches', type: 'number_decimal', access: storefrontAccess},
+    {name: 'Long Inches', namespace: 'print', key: 'long_inches', type: 'number_decimal', access: storefrontAccess},
+    {name: 'Padding Inches', namespace: 'print', key: 'padding_inches', type: 'number_decimal', access: storefrontAccess},
+    {name: 'Frame Width Inches', namespace: 'print', key: 'frame_width_inches', type: 'number_decimal', access: storefrontAccess},
+    {name: 'Size Rank', namespace: 'print', key: 'rank', type: 'number_integer', access: storefrontAccess},
+  ]);
 }
 
 for (const type of ['artist', 'collection', 'picture']) {
   await addMetaobjectField(type);
 }
 await ensureProductMetafieldDefinitions();
+await ensureVariantMetafieldDefinitions();
 console.log('Done.');

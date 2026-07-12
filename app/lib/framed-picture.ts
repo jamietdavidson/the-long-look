@@ -119,7 +119,7 @@ export function getVariantPrintMetafield(
   key: string,
 ) {
   return variant?.metafields?.find(
-    (field) => field.namespace === 'print' && field.key === key,
+    (field) => field?.namespace === 'print' && field?.key === key,
   )?.value;
 }
 
