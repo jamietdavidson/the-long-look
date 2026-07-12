@@ -72,6 +72,9 @@ export {
   getProductIdByAirtableId,
   listFineArtPrintProducts,
   resolveProductId,
+  fetchVariantCatalog,
+  variantSelectionKey,
+  selectedOptionsKey,
 };
 `,
     'utf8',
@@ -164,6 +167,50 @@ async function listShopifyPrintProducts() {
     throw new Error(JSON.stringify(payload.errors));
   }
   return payload.data.products.nodes;
+}
+
+async function listShopifyProductVariants(productId) {
+  const query = `query($id: ID!) {
+    product(id: $id) {
+      variants(first: 100) {
+        nodes {
+          id
+          price
+          selectedOptions { name value }
+          short: metafield(namespace: "print", key: "short_inches") { value }
+          long: metafield(namespace: "print", key: "long_inches") { value }
+          padding: metafield(namespace: "print", key: "padding_inches") { value }
+          frame: metafield(namespace: "print", key: "frame_width_inches") { value }
+          rank: metafield(namespace: "print", key: "rank") { value }
+        }
+      }
+    }
+  }`;
+
+  const response = await fetch(
+    `https://${SHOP_ID}.myshopify.com/admin/api/2025-01/graphql.json`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({query, variables: {id: productId}}),
+    },
+  );
+  const payload = await response.json();
+  if (payload.errors?.length) {
+    throw new Error(JSON.stringify(payload.errors));
+  }
+  return payload.data.product.variants.nodes;
+}
+
+function normalizeDecimal(value) {
+  return Number.parseFloat(String(value ?? '0'));
+}
+
+function normalizePrice(value) {
+  return Number.parseFloat(String(value ?? '0')).toFixed(2);
 }
 
 function assert(condition, message) {
@@ -263,6 +310,39 @@ const afterProducts = await listShopifyPrintProducts();
 assert(
   afterProducts.length === printIds.length,
   `Re-sync changed product count: ${afterProducts.length}`,
+);
+
+console.log('5) Assert variant pricing + dimensions match Airtable catalog…');
+const catalog = await utils.fetchVariantCatalog($, airtable);
+assert(catalog.length > 0, 'Expected Airtable variant catalog rows');
+const sampleProduct = products[0];
+const shopifyVariants = await listShopifyProductVariants(sampleProduct.id);
+const variantsByKey = new Map(
+  shopifyVariants.map((variant) => [
+    utils.selectedOptionsKey(variant.selectedOptions),
+    variant,
+  ]),
+);
+
+for (const catalogVariant of catalog) {
+  const key = utils.variantSelectionKey(catalogVariant);
+  const shopifyVariant = variantsByKey.get(key);
+  assert(shopifyVariant, `Missing Shopify variant for catalog row ${key}`);
+  assert(
+    normalizePrice(shopifyVariant.price) === normalizePrice(catalogVariant.price),
+    `Price mismatch for ${key}: Shopify ${shopifyVariant.price}, Airtable ${catalogVariant.price}`,
+  );
+  assert(
+    normalizeDecimal(shopifyVariant.padding?.value) === normalizeDecimal(catalogVariant.padding),
+    `Padding mismatch for ${key}: Shopify ${shopifyVariant.padding?.value}, Airtable ${catalogVariant.padding}`,
+  );
+  assert(
+    normalizeDecimal(shopifyVariant.frame?.value) === normalizeDecimal(catalogVariant.frameWidth),
+    `Frame width mismatch for ${key}: Shopify ${shopifyVariant.frame?.value}, Airtable ${catalogVariant.frameWidth}`,
+  );
+}
+console.log(
+  `   ✓ ${catalog.length} variants on ${sampleProduct.title} match Airtable pricing + dimensions`,
 );
 
 console.log('\nAll assertions passed.');

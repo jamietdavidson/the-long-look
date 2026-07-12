@@ -15,7 +15,7 @@ Order sync (Shopify → Airtable) is a **separate workflow** — see [`../shopif
 **Sellable prints = Shopify products only.** The sync creates a `Fine Art Print` product with:
 
 - **Image** on the product (`files` from Airtable attachment URL)
-- **Variants** from the Variants catalog (size / frame / mount)
+- **Variants** from the shared Airtable Variants catalog (size / frame / mount), including **prices** and **dimension metafields** (`short_inches`, `long_inches`, `padding_inches`, `frame_width_inches`, `rank`)
 - **Metafields** for dimensions and `airtable.record_id`
 - **`print.collection_record_ids`** JSON metafield (Airtable collection record ids — source of truth for membership)
 - **`print.collection_handles`** JSON metafield (Shopify collection handles for display/routing)

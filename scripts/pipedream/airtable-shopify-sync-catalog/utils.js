@@ -993,6 +993,156 @@ export function buildProductInput({
   return input;
 }
 
+export function variantSelectionKey({sizeName, frame, mount}) {
+  return [sizeName, frame, mount].join('|||');
+}
+
+export function selectedOptionsKey(selectedOptions) {
+  const byName = Object.fromEntries(
+    (selectedOptions ?? []).map((option) => [option.name, option.value]),
+  );
+  return [byName.Size, byName.Frame, byName.Mount].join('|||');
+}
+
+function buildVariantMetafields(variant) {
+  const mf = SHOPIFY.metafields;
+  return [
+    {
+      namespace: mf.namespace,
+      key: mf.shortInches,
+      type: 'number_decimal',
+      value: String(variant.shortSide),
+    },
+    {
+      namespace: mf.namespace,
+      key: mf.longInches,
+      type: 'number_decimal',
+      value: String(variant.longSide),
+    },
+    {
+      namespace: mf.namespace,
+      key: mf.paddingInches,
+      type: 'number_decimal',
+      value: String(variant.padding),
+    },
+    {
+      namespace: mf.namespace,
+      key: mf.frameWidthInches,
+      type: 'number_decimal',
+      value: String(variant.frameWidth),
+    },
+    {
+      namespace: mf.namespace,
+      key: mf.rank,
+      type: 'number_integer',
+      value: String(variant.rank),
+    },
+  ];
+}
+
+async function listProductVariants($, shopify, productId) {
+  const variants = [];
+  let cursor = null;
+
+  do {
+    const data = await shopifyRequest($, shopify, {
+      query: `query($id: ID!, $cursor: String) {
+        product(id: $id) {
+          variants(first: 100, after: $cursor) {
+            nodes {
+              id
+              price
+              selectedOptions { name value }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }`,
+      variables: {id: productId, cursor},
+    });
+
+    variants.push(...(data.product?.variants?.nodes ?? []));
+    const pageInfo = data.product?.variants?.pageInfo;
+    cursor = pageInfo?.hasNextPage ? pageInfo.endCursor : null;
+  } while (cursor);
+
+  return variants;
+}
+
+/** Refresh variant prices and print dimension metafields from the Airtable catalog. */
+export async function updateProductVariantCatalog($, shopify, {productId, catalog}) {
+  const existingVariants = await listProductVariants($, shopify, productId);
+  const variantsByKey = new Map(
+    existingVariants.map((variant) => [
+      selectedOptionsKey(variant.selectedOptions),
+      variant,
+    ]),
+  );
+
+  const bulkInputs = [];
+  const metafieldInputs = [];
+  const missingKeys = [];
+
+  for (const catalogVariant of catalog) {
+    const key = variantSelectionKey(catalogVariant);
+    const existingVariant = variantsByKey.get(key);
+    if (!existingVariant) {
+      missingKeys.push(key);
+      continue;
+    }
+
+    bulkInputs.push({
+      id: existingVariant.id,
+      price: catalogVariant.price,
+      inventoryPolicy: 'CONTINUE',
+    });
+
+    for (const field of buildVariantMetafields(catalogVariant)) {
+      metafieldInputs.push({
+        ownerId: existingVariant.id,
+        ...field,
+      });
+    }
+  }
+
+  if (bulkInputs.length) {
+    const data = await shopifyRequest($, shopify, {
+      query: `mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants { id }
+          userErrors { field message }
+        }
+      }`,
+      variables: {productId, variants: bulkInputs},
+    });
+    const errors = data.productVariantsBulkUpdate?.userErrors ?? [];
+    if (errors.length) {
+      throw new Error(`productVariantsBulkUpdate: ${JSON.stringify(errors)}`);
+    }
+  }
+
+  for (let index = 0; index < metafieldInputs.length; index += 25) {
+    const chunk = metafieldInputs.slice(index, index + 25);
+    const data = await shopifyRequest($, shopify, {
+      query: `mutation($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields { id }
+          userErrors { field message }
+        }
+      }`,
+      variables: {metafields: chunk},
+    });
+    const errors = data.metafieldsSet?.userErrors ?? [];
+    if (errors.length) throw new Error(`metafieldsSet: ${JSON.stringify(errors)}`);
+  }
+
+  return {
+    updatedVariants: bulkInputs.length,
+    missingVariants: missingKeys.length,
+    missingKeys,
+  };
+}
+
 /** Apply scalar product fields (title, handle, description, vendor) on an existing row. */
 async function updateProductScalars(
   $,
@@ -1377,6 +1527,15 @@ export async function syncPrint($, {
     collectionRecordIds,
     collectionHandles,
   });
+  const variantSync = await updateProductVariantCatalog($, shopify, {
+    productId: product.id,
+    catalog,
+  });
+  if (variantSync.missingVariants > 0) {
+    throw new Error(
+      `Variant catalog mismatch for ${record.id}: missing ${variantSync.missingVariants} variant(s) (${variantSync.missingKeys.slice(0, 3).join(', ')})`,
+    );
+  }
   await publishProduct($, shopify, product.id, publicationIds);
 
   return {
@@ -1388,7 +1547,7 @@ export async function syncPrint($, {
     artistRecordId,
     collectionRecordIds,
     productId: product.id,
-    variantCount: product.variantsCount?.count ?? catalog.length,
+    variantCount: variantSync.updatedVariants,
     collectionCount: collectionRecordIds.length,
   };
 }
