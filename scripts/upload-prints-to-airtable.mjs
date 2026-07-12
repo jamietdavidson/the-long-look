@@ -2,7 +2,7 @@
 /**
  * Upload print photos from content/ into the Airtable Prints table.
  *
- * Files are stored in Airtable first. Shopify sync happens later via Pipedream
+ * Files are stored in Airtable first. The Railway catalog-sync service syncs to Shopify
  * when a print enters the Committed view.
  *
  * Usage:

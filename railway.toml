@@ -3,8 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "services/catalog-sync/Dockerfile"
 watchPatterns = [
   "services/catalog-sync/**",
-  "scripts/pipedream/airtable-shopify-sync-catalog/**",
-  "scripts/pipedream/e2e-pipedream-platform.mjs",
+  "lib/catalog-sync/**",
+  "lib/http.mjs",
 ]
 
 [deploy]

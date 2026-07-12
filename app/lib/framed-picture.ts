@@ -145,7 +145,7 @@ type VariantMetafield = {
   value?: string | null;
 };
 
-/** Read a print dimension metafield synced from Airtable via Pipedream. */
+/** Read a print dimension metafield synced from Airtable via catalog sync. */
 export function getVariantPrintMetafield(
   variant: {metafields?: VariantMetafield[] | null} | null | undefined,
   key: string,

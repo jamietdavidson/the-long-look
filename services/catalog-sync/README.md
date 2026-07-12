@@ -1,6 +1,6 @@
 # Catalog sync (Railway)
 
-Replaces Pipedream for **Airtable → Shopify** print catalog sync. Uses the same logic as `scripts/pipedream/airtable-shopify-sync-catalog/`.
+Replaces Pipedream for **Airtable → Shopify** print catalog sync. Core logic lives in `lib/catalog-sync/`.
 
 **Railway project:** [the-long-look catalog sync](https://railway.com/project/b3ab32a9-416f-48f6-ad0b-10b92ec53e47)
 

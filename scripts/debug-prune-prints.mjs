@@ -6,8 +6,8 @@
  *   set -a && source services/catalog-sync/.env.railway && set +a
  *   node scripts/debug-prune-prints.mjs
  */
-import {axios} from './pipedream/e2e-pipedream-platform.mjs';
-import {AIRTABLE, SHOPIFY} from './pipedream/airtable-shopify-sync-catalog/config.js';
+import {axios} from '../lib/http.mjs';
+import {AIRTABLE, SHOPIFY} from '../lib/catalog-sync/config.js';
 
 const $ = {};
 const pat = process.env.AIRTABLE_PAT?.trim();

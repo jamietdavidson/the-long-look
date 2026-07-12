@@ -1,7 +1,7 @@
 /**
  * Poll Airtable Prints → Committed view and sync each record.
  */
-import {AIRTABLE} from '../../scripts/pipedream/airtable-shopify-sync-catalog/config.js';
+import {AIRTABLE} from '../../lib/catalog-sync/config.js';
 import {syncPrint, pruneDeletedPrints, syncCommittedArtistsAndCollections} from './run-sync.mjs';
 
 const BASE = 'https://api.airtable.com/v0';

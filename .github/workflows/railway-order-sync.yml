@@ -1,14 +1,13 @@
-name: Deploy catalog sync (Railway)
+name: Deploy order sync (Railway)
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'services/catalog-sync/**'
-      - 'lib/catalog-sync/**'
+      - 'services/order-sync/**'
+      - 'lib/order-sync/**'
       - 'lib/http.mjs'
-      - 'railway.toml'
-      - '.github/workflows/railway-catalog-sync.yml'
+      - '.github/workflows/railway-order-sync.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,7 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to Railway
+    name: Deploy order sync
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,4 +27,4 @@ jobs:
       - name: Deploy
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --ci --detach
+        run: railway up --ci --detach --service order-sync
