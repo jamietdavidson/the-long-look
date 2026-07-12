@@ -649,11 +649,17 @@ async function findMetaobjectIdByAirtableRecordId($, shopify, type, recordId) {
 export async function getMetaobjectIdByAirtableId($, shopify, type, recordId) {
   if (!recordId) return null;
 
+  const fromList = await findMetaobjectIdByAirtableRecordId($, shopify, type, recordId);
+  if (fromList) return fromList;
+
   const fieldKey = SHOPIFY.airtableRecordIdField;
   const data = await shopifyRequest($, shopify, {
     query: `query($type: String!, $query: String!) {
-      metaobjects(first: 1, type: $type, query: $query) {
-        nodes { id handle }
+      metaobjects(first: 10, type: $type, query: $query) {
+        nodes {
+          id
+          airtableId: field(key: "${fieldKey}") { value }
+        }
       }
     }`,
     variables: {
@@ -661,10 +667,10 @@ export async function getMetaobjectIdByAirtableId($, shopify, type, recordId) {
       query: `fields.${fieldKey}:${recordId}`,
     },
   });
-  const fromSearch = data.metaobjects?.nodes?.[0]?.id ?? null;
-  if (fromSearch) return fromSearch;
-
-  return findMetaobjectIdByAirtableRecordId($, shopify, type, recordId);
+  const match = (data.metaobjects?.nodes ?? []).find(
+    (node) => node.airtableId?.value === recordId,
+  );
+  return match?.id ?? null;
 }
 
 export async function resolveMetaobjectId($, shopify, type, {recordId, handle}) {
@@ -690,9 +696,25 @@ export async function resolveProductId($, shopify, {recordId, handle}) {
   if (recordId) {
     const byId = await getProductIdByAirtableId($, shopify, recordId);
     if (byId) return byId;
+
+    const byStableHandle = await getProductIdByHandle(
+      $,
+      shopify,
+      airtableStableHandle(recordId),
+    );
+    if (byStableHandle) return byStableHandle;
   }
   if (handle) {
-    return getProductIdByHandle($, shopify, handle);
+    const byHandle = await getProductIdByHandle($, shopify, handle);
+    if (!byHandle) return null;
+    if (!recordId) return byHandle;
+
+    const existingRecordId = await getProductAirtableRecordIdByProductId(
+      $,
+      shopify,
+      byHandle,
+    );
+    if (!existingRecordId || existingRecordId === recordId) return byHandle;
   }
   return null;
 }
@@ -715,21 +737,30 @@ async function findProductIdByAirtableRecordId($, shopify, recordId) {
 export async function getProductIdByAirtableId($, shopify, recordId) {
   if (!recordId) return null;
 
+  const fromList = await findProductIdByAirtableRecordId($, shopify, recordId);
+  if (fromList) return fromList;
+
+  // Search index can return unrelated products — verify metafield value before matching.
   const mf = SHOPIFY.airtableMetafield;
   const data = await shopifyRequest($, shopify, {
     query: `query($query: String!) {
-      products(first: 1, query: $query) {
-        nodes { id handle }
+      products(first: 10, query: $query) {
+        nodes {
+          id
+          airtableId: metafield(namespace: "${mf.namespace}", key: "${mf.key}") {
+            value
+          }
+        }
       }
     }`,
     variables: {
       query: `metafields.${mf.namespace}.${mf.key}:${recordId}`,
     },
   });
-  const fromSearch = data.products?.nodes?.[0]?.id ?? null;
-  if (fromSearch) return fromSearch;
-
-  return findProductIdByAirtableRecordId($, shopify, recordId);
+  const match = (data.products?.nodes ?? []).find(
+    (node) => node.airtableId?.value === recordId,
+  );
+  return match?.id ?? null;
 }
 
 export async function getProductIdByHandle($, shopify, handle) {
@@ -738,6 +769,34 @@ export async function getProductIdByHandle($, shopify, handle) {
     variables: {handle},
   });
   return data.productByHandle?.id ?? null;
+}
+
+async function getProductAirtableRecordIdByProductId($, shopify, productId) {
+  const mf = SHOPIFY.airtableMetafield;
+  const data = await shopifyRequest($, shopify, {
+    query: `query($id: ID!) {
+      product(id: $id) {
+        airtableId: metafield(namespace: "${mf.namespace}", key: "${mf.key}") { value }
+      }
+    }`,
+    variables: {id: productId},
+  });
+  return data.product?.airtableId?.value ?? null;
+}
+
+function isHandleInUseError(message) {
+  return /handle.*already in use/i.test(message);
+}
+
+function airtableRecordIdFromProductInput(input) {
+  const mf = SHOPIFY.airtableMetafield;
+  const match = input.metafields?.find(
+    (field) =>
+      field.namespace === mf.namespace &&
+      field.key === mf.key &&
+      field.value,
+  );
+  return match?.value ?? null;
 }
 
 export async function getPublicationIds($, shopify) {
@@ -962,14 +1021,27 @@ async function updateProductScalars(
   return data.productUpdate.product;
 }
 
-/** Force link metafields on an existing product (artist/collection membership). */
-async function updateProductLinkMetafields(
+/** Force sync metafields on an existing product (Airtable id + artist/collection links). */
+async function updateProductSyncMetafields(
   $,
   shopify,
-  {productId, artistRecordId, collectionRecordIds = [], collectionHandles = []},
+  {
+    productId,
+    airtableRecordId,
+    artistRecordId,
+    collectionRecordIds = [],
+    collectionHandles = [],
+  },
 ) {
   const mf = SHOPIFY.metafields;
+  const airtableMf = SHOPIFY.airtableMetafield;
   const metafields = [
+    {
+      namespace: airtableMf.namespace,
+      key: airtableMf.key,
+      type: 'single_line_text_field',
+      value: airtableRecordId,
+    },
     {
       namespace: mf.namespace,
       key: mf.collectionRecordIds,
@@ -985,7 +1057,7 @@ async function updateProductLinkMetafields(
   ];
 
   if (artistRecordId) {
-    metafields.unshift({
+    metafields.push({
       namespace: mf.namespace,
       key: mf.artistRecordId,
       type: 'single_line_text_field',
@@ -1028,8 +1100,29 @@ export async function upsertProduct($, shopify, input) {
     return data.productSet.product;
   };
 
+  const runWithHandleFallback = async (productInput) => {
+    try {
+      return await run(productInput);
+    } catch (error) {
+      const message = String(error.message);
+      const airtableRecordId = airtableRecordIdFromProductInput(productInput);
+      if (
+        !productId &&
+        airtableRecordId &&
+        isHandleInUseError(message) &&
+        productInput.handle !== airtableStableHandle(airtableRecordId)
+      ) {
+        return run({
+          ...productInput,
+          handle: airtableStableHandle(airtableRecordId),
+        });
+      }
+      throw error;
+    }
+  };
+
   try {
-    const product = await run(input);
+    const product = await runWithHandleFallback(input);
     if (productId) {
       await updateProductScalars($, shopify, {
         productId: product.id,
@@ -1044,7 +1137,7 @@ export async function upsertProduct($, shopify, input) {
     const message = String(error.message);
     if (!input.metafields?.length || !isMissingAirtableFieldError(message)) throw error;
     const {metafields, ...rest} = input;
-    const product = await run(rest);
+    const product = await runWithHandleFallback(rest);
     if (productId) {
       await updateProductScalars($, shopify, {
         productId: product.id,
@@ -1277,8 +1370,9 @@ export async function syncPrint($, {
   });
 
   const product = await upsertProduct($, shopify, productInput);
-  await updateProductLinkMetafields($, shopify, {
+  await updateProductSyncMetafields($, shopify, {
     productId: product.id,
+    airtableRecordId: record.id,
     artistRecordId,
     collectionRecordIds,
     collectionHandles,
