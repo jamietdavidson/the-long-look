@@ -22,6 +22,7 @@ export type PrintCatalogProduct = {
   handle: string;
   vendor: string;
   productType: string;
+  description?: string | null;
   featuredImage: {
     id: string;
     url: string;
@@ -29,6 +30,7 @@ export type PrintCatalogProduct = {
     width?: number | null;
     height?: number | null;
   } | null;
+  collectionHandles?: {value?: string | null} | null;
   priceRange: {
     minVariantPrice: {amount: string; currencyCode: string};
   };
@@ -127,6 +129,23 @@ export function productToPrintCard(
   };
 }
 
+function parseCollectionHandles(product: PrintCatalogProduct) {
+  const raw = product.collectionHandles?.value;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((handle): handle is string => typeof handle === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getProductCollectionHandles(product: PrintCatalogProduct) {
+  return parseCollectionHandles(product);
+}
+
 export function productToFilterSource(
   product: PrintCatalogProduct,
   artists: Artist[] = [],
@@ -135,7 +154,7 @@ export function productToFilterSource(
 
   return {
     title: product.title,
-    description: null,
+    description: product.description ?? null,
     artist: {
       handle: artist?.handle ?? slugify(product.vendor ?? ''),
       name: artist?.name ?? product.vendor ?? '',
@@ -229,11 +248,11 @@ export async function loadPrintProductsForArtist(
 export async function loadPrintProductsForCollection(
   storefront: Storefront,
   collectionHandle: string,
-  pictureHandlesInCollection: string[],
 ) {
-  const handleSet = new Set(pictureHandlesInCollection);
   const products = await loadAllPrintProducts(storefront);
-  return products.filter((product) => handleSet.has(product.handle));
+  return products.filter((product) =>
+    parseCollectionHandles(product).includes(collectionHandle),
+  );
 }
 
 export async function loadRecommendedPrintProducts(

@@ -3,7 +3,7 @@
  *
  * Trigger: Prints → Committed view (new or modified record)
  * 1. Sync linked artist + collections to Shopify (idempotent)
- * 2. Sync the print (picture metaobject + product)
+ * 2. Sync the print → Shopify product (image, variants, metafields)
  * 3. Mark artist + collections Status → Committed in Airtable
  *
  * https://pipedream.com/@thelonglook/projects/proj_Vbs7LgY/airtable-shopify-sync-catalog-p_n1CGZzK/build
@@ -84,17 +84,12 @@ export default defineComponent({
       throw new Error(`Artist ${artistRecordId}: ${artistResult.reason}`);
     }
 
-    const artistMap = new Map();
-    if (artistResult.shopifyId) artistMap.set(artistRecord.id, artistResult.shopifyId);
-    if (dryRun && artistResult.handle) {
-      artistMap.set(artistRecord.id, `dry-run:${artistResult.handle}`);
-    }
     const artistNameByRecordId = new Map([
       [artistRecord.id, textValue(artistRecord.fields?.[AIRTABLE.artists.name])],
     ]);
 
     const collectionRecordIds = linkedRecordIds(printFields[AIRTABLE.prints.collection]);
-    const collectionMap = new Map();
+    const collectionHandleMap = new Map();
     const collectionsSynced = [];
     const collectionsSkipped = [];
 
@@ -112,19 +107,19 @@ export default defineComponent({
       }
 
       collectionsSynced.push(result);
-      if (result.shopifyId) collectionMap.set(collectionRecord.id, result.shopifyId);
-      if (dryRun && result.handle) {
-        collectionMap.set(collectionRecord.id, `dry-run:${result.handle}`);
-      }
+      if (result.handle) collectionHandleMap.set(collectionRecord.id, result.handle);
     }
+
+    const collectionHandles = collectionRecordIds
+      .map((id) => collectionHandleMap.get(id))
+      .filter(Boolean);
 
     const printResult = await syncPrint($, {
       shopify,
       record: printRecord,
       catalog,
-      artistMap,
-      collectionMap,
       artistNameByRecordId,
+      collectionHandles,
       publicationIds,
       dryRun,
     });

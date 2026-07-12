@@ -1,4 +1,4 @@
-# Airtable → Shopify catalog sync (Pipedream)
+# Airtable → Shopify catalog sync
 
 Triggered when a **Print** enters the **Committed** view in the Operations Airtable base. Syncs that print and its linked entities to Shopify, then marks the linked artist and collections as Committed in Airtable.
 
@@ -6,9 +6,24 @@ Triggered when a **Print** enters the **Committed** view in the Operations Airta
 |---|---|
 | **Airtable base** | [Operations (appC7O4qp56Rdaj7c)](https://airtable.com/appC7O4qp56Rdaj7c) |
 | **Shopify store** | `thelonglookco.myshopify.com` |
-| **Pipedream workflow** | [airtable-shopify-sync-catalog](https://pipedream.com/@thelonglook/projects/proj_Vbs7LgY/airtable-shopify-sync-catalog-p_n1CGZzK/build) |
+| **Production runner** | Railway service in `services/catalog-sync/` (polls Committed view every 60s) |
 
 Order sync (Shopify → Airtable) is a **separate workflow** — see [`../shopify-airtable-sync-orders/`](../shopify-airtable-sync-orders/).
+
+## Architecture (single source of truth)
+
+**Sellable prints = Shopify products only.** The sync creates a `Fine Art Print` product with:
+
+- **Image** on the product (`files` from Airtable attachment URL)
+- **Variants** from the Variants catalog (size / frame / mount)
+- **Metafields** for dimensions and `airtable.record_id`
+- **`print.collection_handles`** JSON metafield (collection handles, no metaobject links)
+
+The storefront reads **products** for every print surface (catalog, detail, search, favourites, artist grids, collection grids). If there is no product, there is no page.
+
+**Picture metaobjects are not created.** Legacy picture metaobjects are deleted on each prune run. This prevents ghost pages where a metaobject existed without a matching product.
+
+**Artist and collection metaobjects** remain for editorial pages only (bio, portrait, collection title/description/cover). They are not the catalog source of truth.
 
 ## Flow
 
@@ -16,19 +31,19 @@ Order sync (Shopify → Airtable) is a **separate workflow** — see [`../shopif
 Airtable trigger: Prints → Committed view (new record)
         ↓
 1. Load Variants catalog (shared product options)
-2. Sync linked Artist → Shopify artist metaobject
-3. Sync linked Collections → Shopify collection metaobjects
-4. Sync Print → picture metaobject + product
-5. Prune Shopify products and picture metaobjects deleted from Airtable (any status still in Airtable is kept)
+2. Sync linked Artist → Shopify artist metaobject (editorial)
+3. Sync linked Collections → Shopify collection metaobjects (editorial)
+4. Sync Print → Shopify product (image, variants, metafields)
+5. Prune orphaned Fine Art Print products + delete all legacy picture metaobjects
 6. Write back Artist Status → Commited (Airtable typo on Artists/Collections)
 7. Write back Collection Status → Commited
 ```
 
-Re-running is safe: Shopify entities are upserted by **Airtable record ID** (with handle fallback for legacy rows). Handles/titles can change in Airtable without creating duplicates. Prints **deleted from Airtable** are removed from Shopify on the next sync run. Legacy products without `airtable.record_id` are matched by handle; only rows with no Airtable ID or name match are pruned. Prints that still exist in Airtable (Pending, Staged, Committed, etc.) are left in Shopify even if they leave the Committed view.
+Re-running is safe: products are upserted by **Airtable record ID** (with handle fallback for legacy rows). Prints **deleted from Airtable** are removed from Shopify on the next sync run. Prints that still exist in Airtable (any status) are kept even if they leave the Committed view.
 
-### Airtable ID fields (one-time Shopify setup)
+### Shopify schema (one-time setup)
 
-Run once to add schema fields the sync writes:
+Run once to add fields the sync writes:
 
 ```bash
 SHOPIFY_ACCESS_TOKEN=shpat_… node scripts/add-airtable-record-id-fields.mjs
@@ -37,17 +52,12 @@ SHOPIFY_ACCESS_TOKEN=shpat_… node scripts/add-airtable-record-id-fields.mjs
 | Shopify object | Field |
 |----------------|-------|
 | Product | metafield `airtable.record_id` |
-| Artist / Collection / Picture metaobject | field `airtable_record_id` |
+| Product | metafield `print.collection_handles` (JSON array of handles) |
+| Artist / Collection metaobject | field `airtable_record_id` |
 
-## Pipedream setup
+## Railway (production)
 
-1. **Trigger:** Airtable → **New or Modified Records in View** → Prints table → **Committed** view  
-   (Do **not** use “New Records in View” — that only fires for newly created rows, not Status changes.)
-2. **Action:** Use the published action `thelonglook-airtable-shopify-sync-catalog` (latest: `sc_v4ix1Rzg`) — **replace** any inline AI-generated code step; the REST API cannot update inline workflow code in place.
-3. Connect **airtable_oauth** and **Shopify** on the **action step** (same account as trigger; trigger connection alone is not enough)
-4. For Shopify, **Shopify (Key Required)** works — Shop ID `thelonglookco` + your `shpat_` token
-5. Leave **Print record ID** blank in workflows (`{{steps.trigger.event.id}}` is only needed for isolated step tests)
-6. Test with **Dry run** = `true` first, then **Deploy**
+See `services/catalog-sync/` and `railway.toml`. Env: `AIRTABLE_PAT`, `SHOPIFY_ACCESS_TOKEN`, `SHOPIFY_SHOP_ID`, `POLL_INTERVAL_MS`.
 
 Required Shopify scopes: `read/write_metaobjects`, `read/write_products`, `read/write_publications`, `read/write_files`
 

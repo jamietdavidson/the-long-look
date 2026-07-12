@@ -6,7 +6,6 @@ import {ProductCard, printGridClassName, printGridWallClassName, FRAMED_PICTURE_
 import {
   loadArtistByHandle,
   loadContentCollectionByHandle,
-  loadPicturesForCollection,
 } from '~/lib/content-api';
 import {
   loadArtistIndex,
@@ -50,10 +49,8 @@ export async function loader(args) {
 
   const contentCollection = await loadContentCollectionByHandle(storefront, handle);
   if (contentCollection) {
-    const pictures = await loadPicturesForCollection(storefront, handle);
-    const pictureHandles = pictures.map((picture) => picture.handle);
     const [products, artists] = await Promise.all([
-      loadPrintProductsForCollection(storefront, handle, pictureHandles),
+      loadPrintProductsForCollection(storefront, handle),
       loadArtistIndex(storefront),
     ]);
 

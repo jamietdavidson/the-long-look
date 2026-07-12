@@ -78,36 +78,47 @@ async function addMetaobjectField(type) {
   console.log(`${type}: added airtable_record_id`);
 }
 
-async function ensureProductMetafieldDefinition() {
-  const data = await graphql(`mutation {
-  metafieldDefinitionCreate(definition: {
-    name: "Airtable Record ID"
-    namespace: "airtable"
-    key: "record_id"
-    type: "single_line_text_field"
-    ownerType: PRODUCT
-  }) {
-    createdDefinition { id namespace key }
-    userErrors { field message code }
-  }
-}`);
+async function ensureProductMetafieldDefinitions() {
+  const definitions = [
+    {
+      name: 'Airtable Record ID',
+      namespace: 'airtable',
+      key: 'record_id',
+      type: 'single_line_text_field',
+    },
+    {
+      name: 'Collection Handles',
+      namespace: 'print',
+      key: 'collection_handles',
+      type: 'json',
+    },
+  ];
 
-  const errors = data.metafieldDefinitionCreate?.userErrors ?? [];
-  const alreadyExists = errors.some((error) =>
-    /already|taken|in use/i.test(`${error.message} ${error.code ?? ''}`),
-  );
-  if (alreadyExists) {
-    console.log('product metafield airtable.record_id already exists');
-    return;
+  for (const definition of definitions) {
+    const data = await graphql(`mutation($definition: MetafieldDefinitionInput!) {
+      metafieldDefinitionCreate(definition: $definition) {
+        createdDefinition { id namespace key }
+        userErrors { field message code }
+      }
+    }`, {definition: {...definition, ownerType: 'PRODUCT'}});
+
+    const errors = data.metafieldDefinitionCreate?.userErrors ?? [];
+    const alreadyExists = errors.some((error) =>
+      /already|taken|in use/i.test(`${error.message} ${error.code ?? ''}`),
+    );
+    if (alreadyExists) {
+      console.log(`product metafield ${definition.namespace}.${definition.key} already exists`);
+      continue;
+    }
+    if (errors.length) {
+      throw new Error(`product metafield ${definition.namespace}.${definition.key}: ${JSON.stringify(errors)}`);
+    }
+    console.log(`product metafield ${definition.namespace}.${definition.key} created`);
   }
-  if (errors.length) {
-    throw new Error(`product metafield: ${JSON.stringify(errors)}`);
-  }
-  console.log('product metafield airtable.record_id created');
 }
 
 for (const type of ['artist', 'collection', 'picture']) {
   await addMetaobjectField(type);
 }
-await ensureProductMetafieldDefinition();
+await ensureProductMetafieldDefinitions();
 console.log('Done.');

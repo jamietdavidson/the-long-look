@@ -129,12 +129,16 @@ export const PRINT_CATALOG_PRODUCT_FRAGMENT = `#graphql
     handle
     vendor
     productType
+    description
     featuredImage {
       id
       url
       altText
       width
       height
+    }
+    collectionHandles: metafield(namespace: "print", key: "collection_handles") {
+      value
     }
     priceRange {
       minVariantPrice {

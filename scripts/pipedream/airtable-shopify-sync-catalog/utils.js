@@ -464,66 +464,45 @@ export async function removePrintByHandle($, shopify, handle, dryRun) {
   return removePrintByAirtableId($, shopify, null, handle, dryRun);
 }
 
-/** Remove Shopify print products + picture metaobjects whose Airtable row was deleted. */
+/** Remove Fine Art Print products (and legacy picture metaobjects) not in Airtable. */
 export async function pruneOrphanedPrints($, airtable, shopify, dryRun) {
   const airtablePrints = await listAllPrintRecords($, airtable);
   const validRecordIds = new Set(airtablePrints.map((record) => record.id));
   const validHandles = new Set(airtablePrints.map((record) => printHandle(record)));
 
-  const [shopifyProducts, shopifyPictures] = await Promise.all([
-    listFineArtPrintProducts($, shopify),
-    listPictureMetaobjects($, shopify),
-  ]);
-
+  const shopifyProducts = await listFineArtPrintProducts($, shopify);
   const productOrphans = shopifyProducts.filter(
     (product) => !isPrintInAirtable(product, validRecordIds, validHandles),
   );
-  const productOrphanHandles = new Set(
-    productOrphans.map((product) => product.handle).filter(Boolean),
-  );
-  const pictureOrphans = shopifyPictures.filter((picture) => {
-    if (isPrintInAirtable(picture, validRecordIds, validHandles)) return false;
-    if (picture.handle && productOrphanHandles.has(picture.handle)) return false;
-    return true;
-  });
 
-  const orphanTargets = [
-    ...productOrphans.map((product) => ({
-      airtableRecordId: product.airtableRecordId,
-      handle: product.handle,
-      productId: product.id,
-      pictureId: null,
-    })),
-    ...pictureOrphans.map((picture) => ({
-      airtableRecordId: picture.airtableRecordId,
-      handle: picture.handle,
-      productId: null,
-      pictureId: picture.id,
-    })),
-  ];
+  const legacyPictures = await listPictureMetaobjects($, shopify);
 
-  if (!orphanTargets.length) {
+  const orphanTargets = productOrphans.map((product) => ({
+    airtableRecordId: product.airtableRecordId,
+    handle: product.handle,
+    productId: product.id,
+  }));
+
+  if (!orphanTargets.length && !legacyPictures.length) {
     return {
       removed: [],
       wouldRemove: [],
+      legacyPicturesRemoved: 0,
       count: 0,
       shopifyTotal: shopifyProducts.length,
-      pictureTotal: shopifyPictures.length,
     };
   }
 
   if (dryRun) {
     return {
       dryRun: true,
-      wouldRemove: orphanTargets.map((target) => ({
-        airtableRecordId: target.airtableRecordId,
-        handle: target.handle,
-        productId: target.productId,
-        pictureId: target.pictureId,
+      wouldRemove: orphanTargets,
+      legacyPicturesWouldRemove: legacyPictures.map((picture) => ({
+        handle: picture.handle,
+        pictureId: picture.id,
       })),
-      count: orphanTargets.length,
+      count: orphanTargets.length + legacyPictures.length,
       shopifyTotal: shopifyProducts.length,
-      pictureTotal: shopifyPictures.length,
     };
   }
 
@@ -536,20 +515,20 @@ export async function pruneOrphanedPrints($, airtable, shopify, dryRun) {
       orphan.handle,
       dryRun,
     );
-    removed.push({
-      airtableRecordId: orphan.airtableRecordId,
-      handle: orphan.handle,
-      productId: orphan.productId,
-      pictureId: orphan.pictureId,
-      ...result,
-    });
+    removed.push({...orphan, ...result});
+  }
+
+  let legacyPicturesRemoved = 0;
+  for (const picture of legacyPictures) {
+    await deleteMetaobject($, shopify, picture.id);
+    legacyPicturesRemoved += 1;
   }
 
   return {
     removed,
-    count: removed.length,
+    legacyPicturesRemoved,
+    count: removed.length + legacyPicturesRemoved,
     shopifyTotal: shopifyProducts.length,
-    pictureTotal: shopifyPictures.length,
   };
 }
 
@@ -772,6 +751,7 @@ export function buildProductInput({
   vendor,
   handle,
   airtableRecordId,
+  collectionHandles = [],
 }) {
   const sizeNames = [...new Set(catalog.map((v) => v.sizeName))].sort((a, b) => {
     const rankA = catalog.find((v) => v.sizeName === a)?.rank ?? 999;
@@ -785,6 +765,18 @@ export function buildProductInput({
     catalog.some((v) => v.mount === name),
   );
   const mf = SHOPIFY.metafields;
+  const productMetafields = [];
+  if (airtableRecordId) {
+    productMetafields.push(productAirtableMetafield(airtableRecordId));
+  }
+  if (collectionHandles.length) {
+    productMetafields.push({
+      namespace: mf.namespace,
+      key: mf.collectionHandles,
+      type: 'json',
+      value: JSON.stringify(collectionHandles),
+    });
+  }
 
   const input = {
     title,
@@ -793,7 +785,7 @@ export function buildProductInput({
     vendor,
     productType: SHOPIFY.productType,
     status: 'ACTIVE',
-    metafields: airtableRecordId ? [productAirtableMetafield(airtableRecordId)] : undefined,
+    metafields: productMetafields.length ? productMetafields : undefined,
     productOptions: [
       {name: 'Size', values: sizeNames.map((name) => ({name}))},
       {name: 'Frame', values: frameNames.map((name) => ({name}))},
@@ -925,9 +917,8 @@ export async function syncPrint($, {
   shopify,
   record,
   catalog,
-  artistMap,
-  collectionMap,
   artistNameByRecordId,
+  collectionHandles = [],
   publicationIds,
   dryRun,
 }) {
@@ -942,13 +933,9 @@ export async function syncPrint($, {
   if (!imageUrl) return {recordId: record.id, status: 'skipped', reason: 'Missing picture'};
 
   const artistRecordId = linkedRecordIds(fields[f.artist])[0];
-  if (!artistRecordId || !artistMap.has(artistRecordId)) {
+  if (!artistRecordId || !artistNameByRecordId.has(artistRecordId)) {
     return {recordId: record.id, status: 'skipped', reason: 'Missing or unsynced artist'};
   }
-
-  const collectionShopifyIds = linkedRecordIds(fields[f.collection])
-    .map((id) => collectionMap.get(id))
-    .filter((id) => id && !String(id).startsWith('dry-run:'));
 
   if (dryRun) {
     return {
@@ -958,11 +945,10 @@ export async function syncPrint($, {
       handle,
       title,
       variantCount: catalog.length,
-      collectionCount: collectionShopifyIds.length,
+      collectionCount: collectionHandles.length,
     };
   }
 
-  const artistShopifyId = artistMap.get(artistRecordId);
   const vendor = artistNameByRecordId.get(artistRecordId) ?? 'The Long Look';
   const productId = await resolveProductId($, shopify, {
     recordId: record.id,
@@ -981,39 +967,17 @@ export async function syncPrint($, {
       vendor,
       handle,
       airtableRecordId: record.id,
+      collectionHandles,
     }),
   );
   await publishProduct($, shopify, product.id, publicationIds);
-
-  const imageFileId = await createFileFromUrl($, shopify, {url: imageUrl, alt: title});
-  const pictureFields = [
-    {key: 'title', value: title},
-    {key: 'image', value: imageFileId},
-    {key: 'artist', value: artistShopifyId},
-    {key: 'product', value: product.id},
-  ];
-  if (description) pictureFields.push({key: 'description', value: description});
-  if (collectionShopifyIds.length) {
-    pictureFields.push({
-      key: 'collections',
-      value: JSON.stringify(collectionShopifyIds),
-    });
-  }
-
-  const picture = await upsertMetaobject($, shopify, {
-    type: 'picture',
-    handle,
-    airtableRecordId: record.id,
-    fields: pictureFields,
-  });
 
   return {
     recordId: record.id,
     status: 'synced',
     handle,
-    pictureId: picture.id,
     productId: product.id,
     variantCount: product.variantsCount?.count ?? catalog.length,
-    collectionCount: collectionShopifyIds.length,
+    collectionCount: collectionHandles.length,
   };
 }

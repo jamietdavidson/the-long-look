@@ -67,6 +67,7 @@ export const SHOPIFY = {
     paddingInches: 'padding_inches',
     frameWidthInches: 'frame_width_inches',
     rank: 'rank',
+    collectionHandles: 'collection_handles',
   },
   metaobjectTypes: {
     artist: 'artist',

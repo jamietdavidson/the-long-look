@@ -10,6 +10,7 @@ import type {Artist, Collection, Picture, Tag} from '~/lib/content-model';
 import {
   loadAllPrintProducts,
   loadArtistIndex,
+  getProductCollectionHandles,
   productsToPrintCards,
   resolveArtistForVendor,
   type PictureCard,
@@ -65,27 +66,6 @@ const CONTENT_NAV_QUERY = `#graphql
         handle
         title: field(key: "title") {
           value
-        }
-      }
-    }
-    pictures: metaobjects(type: "picture", first: 100) {
-      nodes {
-        id
-        artist: field(key: "artist") {
-          reference {
-            ... on Metaobject {
-              handle
-            }
-          }
-        }
-        collections: field(key: "collections") {
-          references(first: 20) {
-            nodes {
-              ... on Metaobject {
-                handle
-              }
-            }
-          }
         }
       }
     }
@@ -289,7 +269,6 @@ export async function loadContentNav(storefront: Storefront): Promise<ContentNav
   const artistNodes = (data.artists as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
   const collectionNodes =
     (data.collections as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
-  const pictures = (data.pictures as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
 
   const artistCounts = new Map<string, number>();
   for (const product of products) {
@@ -300,18 +279,9 @@ export async function loadContentNav(storefront: Storefront): Promise<ContentNav
   }
 
   const collectionCounts = new Map<string, number>();
-
-  for (const picture of pictures) {
-    const p = picture as {
-      collections?: MetaobjectRefs;
-    };
-    for (const collection of p.collections?.references?.nodes ?? []) {
-      if (collection?.handle) {
-        collectionCounts.set(
-          collection.handle,
-          (collectionCounts.get(collection.handle) ?? 0) + 1,
-        );
-      }
+  for (const product of products) {
+    for (const handle of getProductCollectionHandles(product)) {
+      collectionCounts.set(handle, (collectionCounts.get(handle) ?? 0) + 1);
     }
   }
 
