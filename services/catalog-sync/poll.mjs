@@ -2,7 +2,11 @@
  * Poll Airtable Prints → Committed view and sync each record.
  */
 import {AIRTABLE} from '../../lib/catalog-sync/config.js';
-import {syncPrint, pruneDeletedPrints, syncCommittedArtistsAndCollections} from './run-sync.mjs';
+import {
+  syncPrint,
+  pruneDeletedPrints,
+  syncCommittedArtistsAndCollectionsJob,
+} from './run-sync.mjs';
 
 const BASE = 'https://api.airtable.com/v0';
 
@@ -50,7 +54,7 @@ export function startPolling({intervalMs, onResult, onError}) {
     if (running) return;
     running = true;
     try {
-      const linked = await syncCommittedArtistsAndCollections();
+      const linked = await syncCommittedArtistsAndCollectionsJob();
       console.log(
         `[poll] linked entities: ${linked.artistCount} artist(s), ${linked.collectionCount} collection(s)`,
       );
