@@ -91,6 +91,7 @@ async function ensureProductMetafieldDefinitions() {
       namespace: 'print',
       key: 'collection_handles',
       type: 'json',
+      access: {storefront: 'PUBLIC_READ'},
     },
   ];
 

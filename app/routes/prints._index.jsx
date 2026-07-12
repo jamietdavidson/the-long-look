@@ -19,7 +19,7 @@ export const meta = () => {
  */
 export async function loader({context}) {
   const [products, artists] = await Promise.all([
-    loadAllPrintProducts(context.storefront).catch(() => []),
+    loadAllPrintProducts(context.storefront),
     loadArtistIndex(context.storefront).catch(() => []),
   ]);
 
