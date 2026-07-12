@@ -194,8 +194,8 @@ export function PrintDetail({
 /** @param {{children: import('react').ReactNode}} */
 function PrintDetailAside({children}) {
   return (
-    <div className="flex w-full flex-1 justify-center px-4 py-6 md:px-10 md:pt-24 md:pb-6">
-      <div className="w-full max-w-md text-left">{children}</div>
+    <div className="flex w-full flex-1 px-4 py-6 md:justify-center md:px-10 md:pt-24 md:pb-6">
+      <div className="w-full text-left md:max-w-md">{children}</div>
     </div>
   );
 }
