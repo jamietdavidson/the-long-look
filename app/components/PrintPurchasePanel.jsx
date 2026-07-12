@@ -49,13 +49,19 @@ import {scrollPageToTop} from '~/lib/page-scroll';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
 import {useContainerSize} from '~/lib/use-container-size';
 
-/** Purchase panel starts expanded on desktop; collapsed on mobile. */
+/**
+ * Purchase panel starts expanded on desktop; collapsed on mobile.
+ *
+ * Defaults to expanded so the server-rendered desktop panel paints in its
+ * final (light) state with no color flicker on reload. The mobile dock is a
+ * client-only portal, so we collapse before it paints via a layout effect.
+ */
 export function usePurchasePanelExpanded() {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useLayoutEffect(() => {
-    if (window.matchMedia('(min-width: 768px)').matches) {
-      setExpanded(true);
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      setExpanded(false);
     }
   }, []);
 
@@ -392,7 +398,10 @@ export function PrintPurchaseDock({
 }) {
   const {isOpen: asideOpen} = useAside();
   const [mounted, setMounted] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' &&
+    window.matchMedia('(max-width: 767px)').matches,
+  );
   const purchasePanelRef = useRef(null);
   const purchasePanelInView = useGalleryInView(purchasePanelRef, 0.15);
   const showMobileSummary =
@@ -418,7 +427,7 @@ export function PrintPurchaseDock({
   const isShell = expanded || shellExpanded;
   const showDock = expanded || showCollapsedCta || shellExpanded;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMounted(true);
     const media = window.matchMedia('(max-width: 767px)');
     const syncMobileViewport = () => setIsMobileViewport(media.matches);
@@ -967,7 +976,7 @@ function FrameSwatches({
         ) : null}
       </h3>
       <div className="max-md:px-3">
-        <div className="flex h-8 w-full divide-x divide-neutral-200 border border-neutral-200 md:inline-flex md:h-auto md:w-fit">
+        <div className="flex w-full divide-x divide-neutral-200 border border-neutral-200 md:inline-flex md:h-auto md:w-fit">
           {values.map((value) => {
             const selected = useShopify
               ? value.selected
@@ -1100,7 +1109,7 @@ function MountToggle({
         ) : null}
       </h3>
       <div className="max-md:px-3">
-        <div className="grid h-8 grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 md:h-auto">
+        <div className="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 md:h-auto">
           {values.map((value) => {
             const selected = useShopify
               ? value.selected
