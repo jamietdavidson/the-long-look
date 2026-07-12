@@ -7,6 +7,13 @@ import {
   PICTURES_QUERY,
 } from '~/graphql/content-model';
 import type {Artist, Collection, Picture, Tag} from '~/lib/content-model';
+import {
+  loadAllPrintProducts,
+  loadArtistIndex,
+  productsToPrintCards,
+  resolveArtistForVendor,
+  type PictureCard,
+} from '~/lib/print-catalog';
 
 type Storefront = {
   query: (
@@ -33,23 +40,7 @@ type MetaobjectRefs = {
   references?: {nodes?: Array<{id?: string; handle?: string}> | null} | null;
 } | null;
 
-export type PictureCard = {
-  id: string;
-  title: string;
-  handle: string;
-  artistName?: string | null;
-  artistHandle?: string | null;
-  featuredImage: {
-    id: string;
-    url: string;
-    altText?: string | null;
-    width?: number | null;
-    height?: number | null;
-  } | null;
-  priceRange: {
-    minVariantPrice: {amount: string; currencyCode: string};
-  };
-};
+export type PictureCard = import('~/lib/print-catalog').PrintCatalogCard;
 
 export type ContentNav = {
   artists: Array<{name: string; handle: string; works: number}>;
@@ -289,24 +280,31 @@ export function toProductConnection(pictures: Picture[]) {
 }
 
 export async function loadContentNav(storefront: Storefront): Promise<ContentNav> {
-  const data = await storefront.query(CONTENT_NAV_QUERY);
-  const artists = (data.artists as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
-  const collections =
+  const [data, products, artists] = await Promise.all([
+    storefront.query(CONTENT_NAV_QUERY),
+    loadAllPrintProducts(storefront).catch(() => []),
+    loadArtistIndex(storefront).catch(() => []),
+  ]);
+
+  const artistNodes = (data.artists as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
+  const collectionNodes =
     (data.collections as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
   const pictures = (data.pictures as {nodes?: Array<Record<string, unknown>>})?.nodes ?? [];
 
   const artistCounts = new Map<string, number>();
+  for (const product of products) {
+    const artist = resolveArtistForVendor(product.vendor, artists);
+    if (artist) {
+      artistCounts.set(artist.handle, (artistCounts.get(artist.handle) ?? 0) + 1);
+    }
+  }
+
   const collectionCounts = new Map<string, number>();
 
   for (const picture of pictures) {
     const p = picture as {
-      artist?: MetaobjectRef;
       collections?: MetaobjectRefs;
     };
-    const artistHandle = p.artist?.reference?.handle;
-    if (artistHandle) {
-      artistCounts.set(artistHandle, (artistCounts.get(artistHandle) ?? 0) + 1);
-    }
     for (const collection of p.collections?.references?.nodes ?? []) {
       if (collection?.handle) {
         collectionCounts.set(
@@ -318,7 +316,7 @@ export async function loadContentNav(storefront: Storefront): Promise<ContentNav
   }
 
   return {
-    artists: artists.map((node) => {
+    artists: artistNodes.map((node) => {
       const n = node as {handle: string; name?: FieldValue};
       return {
         handle: n.handle,
@@ -326,7 +324,7 @@ export async function loadContentNav(storefront: Storefront): Promise<ContentNav
         works: artistCounts.get(n.handle) ?? 0,
       };
     }),
-    collections: collections.map((node) => {
+    collections: collectionNodes.map((node) => {
       const n = node as {handle: string; title?: FieldValue};
       return {
         handle: n.handle,
@@ -334,7 +332,7 @@ export async function loadContentNav(storefront: Storefront): Promise<ContentNav
         count: collectionCounts.get(n.handle) ?? 0,
       };
     }),
-    totalPictures: pictures.length,
+    totalPictures: products.length,
   };
 }
 
@@ -404,16 +402,26 @@ export async function loadPicturesForCollection(
 }
 
 export async function loadArtistsIndex(storefront: Storefront) {
-  const [artists, pictures] = await Promise.all([
+  const [artists, products, artistIndex] = await Promise.all([
     loadAllArtists(storefront),
-    loadAllPictures(storefront),
+    loadAllPrintProducts(storefront).catch(() => []),
+    loadArtistIndex(storefront).catch(() => []),
   ]);
 
-  return artists.map((artist) => ({
-    ...artist,
-    pictures: pictures.filter((picture) => picture.artist.handle === artist.handle),
-    works: pictures.filter((picture) => picture.artist.handle === artist.handle),
-  }));
+  return artists.map((artist) => {
+    const works = productsToPrintCards(
+      products.filter(
+        (product) =>
+          resolveArtistForVendor(product.vendor, artistIndex)?.handle === artist.handle,
+      ),
+      artistIndex,
+    );
+
+    return {
+      ...artist,
+      works,
+    };
+  });
 }
 
 export type SearchContentResult = {
@@ -435,8 +443,8 @@ export async function searchContent(
     return {prints: [], artists: []};
   }
 
-  const [pictures, artists] = await Promise.all([
-    loadAllPictures(storefront).catch(() => []),
+  const [products, artists] = await Promise.all([
+    loadAllPrintProducts(storefront).catch(() => []),
     loadAllArtists(storefront).catch(() => []),
   ]);
 
@@ -449,13 +457,15 @@ export async function searchContent(
   });
 
   const matchedArtistHandles = new Set(matchedArtists.map((artist) => artist.handle));
+  const artistIndex = await loadArtistIndex(storefront).catch(() => []);
 
-  const matchedPrints = pictures.filter((picture) => {
-    if (matchedArtistHandles.has(picture.artist.handle)) {
+  const matchedPrints = products.filter((product) => {
+    const artist = resolveArtistForVendor(product.vendor, artistIndex);
+    if (artist && matchedArtistHandles.has(artist.handle)) {
       return true;
     }
 
-    const haystack = [picture.title, picture.description, picture.artist.name]
+    const haystack = [product.title, product.vendor]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -463,7 +473,7 @@ export async function searchContent(
   });
 
   return {
-    prints: picturesToCards(matchedPrints),
+    prints: productsToPrintCards(matchedPrints, artistIndex),
     artists: matchedArtists,
   };
 }

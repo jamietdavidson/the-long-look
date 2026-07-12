@@ -2,7 +2,11 @@ import {Await, useLoaderData} from 'react-router';
 import {Suspense} from 'react';
 import {Hero} from '~/components/Hero';
 import {ProductGrid, VideoSection, printCatalogGridProps} from '~/components/ProductGrid';
-import {loadAllPictures, picturesToCards} from '~/lib/content-api';
+import {
+  loadAllPrintProducts,
+  loadArtistIndex,
+  productsToPrintCards,
+} from '~/lib/print-catalog';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
@@ -21,8 +25,11 @@ export const handle = {
 
 /** @param {Route.LoaderArgs} args */
 export async function loader({context}) {
-  const pictures = await loadAllPictures(context.storefront).catch(() => []);
-  const cards = picturesToCards(pictures);
+  const [products, artists] = await Promise.all([
+    loadAllPrintProducts(context.storefront).catch(() => []),
+    loadArtistIndex(context.storefront).catch(() => []),
+  ]);
+  const cards = productsToPrintCards(products, artists);
   const featured = cards.slice(0, 8);
   const recent = cards.slice().reverse().slice(0, 8);
 

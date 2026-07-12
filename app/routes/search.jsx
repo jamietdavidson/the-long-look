@@ -11,12 +11,19 @@ import {
   printGridThreeColumnClassName,
 } from '~/components/ProductGrid';
 import {Input} from '~/components/ui/input';
-import {loadAllPictures, pictureToCard} from '~/lib/content-api';
+import {
+  loadAllPrintProducts,
+  loadArtistIndex,
+  productToFilterSource,
+  productsToPrintCards,
+} from '~/lib/print-catalog';
 import {
   buildPrintFilterFacets,
-  filterPictures,
+  getPrintFilterAttrs,
   hasActivePrintFilters,
+  matchesPrintFilters,
   parsePrintFilters,
+  printMatchesSearchTerm,
 } from '~/lib/print-filters';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
@@ -53,16 +60,36 @@ export async function loader({request, context}) {
   const term = String(url.searchParams.get('q') || '').trim();
   const filters = parsePrintFilters(url.searchParams);
 
-  const pictures = await loadAllPictures(context.storefront).catch(() => []);
-  const filteredPictures = filterPictures(pictures, filters, term);
-  const facets = buildPrintFilterFacets(pictures, filters, term);
+  const [products, artists] = await Promise.all([
+    loadAllPrintProducts(context.storefront).catch(() => []),
+    loadArtistIndex(context.storefront).catch(() => []),
+  ]);
+
+  const entries = products.map((product) => ({
+    product,
+    source: productToFilterSource(product, artists),
+  }));
+  const filteredProducts = entries
+    .filter(({source}) => {
+      const attrs = getPrintFilterAttrs(source);
+      return (
+        printMatchesSearchTerm(source, term) &&
+        matchesPrintFilters(attrs, filters)
+      );
+    })
+    .map((entry) => entry.product);
+  const facets = buildPrintFilterFacets(
+    entries.map((entry) => entry.source),
+    filters,
+    term,
+  );
 
   return {
     term,
     filters,
     facets,
-    prints: filteredPictures.map(pictureToCard),
-    total: filteredPictures.length,
+    prints: productsToPrintCards(filteredProducts, artists),
+    total: filteredProducts.length,
     hasFilters: hasActivePrintFilters(filters),
   };
 }

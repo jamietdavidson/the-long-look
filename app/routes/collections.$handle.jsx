@@ -7,8 +7,12 @@ import {
   loadArtistByHandle,
   loadContentCollectionByHandle,
   loadPicturesForCollection,
-  toProductConnection,
 } from '~/lib/content-api';
+import {
+  loadArtistIndex,
+  loadPrintProductsForCollection,
+  toPrintProductConnection,
+} from '~/lib/print-catalog';
 import {artistPath, artistsPath, printsPath} from '~/lib/paths';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
@@ -47,10 +51,16 @@ export async function loader(args) {
   const contentCollection = await loadContentCollectionByHandle(storefront, handle);
   if (contentCollection) {
     const pictures = await loadPicturesForCollection(storefront, handle);
+    const pictureHandles = pictures.map((picture) => picture.handle);
+    const [products, artists] = await Promise.all([
+      loadPrintProductsForCollection(storefront, handle, pictureHandles),
+      loadArtistIndex(storefront),
+    ]);
+
     return {
       collection: {
         ...contentCollection,
-        products: toProductConnection(pictures),
+        products: toPrintProductConnection(products, artists),
       },
     };
   }

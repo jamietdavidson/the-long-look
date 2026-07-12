@@ -1,6 +1,10 @@
 import {useLoaderData} from 'react-router';
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
-import {loadAllPictures, toProductConnection} from '~/lib/content-api';
+import {
+  loadAllPrintProducts,
+  loadArtistIndex,
+  toPrintProductConnection,
+} from '~/lib/print-catalog';
 import {type} from '~/lib/typography';
 
 /**
@@ -14,8 +18,12 @@ export const meta = () => {
  * @param {Route.LoaderArgs} args
  */
 export async function loader({context}) {
-  const pictures = await loadAllPictures(context.storefront).catch(() => []);
-  return {products: toProductConnection(pictures)};
+  const [products, artists] = await Promise.all([
+    loadAllPrintProducts(context.storefront).catch(() => []),
+    loadArtistIndex(context.storefront).catch(() => []),
+  ]);
+
+  return {products: toPrintProductConnection(products, artists)};
 }
 
 export default function PrintsIndex() {
@@ -33,7 +41,7 @@ export default function PrintsIndex() {
         products={products.nodes}
         {...printCatalogGridProps}
         eagerCount={8}
-        emptyMessage="No pictures published yet. Add pictures in Shopify Admin → Content → Metaobjects."
+        emptyMessage="No prints for sale yet. Commit prints in Airtable to sync them to Shopify."
       />
     </>
   );

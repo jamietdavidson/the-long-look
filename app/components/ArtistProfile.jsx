@@ -1,26 +1,18 @@
 import {Link} from 'react-router';
 import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
-import {pictureToCard} from '~/lib/content-api';
 import {artistPath} from '~/lib/paths';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
 /**
  * @param {{
- *   artist: {
- *     name: string;
- *     handle: string;
- *     birthYear?: number | null;
- *     location?: string | null;
- *     bio?: string | null;
- *     portrait?: string | {url: string} | null;
- *     instagramHandle?: string | null;
- *     pictures?: import('~/lib/content-model').Picture[];
+ *   artist: import('~/lib/content-model').Artist & {
+ *     works?: Array<import('~/lib/print-catalog').PrintCatalogCard>;
  *   };
  * }}
  */
 export function ArtistProfile({artist}) {
-  const products = (artist.pictures ?? []).map(pictureToCard);
+  const products = artist.works ?? [];
 
   const portraitUrl =
     typeof artist.portrait === 'string'
@@ -83,7 +75,7 @@ export function ArtistProfile({artist}) {
         <ProductGrid products={products} {...printCatalogGridProps} />
       ) : (
         <p className={cn(type.body.md, 'px-6 py-16 text-center text-neutral-500')}>
-          No works published yet.
+          No works for sale yet.
         </p>
       )}
     </>
@@ -96,7 +88,7 @@ export function ArtistProfile({artist}) {
  *     name: string;
  *     handle: string;
  *     portrait?: string | {url: string} | null;
- *     pictures?: import('~/lib/content-model').Picture[];
+ *     works?: Array<import('~/lib/print-catalog').PrintCatalogCard>;
  *   }>;
  * }}
  */
@@ -113,7 +105,7 @@ export function ArtistsIndex({artists: artistList}) {
               typeof artist.portrait === 'string'
                 ? artist.portrait
                 : artist.portrait?.url;
-            const workCount = artist.pictures?.length ?? 0;
+            const workCount = artist.works?.length ?? 0;
 
             return (
               <Link key={artist.handle} to={artistPath(artist.handle)} className="group block">

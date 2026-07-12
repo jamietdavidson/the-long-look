@@ -1,6 +1,11 @@
 import {useLoaderData} from 'react-router';
 import {ArtistProfile} from '~/components/ArtistProfile';
-import {loadArtistByHandle, loadPicturesForArtist} from '~/lib/content-api';
+import {loadArtistByHandle} from '~/lib/content-api';
+import {
+  loadArtistIndex,
+  loadPrintProductsForArtist,
+  productsToPrintCards,
+} from '~/lib/print-catalog';
 
 /**
  * @type {Route.MetaFunction}
@@ -24,12 +29,17 @@ export async function loader({context, params}) {
     throw new Response(null, {status: 404});
   }
 
-  const pictures = await loadPicturesForArtist(context.storefront, handle);
+  const [products, artists] = await Promise.all([
+    loadPrintProductsForArtist(context.storefront, handle),
+    loadArtistIndex(context.storefront),
+  ]);
+
+  const works = productsToPrintCards(products, artists);
+
   return {
     artist: {
       ...artist,
-      pictures,
-      works: pictures,
+      works,
     },
   };
 }

@@ -5,7 +5,11 @@ import {
   printCatalogGridProps,
 } from '~/components/ProductGrid';
 import {useFavoritesStore} from '~/lib/favorites-store';
-import {loadAllPictures, toProductConnection} from '~/lib/content-api';
+import {
+  loadAllPrintProducts,
+  loadArtistIndex,
+  toPrintProductConnection,
+} from '~/lib/print-catalog';
 import {printsPath} from '~/lib/paths';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
@@ -27,8 +31,12 @@ export const handle = {
  * @param {Route.LoaderArgs} args
  */
 export async function loader({context}) {
-  const pictures = await loadAllPictures(context.storefront).catch(() => []);
-  return {products: toProductConnection(pictures)};
+  const [products, artists] = await Promise.all([
+    loadAllPrintProducts(context.storefront).catch(() => []),
+    loadArtistIndex(context.storefront).catch(() => []),
+  ]);
+
+  return {products: toPrintProductConnection(products, artists)};
 }
 
 export default function FavouritesPage() {

@@ -1,14 +1,18 @@
 import {useLoaderData} from 'react-router';
 import {getPrintDetailSelectedOptions} from '~/lib/print-options';
 import {PrintDetail} from '~/components/PrintDetail';
-import {loadPictureByHandle, loadRecommendedPictures} from '~/lib/content-api';
-import {PRODUCT_QUERY} from '~/graphql/product';
+import {
+  loadPrintProductByHandle,
+  loadRecommendedPrintProducts,
+  resolveArtistForVendor,
+  loadArtistIndex,
+} from '~/lib/print-catalog';
 
 /**
  * @type {Route.MetaFunction}
  */
 export const meta = ({data}) => {
-  return [{title: `${data?.picture?.title ?? 'Print'} | The Long Look`}];
+  return [{title: `${data?.product?.title ?? 'Print'} | The Long Look`}];
 };
 
 /** @type {import('~/components/AppPageLayout').AppRouteHandle} */
@@ -27,37 +31,27 @@ export async function loader({context, request, params}) {
     throw new Response(null, {status: 404});
   }
 
-  const picture = await loadPictureByHandle(context.storefront, handle);
-  if (!picture) {
+  const product = await loadPrintProductByHandle(context.storefront, handle, request);
+  if (!product) {
     throw new Response(null, {status: 404});
   }
 
-  let product = null;
-  const productPromise = picture.product?.handle
-    ? context.storefront.query(PRODUCT_QUERY, {
-        variables: {
-          handle: picture.product.handle,
-          selectedOptions: getPrintDetailSelectedOptions(request),
-        },
-      })
-    : Promise.resolve({product: null});
-
-  const [{product: loadedProduct}, recommended] = await Promise.all([
-    productPromise,
-    loadRecommendedPictures(context.storefront, picture, 12),
+  const [artists, recommended] = await Promise.all([
+    loadArtistIndex(context.storefront),
+    loadRecommendedPrintProducts(context.storefront, handle, 12),
   ]);
 
-  product = loadedProduct ?? null;
+  const artist = resolveArtistForVendor(product.vendor, artists);
 
-  return {picture, product, recommended};
+  return {product, artist, recommended};
 }
 
 export default function PrintRoute() {
   /** @type {LoaderReturnData} */
-  const {picture, product, recommended} = useLoaderData();
+  const {product, artist, recommended} = useLoaderData();
 
   return (
-    <PrintDetail picture={picture} product={product} recommended={recommended} />
+    <PrintDetail product={product} artist={artist} recommended={recommended} />
   );
 }
 

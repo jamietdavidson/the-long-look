@@ -1,8 +1,18 @@
-import type {Picture} from '~/lib/content-model';
 import {
   getOrientationFromImage,
   type PictureOrientation,
 } from '~/lib/framed-picture';
+
+export type PrintFilterSource = {
+  title: string;
+  description?: string | null;
+  artist: {handle: string; name: string};
+  image: {
+    url?: string | null;
+    width?: number | null;
+    height?: number | null;
+  };
+};
 
 export const PRINT_FILTER_PARAMS = {
   artist: 'artist',
@@ -63,34 +73,34 @@ export function hasActivePrintFilters(filters: PrintFilters) {
   return Object.values(filters).some((values) => values.length > 0);
 }
 
-/** @param {PrintFilterAttrs} attrs */
-export function getPrintFilterAttrs(picture: Picture): PrintFilterAttrs {
-  const title = picture.title ?? '';
-  const description = picture.description ?? '';
+/** @param {PrintFilterSource} source */
+export function getPrintFilterAttrs(source: PrintFilterSource): PrintFilterAttrs {
+  const title = source.title ?? '';
+  const description = source.description ?? '';
 
   return {
-    artistHandle: picture.artist.handle,
-    artistName: picture.artist.name,
+    artistHandle: source.artist.handle,
+    artistName: source.artist.name,
     color: inferColor(title, description),
     location: inferLocation(title, description),
     theme: inferTheme(title, description),
-    orientation: getOrientationFromImage(picture.image),
+    orientation: getOrientationFromImage(source.image),
   };
 }
 
 /**
- * @param {Picture} picture
+ * @param {PrintFilterSource} source
  * @param {string} term
  */
-export function pictureMatchesSearchTerm(picture: Picture, term: string) {
+export function printMatchesSearchTerm(source: PrintFilterSource, term: string) {
   const query = term.trim().toLowerCase();
   if (!query) return true;
 
-  const attrs = getPrintFilterAttrs(picture);
+  const attrs = getPrintFilterAttrs(source);
   const haystack = [
-    picture.title,
-    picture.description,
-    picture.artist.name,
+    source.title,
+    source.description,
+    source.artist.name,
     attrs.location,
     attrs.theme,
     attrs.color,
@@ -100,6 +110,11 @@ export function pictureMatchesSearchTerm(picture: Picture, term: string) {
     .toLowerCase();
 
   return haystack.includes(query);
+}
+
+/** @deprecated use printMatchesSearchTerm */
+export function pictureMatchesSearchTerm(source: PrintFilterSource, term: string) {
+  return printMatchesSearchTerm(source, term);
 }
 
 /**
@@ -137,36 +152,45 @@ export function matchesPrintFilters(attrs: PrintFilterAttrs, filters: PrintFilte
 }
 
 /**
- * @param {Picture[]} pictures
+ * @param {PrintFilterSource[]} sources
  * @param {PrintFilters} filters
  * @param {string} term
  */
-export function filterPictures(
-  pictures: Picture[],
+export function filterPrints(
+  sources: PrintFilterSource[],
   filters: PrintFilters,
   term = '',
 ) {
-  return pictures.filter((picture) => {
-    const attrs = getPrintFilterAttrs(picture);
+  return sources.filter((source) => {
+    const attrs = getPrintFilterAttrs(source);
     return (
-      pictureMatchesSearchTerm(picture, term) &&
+      printMatchesSearchTerm(source, term) &&
       matchesPrintFilters(attrs, filters)
     );
   });
 }
 
+/** @deprecated use filterPrints */
+export function filterPictures(
+  sources: PrintFilterSource[],
+  filters: PrintFilters,
+  term = '',
+) {
+  return filterPrints(sources, filters, term);
+}
+
 /**
  * Facet counts for the current search term, excluding each facet group's own selection.
- * @param {Picture[]} pictures
+ * @param {PrintFilterSource[]} sources
  * @param {PrintFilters} activeFilters
  * @param {string} term
  */
 export function buildPrintFilterFacets(
-  pictures: Picture[],
+  sources: PrintFilterSource[],
   activeFilters: PrintFilters,
   term = '',
 ): PrintFilterFacets {
-  const base = pictures.filter((picture) => pictureMatchesSearchTerm(picture, term));
+  const base = sources.filter((source) => printMatchesSearchTerm(source, term));
 
   return {
     artist: buildFacetGroup(base, activeFilters, 'artist', (attrs) => ({
@@ -192,13 +216,13 @@ export function buildPrintFilterFacets(
 }
 
 /**
- * @param {Picture[]} pictures
+ * @param {PrintFilterSource[]} sources
  * @param {PrintFilters} activeFilters
  * @param {PrintFilterParam} facetKey
  * @param {(attrs: PrintFilterAttrs) => {value: string; label: string} | null} getOption
  */
 function buildFacetGroup(
-  pictures: Picture[],
+  sources: PrintFilterSource[],
   activeFilters: PrintFilters,
   facetKey: PrintFilterParam,
   getOption: (attrs: PrintFilterAttrs) => {value: string; label: string} | null,
@@ -208,14 +232,14 @@ function buildFacetGroup(
     [facetKey]: [],
   };
 
-  const eligible = pictures.filter((picture) =>
-    matchesPrintFilters(getPrintFilterAttrs(picture), filtersWithoutFacet),
+  const eligible = sources.filter((source) =>
+    matchesPrintFilters(getPrintFilterAttrs(source), filtersWithoutFacet),
   );
 
   const counts = new Map<string, PrintFilterFacetOption>();
 
-  for (const picture of eligible) {
-    const option = getOption(getPrintFilterAttrs(picture));
+  for (const source of eligible) {
+    const option = getOption(getPrintFilterAttrs(source));
     if (!option) continue;
 
     const existing = counts.get(option.value);
