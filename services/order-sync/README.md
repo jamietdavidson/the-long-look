@@ -45,13 +45,7 @@ FedEx labels use **box dimensions from the Airtable Variants catalog** (same log
 
 ## Airtable schema
 
-Run once after pulling:
-
-```bash
-node scripts/setup-orders-schema.mjs
-```
-
-Each order writes to **Orders** (`tbltQOChGICsCnfkX`):
+Orders table: `tbltQOChGICsCnfkX` in base `appC7O4qp56Rdaj7c`. Field names are defined in `lib/order-sync/config.js`.
 
 | Airtable field | Source |
 |----------------|--------|
@@ -104,6 +98,11 @@ node scripts/sync-order-test.mjs path/to/order.json
 
 ## Shopify webhook setup
 
-Webhook URL: `https://<your-railway-domain>/webhooks/shopify/orders`
+Webhooks are declared in `integrations/shopify-app/shopify.app.toml` (`orders/create` and `orders/paid`). Deploy with:
 
-Topic: **Order creation** (`orders/create`).
+```bash
+cd integrations/shopify-app
+shopify app deploy --allow-updates --no-build
+```
+
+Webhook URL: `https://<your-railway-domain>/webhooks/shopify/orders`

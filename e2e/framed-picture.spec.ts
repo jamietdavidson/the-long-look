@@ -1,11 +1,11 @@
+import {test, expect} from '@playwright/test';
 import {
   buildPrintSizingGuideVariantRows,
   computeFramedPictureSize,
   getFramedPictureSpecFromVariant,
-  getPrintVariantPool,
   resolveReferenceInsetsForSize,
   variantHasPrintSizingMetafields,
-} from './framed-picture';
+} from '../app/lib/framed-picture';
 
 const variantWithPrintMetafields = {
   id: 'border-medium',
@@ -27,8 +27,8 @@ function buildPool(...variants: Array<typeof variantWithPrintMetafields>) {
   return variants;
 }
 
-describe('buildPrintSizingGuideVariantRows', () => {
-  it('emits one row per size × frame presence × mount (not per frame colour)', () => {
+test.describe('buildPrintSizingGuideVariantRows', () => {
+  test('emits one row per size × frame presence × mount (not per frame colour)', () => {
     const rows = buildPrintSizingGuideVariantRows({
       sizeOptionValues: [
         {name: 'Medium', firstSelectableVariant: variantWithPrintMetafields},
@@ -62,8 +62,8 @@ describe('buildPrintSizingGuideVariantRows', () => {
   });
 });
 
-describe('resolveReferenceInsetsForSize', () => {
-  it('reads bordered mat width when full bleed variant stores padding 0', () => {
+test.describe('resolveReferenceInsetsForSize', () => {
+  test('reads bordered mat width when full bleed variant stores padding 0', () => {
     const pool = buildPool(
       {
         id: 'exhibition-bleed',
@@ -96,22 +96,22 @@ describe('resolveReferenceInsetsForSize', () => {
   });
 });
 
-describe('variantHasPrintSizingMetafields', () => {
-  it('is true when short and long inches are present', () => {
+test.describe('variantHasPrintSizingMetafields', () => {
+  test('is true when short and long inches are present', () => {
     expect(variantHasPrintSizingMetafields(variantWithPrintMetafields)).toBe(
       true,
     );
   });
 
-  it('is false when print inch metafields are missing', () => {
+  test('is false when print inch metafields are missing', () => {
     expect(variantHasPrintSizingMetafields({metafields: []})).toBe(false);
   });
 });
 
-describe('computeFramedPictureSize picture lock', () => {
+test.describe('computeFramedPictureSize picture lock', () => {
   const capOptions = {maxLongSideCqi: 75};
 
-  it('keeps the print area fixed when toggling mount and frame', () => {
+  test('keeps the print area fixed when toggling mount and frame', () => {
     const bordered = getFramedPictureSpecFromVariant(
       variantWithPrintMetafields,
       undefined,
@@ -153,7 +153,7 @@ describe('computeFramedPictureSize picture lock', () => {
     );
   });
 
-  it('keeps the print area fixed for tier-specific mat widths (Exhibition/Museum)', () => {
+  test('keeps the print area fixed for tier-specific mat widths (Exhibition/Museum)', () => {
     const exhibitionPool = buildPool(
       {
         id: 'exhibition-bleed',

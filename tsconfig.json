@@ -10,7 +10,11 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["app/*"],
-      "@/*": ["app/*"]
+      "@/*": ["app/*"],
+      "storefrontapi.generated": ["app/types/storefrontapi.generated.d.ts"],
+      "customer-accountapi.generated": [
+        "app/types/customer-accountapi.generated.d.ts"
+      ]
     }
   },
   "include": [
@@ -20,9 +24,12 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.d.ts",
+    "e2e/**/*.ts",
     "*.js",
     "*.jsx",
+    "*.ts",
     "*.d.ts",
+    "codegen.ts",
     ".graphqlrc.js",
     ".react-router/types/**/*"
   ]

@@ -10,8 +10,7 @@
     "preview": "shopify hydrogen preview --build --port 3002",
     "lint": "eslint --no-error-on-unmatched-pattern .",
     "codegen": "shopify hydrogen codegen && react-router typegen",
-    "test:e2e": "playwright test",
-    "test:unit": "jest"
+    "test": "playwright test --project=unit && PLAYWRIGHT_E2E=1 playwright test --project=e2e"
   },
   "prettier": "@shopify/prettier-config",
   "dependencies": {
@@ -61,7 +60,6 @@
     "eslint-import-resolver-typescript": "^3.7.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-jest": "^28.11.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.1.0",

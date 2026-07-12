@@ -20,6 +20,8 @@ npm run dev
 
 Runs at [http://localhost:3002](http://localhost:3002). Link your Shopify store with `shopify hydrogen link` and `shopify hydrogen env pull` before developing.
 
+GraphQL types are generated into `app/types/*.generated.d.ts` (gitignored). `dev` and `build` run codegen automatically; after a fresh clone you can also run `npm run codegen`.
+
 ## Connect your Shopify store
 
 1. Log in to Shopify CLI:
@@ -54,6 +56,8 @@ app/
   components/           # Storefront UI (header, sidebar, footer, product grid)
   routes/              # Pages (home, collections, products, about, etc.)
   lib/                 # Content API, paths, helpers
+  types/               # Generated GraphQL types (npm run codegen)
+  graphql/             # Customer account queries
 ```
 
 ## Checkout
@@ -73,6 +77,7 @@ Imports use the `~/components/ui/*` alias, for example `~/components/ui/button`.
 ## Tests
 
 ```bash
-npm run test:unit   # Jest component tests
-npm run test:e2e    # Playwright tests (starts dev server against your linked store)
+npm test
 ```
+
+Playwright tests live in `e2e/` — unit tests for framed-picture sizing (`--project=unit`) and browser flows (`--project=e2e`). `npm test` runs both; e2e tests start the dev server against your linked store.

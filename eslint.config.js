@@ -7,7 +7,6 @@ import globals from 'globals';
 import typescriptEslint from '@typescript-eslint/eslint-plugin';
 import _import from 'eslint-plugin-import';
 import tsParser from '@typescript-eslint/parser';
-import jest from 'eslint-plugin-jest';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import js from '@eslint/js';
@@ -29,7 +28,7 @@ export default [
       '**/dist/',
       '**/*.graphql.d.ts',
       '**/*.graphql.ts',
-      '**/*.generated.d.ts',
+      'app/types/*.generated.d.ts',
       '**/.react-router/',
       '**/packages/hydrogen/dist/',
     ],
@@ -219,22 +218,6 @@ export default [
     languageOptions: {
       globals: {
         ...globals.node,
-      },
-    },
-  },
-  ...compat.extends('plugin:jest/recommended').map((config) => ({
-    ...config,
-    files: ['**/*.test.*'],
-  })),
-  {
-    files: ['**/*.test.*'],
-    plugins: {
-      jest,
-    },
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.jest,
       },
     },
   },
