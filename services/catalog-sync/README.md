@@ -25,7 +25,11 @@ Optional manual sync (for debugging): `POST /sync/:recordId` — set `SYNC_SECRE
 | `POLL_INTERVAL_MS` | no | Default `60000` (1 minute). Minimum `60000`. |
 | `SHOPIFY_SHOP_ID` | no | Default `thelonglookco` |
 | `SYNC_SECRET` | no | Optional auth for manual `POST /sync/…` only |
+| `PRINT_IMAGE_MAX_PX` | no | Long-edge cap before WebP encode (default `2400`) |
+| `PRINT_IMAGE_WEBP_QUALITY` | no | WebP quality 1–100 (default `82`) |
 | `PORT` | no | Set by Railway |
+
+Print images are downloaded from Airtable, resized, encoded as WebP, and uploaded to Shopify via staged upload. Re-sync skips image processing when the Airtable attachment id is unchanged (`print.picture_source_id` metafield).
 
 ## Deploy to Railway
 

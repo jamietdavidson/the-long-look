@@ -53,7 +53,7 @@ export default function Homepage() {
               title="Recent Works"
               products={data?.products?.nodes ?? []}
               {...printCatalogGridProps}
-              eagerCount={8}
+              eagerCount={3}
             />
           )}
         </Await>

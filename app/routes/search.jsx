@@ -207,7 +207,7 @@ export default function SearchPage() {
                 products={prints}
                 {...printCatalogGridProps}
                 gridClassName={cn(printGridThreeColumnClassName, 'lg:grid-cols-2 xl:grid-cols-3')}
-                eagerCount={6}
+                eagerCount={4}
               />
             </div>
           )}

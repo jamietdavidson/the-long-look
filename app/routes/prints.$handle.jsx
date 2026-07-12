@@ -1,6 +1,7 @@
 import {useLoaderData} from 'react-router';
 import {getPrintDetailSelectedOptions} from '~/lib/print-options';
 import {PrintDetail} from '~/components/PrintDetail';
+import {shopifyCdnImageUrl} from '~/lib/shopify-cdn-image';
 import {
   loadPrintProductByHandle,
   loadRecommendedPrintProducts,
@@ -14,6 +15,15 @@ import {
 export const meta = ({data}) => {
   return [{title: `${data?.product?.title ?? 'Print'} | The Long Look`}];
 };
+
+/**
+ * @param {Route.LinksFunctionArgs}
+ */
+export function links({data}) {
+  const href = shopifyCdnImageUrl(data?.product?.featuredImage?.url, 1400);
+  if (!href) return [];
+  return [{rel: 'preload', as: 'image', href, fetchPriority: 'high'}];
+}
 
 /** @type {import('~/components/AppPageLayout').AppRouteHandle} */
 export const handle = {

@@ -106,7 +106,7 @@ export default function CollectionRoute() {
       <ProductGrid
         connection={collection.products}
         {...printCatalogGridProps}
-        eagerCount={8}
+        eagerCount={4}
         emptyMessage="No pictures in this collection yet."
       />
       <Analytics.CollectionView

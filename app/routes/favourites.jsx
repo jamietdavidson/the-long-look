@@ -92,7 +92,7 @@ function FavouritesGrid({allProducts}) {
     <ProductGrid
       products={favourites}
       {...printCatalogGridProps}
-      eagerCount={6}
+      eagerCount={4}
     />
   );
 }
