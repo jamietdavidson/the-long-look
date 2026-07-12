@@ -1,11 +1,14 @@
 import {useLoaderData} from 'react-router';
-import {ProductGrid, printCatalogGridProps} from '~/components/ProductGrid';
+import {
+  CatalogPageHeader,
+  ProductGrid,
+  printCatalogGridProps,
+} from '~/components/ProductGrid';
 import {
   loadAllPrintProducts,
   loadArtistIndex,
   toPrintProductConnection,
 } from '~/lib/print-catalog';
-import {type} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
@@ -32,11 +35,7 @@ export default function PrintsIndex() {
 
   return (
     <>
-      <div className="text-center py-12 px-6 border-b border-neutral-100">
-        <h1 className={type.title.md}>
-          Prints
-        </h1>
-      </div>
+      <CatalogPageHeader title="Prints" />
       <ProductGrid
         products={products.nodes}
         {...printCatalogGridProps}

@@ -1,7 +1,8 @@
 import {Link} from 'react-router';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {Money} from '@shopify/hydrogen';
 import {FavoriteButton} from '~/components/FavoriteButton';
+import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {FramedPicture} from '~/components/FramedPicture';
 import {
   FRAMED_PICTURE_IMAGE_SIZES,
@@ -11,6 +12,7 @@ import {
   FRAMED_PICTURE_CATALOG_DISPLAY_SIZE,
   FRAMED_PICTURE_GRID_CONTAINER_FILL,
 } from '~/lib/framed-picture';
+import {useContainerReady} from '~/lib/use-container-size';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 import {printPath, printsPath, artistPath} from '~/lib/paths';
@@ -151,6 +153,8 @@ function SplitProductCard({
   const variantUrl = printPath(product.handle);
   const isCompact = size === 'compact';
   const [hovered, setHovered] = useState(false);
+  const wellRef = useRef(null);
+  const containerReady = useContainerReady(wellRef);
 
   return (
     <article className={cn('block h-full bg-white', className)}>
@@ -165,22 +169,25 @@ function SplitProductCard({
           className="block"
         >
           <div
+            ref={wellRef}
             className={cn(
-              '@container flex aspect-8/9 items-center justify-center bg-[#ececea]',
+              '@container flex aspect-8/9 items-center justify-center overflow-hidden bg-[#ececea]',
               splitWellClassName,
             )}
           >
             <div className="flex size-full min-h-0 min-w-0 items-center justify-center">
-              <FramedPicture
-                image={product.featuredImage}
-                alt={product.title}
-                size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
-                loading={loading}
-                sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-                containerFill={containerFill}
-                hovered={hovered}
-                interactive
-              />
+              {containerReady ? (
+                <FramedPicture
+                  image={product.featuredImage}
+                  alt={product.title}
+                  size={FRAMED_PICTURE_CATALOG_DISPLAY_SIZE}
+                  loading={loading}
+                  sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
+                  containerFill={containerFill}
+                  hovered={hovered}
+                  interactive
+                />
+              ) : null}
             </div>
           </div>
         </Link>
@@ -274,10 +281,85 @@ function ProductCardContent({product, showPrice = true, size = 'default'}) {
   );
 }
 
-/** @param {{title?: string, products: Array<import('~/lib/content-api').PictureCard & {priceRange: {minVariantPrice: {amount: string; currencyCode: string}}}>, gridClassName?: string, cardLayout?: ProductCardLayout, cardSize?: ProductCardSize, containerFill?: number, wallClassName?: string, splitWellClassName?: string, emptyMessage?: string, eagerCount?: number}} */
+/**
+ * Centered title block for catalog listing pages (prints, collections, etc.).
+ * @param {{title: string, description?: string | null}}
+ */
+export function CatalogPageHeader({title, description}) {
+  return (
+    <div className="border-b border-neutral-100 px-6 py-12 text-center">
+      <h1 className={type.title.md}>{title}</h1>
+      {description ? (
+        <p
+          className={cn(
+            type.body.md,
+            'mx-auto mt-4 max-w-xl text-neutral-500',
+          )}
+        >
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** @typedef {import('~/lib/print-catalog').PrintCatalogCard} PrintCatalogCard */
+
+/**
+ * @param {{
+ *   product: PrintCatalogCard;
+ *   index: number;
+ *   cardLayout: ProductCardLayout;
+ *   cardSize: ProductCardSize;
+ *   containerFill: number;
+ *   wallClassName: string;
+ *   splitWellClassName: string;
+ *   eagerCount?: number;
+ * }}
+ */
+function renderProductGridCard({
+  product,
+  index,
+  cardLayout,
+  cardSize,
+  containerFill,
+  wallClassName,
+  splitWellClassName,
+  eagerCount,
+}) {
+  return (
+    <ProductCard
+      key={product.id}
+      product={product}
+      size={cardSize}
+      layout={cardLayout}
+      loading={eagerCount != null && index < eagerCount ? 'eager' : undefined}
+      containerFill={containerFill}
+      wallClassName={wallClassName}
+      splitWellClassName={splitWellClassName}
+    />
+  );
+}
+
+/**
+ * @param {{
+ *   title?: string;
+ *   products?: PrintCatalogCard[];
+ *   connection?: {nodes?: PrintCatalogCard[]};
+ *   gridClassName?: string;
+ *   cardLayout?: ProductCardLayout;
+ *   cardSize?: ProductCardSize;
+ *   containerFill?: number;
+ *   wallClassName?: string;
+ *   splitWellClassName?: string;
+ *   emptyMessage?: string;
+ *   eagerCount?: number;
+ * }}
+ */
 export function ProductGrid({
   title,
-  products,
+  products = [],
+  connection,
   gridClassName = printGridClassName,
   cardLayout = 'integrated',
   cardSize = 'default',
@@ -287,6 +369,17 @@ export function ProductGrid({
   emptyMessage,
   eagerCount,
 }) {
+  const cardProps = {
+    cardLayout,
+    cardSize,
+    containerFill,
+    wallClassName,
+    splitWellClassName,
+    eagerCount,
+  };
+  const resolvedProducts = connection?.nodes ?? products;
+  const isEmpty = resolvedProducts.length === 0;
+
   return (
     <section className="w-full">
       {title ? (
@@ -296,22 +389,29 @@ export function ProductGrid({
           </h2>
         </div>
       ) : null}
-      {products.length === 0 && emptyMessage ? (
-        <p className={cn(type.body.md, 'px-6 text-center text-neutral-500')}>{emptyMessage}</p>
+      {isEmpty && emptyMessage ? (
+        <p
+          className={cn(
+            type.body.md,
+            'px-6 py-16 text-center text-neutral-500',
+          )}
+        >
+          {emptyMessage}
+        </p>
+      ) : connection ? (
+        <PaginatedResourceSection
+          connection={connection}
+          resourcesClassName={gridClassName}
+        >
+          {({node: product, index}) =>
+            renderProductGridCard({product, index, ...cardProps})
+          }
+        </PaginatedResourceSection>
       ) : (
         <div className={gridClassName}>
-          {products.map((product, index) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              size={cardSize}
-              layout={cardLayout}
-              loading={eagerCount != null && index < eagerCount ? 'eager' : undefined}
-              containerFill={containerFill}
-              wallClassName={wallClassName}
-              splitWellClassName={splitWellClassName}
-            />
-          ))}
+          {products.map((product, index) =>
+            renderProductGridCard({product, index, ...cardProps}),
+          )}
         </div>
       )}
     </section>

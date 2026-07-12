@@ -1,8 +1,11 @@
 import {redirect, useLoaderData} from 'react-router';
 import {getPaginationVariables, Analytics} from '@shopify/hydrogen';
-import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
-import {ProductCard, printGridClassName, printGridWallClassName, FRAMED_PICTURE_GRID_CONTAINER_FILL} from '~/components/ProductGrid';
+import {
+  CatalogPageHeader,
+  ProductGrid,
+  printCatalogGridProps,
+} from '~/components/ProductGrid';
 import {
   loadArtistByHandle,
   loadContentCollectionByHandle,
@@ -13,8 +16,6 @@ import {
   toPrintProductConnection,
 } from '~/lib/print-catalog';
 import {artistPath, artistsPath, printsPath} from '~/lib/paths';
-import {cn} from '~/lib/utils';
-import {type} from '~/lib/typography';
 
 /**
  * @type {Route.MetaFunction}
@@ -98,36 +99,16 @@ export default function CollectionRoute() {
 
   return (
     <>
-      <div className="text-center py-12 px-6 border-b border-neutral-100">
-        <h1 className={type.title.md}>
-          {collection.title}
-        </h1>
-        {collection.description && (
-          <p className={cn(type.body.md, 'mt-4 text-neutral-500 max-w-xl mx-auto')}>{collection.description}</p>
-        )}
-      </div>
-      <section className="w-full">
-        {collection.products?.nodes?.length ? (
-          <PaginatedResourceSection
-            connection={collection.products}
-            resourcesClassName={printGridClassName}
-          >
-            {({node: product, index}) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                loading={index < 8 ? 'eager' : undefined}
-                containerFill={FRAMED_PICTURE_GRID_CONTAINER_FILL}
-                wallClassName={printGridWallClassName}
-              />
-            )}
-          </PaginatedResourceSection>
-        ) : (
-          <p className={cn(type.body.md, 'text-center text-neutral-500')}>
-            No pictures in this collection yet.
-          </p>
-        )}
-      </section>
+      <CatalogPageHeader
+        title={collection.title}
+        description={collection.description}
+      />
+      <ProductGrid
+        connection={collection.products}
+        {...printCatalogGridProps}
+        eagerCount={8}
+        emptyMessage="No pictures in this collection yet."
+      />
       <Analytics.CollectionView
         data={{
           collection: {

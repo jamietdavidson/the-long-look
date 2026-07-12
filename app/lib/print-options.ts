@@ -1,9 +1,7 @@
 import type {FrameColor, FramedPictureNamedSize} from '~/lib/framed-picture';
 import {
-  formatPrintSizeShopifyLabel,
   FRAMED_PICTURE_DEFAULT_NAMED_SIZE,
-  FRAMED_PICTURE_SIZES,
-  getFramedSizeFromVariant,
+  getShopifySizeOptionLabel,
   resolveFrameColorFromOption,
   resolveMountFromOption,
   resolveNamedFramedPictureSize,
@@ -223,7 +221,7 @@ export function getFramedSizeFromSearchParams(
   return undefined;
 }
 
-/** URL size wins when set; otherwise variant; otherwise Large. */
+/** URL size wins when set; otherwise the Gallery default (fourth largest tier). */
 export function getResolvedFramedSize(
   variant:
     | {
@@ -236,29 +234,71 @@ export function getResolvedFramedSize(
 ): FramedPictureNamedSize {
   return (
     getFramedSizeFromSearchParams(searchParams) ??
-    getFramedSizeFromVariant(variant ?? {}) ??
     FRAMED_PICTURE_DEFAULT_NAMED_SIZE
   );
 }
 
-/** Selected product options for print detail — defaults Size to Large. */
+/** Inject default print detail options when missing from the URL. */
+export function ensureDefaultPrintDetailOptions(params: URLSearchParams) {
+  let changed = false;
+
+  if (!getSearchParamValue(params, SHOPIFY_SIZE_OPTION)) {
+    params.set(
+      SHOPIFY_SIZE_OPTION,
+      getShopifySizeOptionLabel(FRAMED_PICTURE_DEFAULT_NAMED_SIZE),
+    );
+    changed = true;
+  }
+
+  if (!getSearchParamValue(params, SHOPIFY_FRAME_OPTION)) {
+    params.set(SHOPIFY_FRAME_OPTION, DEFAULT_FRAME_OPTIONS[0]);
+    changed = true;
+  }
+
+  if (!getSearchParamValue(params, SHOPIFY_MOUNT_OPTION)) {
+    params.set(SHOPIFY_MOUNT_OPTION, DEFAULT_MOUNT_OPTIONS[0]);
+    changed = true;
+  }
+
+  stripLegacyOptionParams(params);
+  return changed;
+}
+
+/** Selected product options for print detail — defaults Size to Gallery. */
 export function getPrintDetailSelectedOptions(request: Request) {
   const selected = getSelectedProductOptions(request);
   const hasSize = selected.some(
     (option) => option.name?.toLowerCase() === 'size' && option.value,
   );
+  const hasFrame = selected.some(
+    (option) => option.name?.toLowerCase() === 'frame' && option.value,
+  );
+  const hasMount = selected.some(
+    (option) => option.name?.toLowerCase() === 'mount' && option.value,
+  );
 
-  let options = hasSize
-    ? selected
-    : [
-        ...selected,
-        {
-          name: 'Size',
-          value: formatPrintSizeShopifyLabel(
-            FRAMED_PICTURE_SIZES[FRAMED_PICTURE_DEFAULT_NAMED_SIZE],
-          ),
-        },
-      ];
+  let options = [...selected];
+
+  if (!hasSize) {
+    options.push({
+      name: 'Size',
+      value: getShopifySizeOptionLabel(FRAMED_PICTURE_DEFAULT_NAMED_SIZE),
+    });
+  }
+
+  if (!hasFrame) {
+    options.push({
+      name: 'Frame',
+      value: DEFAULT_FRAME_OPTIONS[0],
+    });
+  }
+
+  if (!hasMount) {
+    options.push({
+      name: 'Mount',
+      value: DEFAULT_MOUNT_OPTIONS[0],
+    });
+  }
 
   const frameOption = options.find(
     (option) => option.name?.toLowerCase() === 'frame',

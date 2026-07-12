@@ -55,8 +55,26 @@ export const FRAMED_PICTURE_GRID_CONTAINER_FILL = 0.85;
 /** Catalog cards use the collector tier with physical inch proportions. */
 export const FRAMED_PICTURE_CATALOG_DISPLAY_SIZE = 'collector' as const;
 
-/** Default size on print detail when no variant is selected in the URL. */
-export const FRAMED_PICTURE_DEFAULT_NAMED_SIZE = 'large' as const;
+/** Default size on print detail when no variant is selected in the URL (Gallery — fourth largest tier). */
+export const FRAMED_PICTURE_DEFAULT_NAMED_SIZE = 'giant' as const;
+
+/** Shopify Size option labels — matches Airtable Variants `Name` where it differs from display labels. */
+export const FRAMED_PICTURE_SHOPIFY_SIZE_OPTION_LABELS: Record<
+  FramedPictureNamedSize,
+  string
+> = {
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+  giant: 'Gallery',
+  collector: 'Collector',
+  exhibition: 'Exhibition',
+};
+
+/** Shopify `Size` option value for a named print tier. */
+export function getShopifySizeOptionLabel(namedSize: FramedPictureNamedSize) {
+  return FRAMED_PICTURE_SHOPIFY_SIZE_OPTION_LABELS[namedSize];
+}
 
 /** Detail gallery — min/max outer frame long edge (% of @container width); tiers step evenly. */
 export const FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI = 50;

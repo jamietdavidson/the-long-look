@@ -45,6 +45,7 @@ import {
 import {cn} from '~/lib/utils';
 import {scrollPageToTop} from '~/lib/page-scroll';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
+import {useContainerSize} from '~/lib/use-container-size';
 
 /** Purchase panel starts expanded on desktop; collapsed on mobile. */
 export function usePurchasePanelExpanded() {
@@ -743,29 +744,15 @@ function PrintPurchaseSummaryCard({
     [framedSpec.frame, framedSpec.frameColor, framedSpec.padding],
   );
   const stripRef = useRef(null);
-  const [fitLongSideCqi, setFitLongSideCqi] = useState(undefined);
-
-  useEffect(() => {
-    const el = stripRef.current;
-    if (!el) return;
-
-    const updateFit = () => {
-      const {width, height} = el.getBoundingClientRect();
-      setFitLongSideCqi(
-        getSummaryStripFitLongSideCqi(
-          summaryFramedSpec,
-          'large',
-          width,
-          height,
-        ),
-      );
-    };
-
-    updateFit();
-    const observer = new ResizeObserver(updateFit);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [summaryFramedSpec]);
+  const containerSize = useContainerSize(stripRef);
+  const fitLongSideCqi = containerSize
+    ? getSummaryStripFitLongSideCqi(
+        summaryFramedSpec,
+        'large',
+        containerSize.width,
+        containerSize.height,
+      )
+    : undefined;
 
   return (
     <button
@@ -774,18 +761,20 @@ function PrintPurchaseSummaryCard({
       className="flex min-h-18 w-full touch-manipulation items-stretch overflow-hidden overscroll-none text-left"
       aria-label={`Configure ${title}`}
     >
-      <div className="flex w-18 shrink-0 self-stretch bg-[#ececea]">
+      <div className="flex w-18 shrink-0 self-stretch overflow-hidden bg-[#ececea]">
         {image?.url ? (
           <FramedPictureWall variant="summaryStrip" containerRef={stripRef}>
-            <FramedPicture
-              image={image}
-              alt={title}
-              size={summaryFramedSpec}
-              sizes={FRAMED_PICTURE_IMAGE_SIZES.compact}
-              interactive={false}
-              maxWidthCqi={getMaxWidthCqiForNamedSize('large')}
-              maxLongSideCqi={fitLongSideCqi}
-            />
+            {containerSize ? (
+              <FramedPicture
+                image={image}
+                alt={title}
+                size={summaryFramedSpec}
+                sizes={FRAMED_PICTURE_IMAGE_SIZES.compact}
+                interactive={false}
+                maxWidthCqi={getMaxWidthCqiForNamedSize('large')}
+                maxLongSideCqi={fitLongSideCqi}
+              />
+            ) : null}
           </FramedPictureWall>
         ) : (
           <div className="size-full bg-neutral-100" aria-hidden />

@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {forwardRef, useEffect, useMemo, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
@@ -17,6 +17,7 @@ import {
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
 import {getFramedSizeFromSearchParams} from '~/lib/print-options';
+import {useContainerSize} from '~/lib/use-container-size';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
@@ -104,9 +105,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  const [containerSize, setContainerSize] = useState(
-    /** @type {{width: number; height: number} | null} */ (null),
-  );
+  const containerSize = useContainerSize(wallRef);
 
   const tierForCaps =
     namedSize ??
@@ -159,25 +158,6 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     setSlideIndex(0);
     setDirection(0);
   }, [framedSpec.shortSide, framedSpec.longSide, framedSpec.frame, framedSpec.padding]);
-
-  useLayoutEffect(() => {
-    const element = wallRef.current;
-    if (!element) return;
-
-    const updateSize = () => {
-      const {width, height} = element.getBoundingClientRect();
-      if (width > 0 && height > 0) {
-        setContainerSize({width, height});
-      }
-    };
-
-    updateSize();
-
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, []);
 
   /** @param {number} step */
   const paginate = (step) => {
@@ -242,17 +222,19 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
                 hasMultipleSlides && 'cursor-grab active:cursor-grabbing',
               )}
             >
-              <div className="pointer-events-none flex max-h-full max-w-full items-center justify-center select-none [&_*]:pointer-events-none [&_img]:drag-none">
-                <FramedPicture
-                  image={image}
-                  alt={alt}
-                  size={activeSlide.spec}
-                  loading="eager"
-                  sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
-                  maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
-                  maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
-                  interactive={false}
-                />
+              <div className="pointer-events-none flex max-h-full max-w-full items-center justify-center overflow-hidden select-none [&_*]:pointer-events-none [&_img]:drag-none">
+                {containerSize ? (
+                  <FramedPicture
+                    image={image}
+                    alt={alt}
+                    size={activeSlide.spec}
+                    loading="eager"
+                    sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
+                    maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
+                    maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
+                    interactive={false}
+                  />
+                ) : null}
               </div>
             </motion.div>
           </AnimatePresence>

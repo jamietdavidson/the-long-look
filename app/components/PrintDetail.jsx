@@ -24,6 +24,7 @@ import {artistPath} from '~/lib/paths';
 import {
   getResolvedFrameAndMount,
   getResolvedFramedSize,
+  ensureDefaultPrintDetailOptions,
   normalizeProductOptionSearchParams,
 } from '~/lib/print-options';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
@@ -49,7 +50,10 @@ export function PrintDetail({product, artist = null, recommended = []}) {
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
-    if (!normalizeProductOptionSearchParams(params)) return;
+    const changed =
+      ensureDefaultPrintDetailOptions(params) ||
+      normalizeProductOptionSearchParams(params);
+    if (!changed) return;
 
     const next = params.toString();
     const current = searchParams.toString();

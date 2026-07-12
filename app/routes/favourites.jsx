@@ -1,6 +1,7 @@
 import {useLoaderData} from 'react-router';
 import {Link} from 'react-router';
 import {
+  CatalogPageHeader,
   ProductGrid,
   printCatalogGridProps,
 } from '~/components/ProductGrid';
@@ -45,9 +46,7 @@ export default function FavouritesPage() {
 
   return (
     <>
-      <div className="border-b border-neutral-100 px-6 py-12 text-center">
-        <h1 className={type.title.md}>Favourites</h1>
-      </div>
+      <CatalogPageHeader title="Favourites" />
       <FavouritesGrid allProducts={products.nodes} />
     </>
   );

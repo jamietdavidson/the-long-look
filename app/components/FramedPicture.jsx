@@ -211,6 +211,7 @@ export function FramedPicture({
         marginRight: 'auto',
         width: 'fit-content',
         maxWidth: '100%',
+        maxHeight: '100%',
       }}
       onMouseEnter={useInternalHover ? () => setHoveredState(true) : undefined}
       onMouseLeave={useInternalHover ? () => setHoveredState(false) : undefined}

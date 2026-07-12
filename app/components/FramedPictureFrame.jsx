@@ -23,6 +23,7 @@ export function FramedPictureFrame({
         zIndex: 1,
         width: 'fit-content',
         maxWidth: '100%',
+        maxHeight: '100%',
         borderWidth: `${computed.frameCqi}cqi`,
         borderStyle: 'solid',
         borderColor: computed.colors.frameBorder,

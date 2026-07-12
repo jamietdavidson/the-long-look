@@ -71,13 +71,11 @@ export function ArtistProfile({artist}) {
         </div>
       </section>
 
-      {products.length > 0 ? (
-        <ProductGrid products={products} {...printCatalogGridProps} />
-      ) : (
-        <p className={cn(type.body.md, 'px-6 py-16 text-center text-neutral-500')}>
-          No works for sale yet.
-        </p>
-      )}
+      <ProductGrid
+        products={products}
+        {...printCatalogGridProps}
+        emptyMessage="No works for sale yet."
+      />
     </>
   );
 }
