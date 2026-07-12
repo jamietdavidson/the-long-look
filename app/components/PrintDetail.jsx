@@ -1,4 +1,4 @@
-import {useRef, useEffect} from 'react';
+import {useRef, useEffect, useMemo} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router';
 import {
   getAdjacentAndFirstAvailableVariants,
@@ -19,6 +19,7 @@ import {type} from '~/lib/typography';
 import {
   getFramedPictureSpecFromVariant,
   getOrientationFromImage,
+  getPrintVariantPool,
 } from '~/lib/framed-picture';
 import {artistPath} from '~/lib/paths';
 import {
@@ -44,6 +45,16 @@ export function PrintDetail({product, artist = null, recommended = []}) {
   const selectedVariant = useOptimisticVariant(
     product.selectedOrFirstAvailableVariant,
     getAdjacentAndFirstAvailableVariants(product),
+  );
+
+  const variantPool = useMemo(
+    () =>
+      getPrintVariantPool({
+        ...product,
+        selectedOrFirstAvailableVariant: selectedVariant,
+        adjacentVariants: getAdjacentAndFirstAvailableVariants(product),
+      }),
+    [product, selectedVariant],
   );
 
   useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
@@ -83,6 +94,7 @@ export function PrintDetail({product, artist = null, recommended = []}) {
       frame: resolvedFrame,
       mount: resolvedMount,
     },
+    {variantPool},
   );
   const minPrice =
     product.priceRange?.minVariantPrice ?? selectedVariant?.price ?? null;

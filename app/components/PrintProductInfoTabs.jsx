@@ -1,8 +1,12 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {Link} from 'react-router';
 import {Info} from 'lucide-react';
 import {Aside, useAside} from '~/components/Aside';
 import {getPrintFaqSection, PRINT_FAQ_SECTIONS} from '~/lib/print-policies';
+import {
+  buildPrintSizingGuideVariantRows,
+  formatSpecificationInches,
+} from '~/lib/framed-picture';
 import {cn} from '~/lib/utils';
 import {type as typography} from '~/lib/typography';
 
@@ -13,15 +17,110 @@ const TABS = PRINT_FAQ_SECTIONS.map((section) => ({
 
 /**
  * @param {{
+ *   rows: import('~/lib/framed-picture').PrintSizingGuideVariantRow[];
+ * }}
+ */
+function PrintSizingGuideTable({rows}) {
+  if (!rows.length) return null;
+
+  const headerCellClass =
+    'sticky top-0 z-10 border-b border-neutral-200 bg-white py-2 font-medium';
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[44rem] w-full border-separate border-spacing-0 text-left text-sm">
+          <thead>
+            <tr className="text-xs uppercase tracking-wide text-neutral-500">
+              <th scope="col" className={cn(headerCellClass, 'pr-3')}>
+                Size
+              </th>
+              <th scope="col" className={cn(headerCellClass, 'px-3')}>
+                Frame
+              </th>
+              <th scope="col" className={cn(headerCellClass, 'px-3')}>
+                Mount
+              </th>
+              <th scope="col" className={cn(headerCellClass, 'px-3')}>
+                Print
+              </th>
+              <th scope="col" className={cn(headerCellClass, 'px-3')}>
+                Mat
+              </th>
+              <th scope="col" className={cn(headerCellClass, 'px-3')}>
+                Moulding
+              </th>
+              <th scope="col" className={cn(headerCellClass, 'pl-3')}>
+                Outer
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={`${row.sizeLabel}-${row.frameLabel}-${row.mountLabel}`}
+                className="border-b border-neutral-100 last:border-b-0"
+              >
+                <th
+                  scope="row"
+                  className="whitespace-nowrap border-b border-neutral-100 py-2 pr-3 font-medium text-neutral-900"
+                >
+                  {row.sizeLabel}
+                </th>
+                <td className="whitespace-nowrap border-b border-neutral-100 px-3 py-2 text-neutral-600">
+                  {row.frameLabel}
+                </td>
+                <td className="whitespace-nowrap border-b border-neutral-100 px-3 py-2 text-neutral-600">
+                  {row.mountLabel}
+                </td>
+                <td className="whitespace-nowrap border-b border-neutral-100 px-3 py-2 text-neutral-600">
+                  {row.printDimensions}
+                </td>
+                <td className="whitespace-nowrap border-b border-neutral-100 px-3 py-2 text-neutral-600">
+                  {formatSpecificationInches(row.matInches)}
+                </td>
+                <td className="whitespace-nowrap border-b border-neutral-100 px-3 py-2 text-neutral-600">
+                  {formatSpecificationInches(row.mouldingInches)}
+                </td>
+                <td className="whitespace-nowrap border-b border-neutral-100 py-2 pl-3 text-neutral-600">
+                  {row.outerDimensions}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-sm leading-snug text-neutral-500">
+        Print size is identical for border and full bleed within each size tier;
+        mat width varies by tier. Frame colour does not change dimensions. Outer
+        dimensions include moulding when framed.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * @param {{
  *   activeTab: string;
  *   onTabChange: (tab: string) => void;
  *   selectedFrame?: string | null;
+ *   sizingGuide?: {
+ *     sizeOptionValues?: Array<{
+ *       name: string;
+ *       firstSelectableVariant?: import('~/lib/framed-picture').PrintVariantRef | null;
+ *     }>;
+ *     frameOptions?: string[];
+ *     mountOptions?: string[];
+ *     variantPool?: import('~/lib/framed-picture').PrintVariantRef[];
+ *     orientation?: import('~/lib/framed-picture').PictureOrientation;
+ *   } | null;
  * }}
  */
 function PrintProductInfoTabbedContent({
   activeTab,
   onTabChange,
   selectedFrame = null,
+  sizingGuide = null,
 }) {
   const {close} = useAside();
   const section = getPrintFaqSection(activeTab);
@@ -29,6 +128,17 @@ function PrintProductInfoTabbedContent({
     selectedFrame &&
     (selectedFrame.toLowerCase().includes('no frame') ||
       selectedFrame.toLowerCase().includes('unframed'));
+
+  const sizingRows = useMemo(() => {
+    if (!sizingGuide) return [];
+    return buildPrintSizingGuideVariantRows({
+      sizeOptionValues: sizingGuide.sizeOptionValues,
+      frameOptions: sizingGuide.frameOptions,
+      mountOptions: sizingGuide.mountOptions,
+      variantPool: sizingGuide.variantPool,
+      orientation: sizingGuide.orientation ?? 'vertical',
+    });
+  }, [sizingGuide]);
 
   if (!section) return null;
 
@@ -80,6 +190,11 @@ function PrintProductInfoTabbedContent({
           {paragraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
+
+          {activeTab === 'sizing' && sizingRows.length > 0 ? (
+            <PrintSizingGuideTable rows={sizingRows} />
+          ) : null}
+
           <Link
             to={`/faq#${section.id}`}
             className="inline-block text-neutral-900 underline underline-offset-2"
@@ -124,9 +239,24 @@ export function PrintProductInfoListItem() {
 }
 
 /**
- * @param {{selectedFrame?: string | null}} props
+ * @param {{
+ *   selectedFrame?: string | null;
+ *   sizingGuide?: {
+ *     sizeOptionValues?: Array<{
+ *       name: string;
+ *       firstSelectableVariant?: import('~/lib/framed-picture').PrintVariantRef | null;
+ *     }>;
+ *     frameOptions?: string[];
+ *     mountOptions?: string[];
+ *     variantPool?: import('~/lib/framed-picture').PrintVariantRef[];
+ *     orientation?: import('~/lib/framed-picture').PictureOrientation;
+ *   } | null;
+ * }}
  */
-export function PrintProductInfoAside({selectedFrame = null}) {
+export function PrintProductInfoAside({
+  selectedFrame = null,
+  sizingGuide = null,
+}) {
   const {type, printInfoTab} = useAside();
   const isOpen = type === 'print-info';
   const [activeTab, setActiveTab] = useState(printInfoTab);
@@ -144,6 +274,7 @@ export function PrintProductInfoAside({selectedFrame = null}) {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           selectedFrame={selectedFrame}
+          sizingGuide={sizingGuide}
         />
       ) : null}
     </Aside>

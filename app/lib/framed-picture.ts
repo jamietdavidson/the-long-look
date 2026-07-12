@@ -12,8 +12,9 @@ export type FramedPictureSizeSpec = {
   frame: number;
   frameColor?: FrameColor;
   /**
-   * Border-mount mat width from Airtable (`padding_inches` metafield).
-   * Locks on-screen print area when toggling full bleed.
+   * Border-mount mat width from Shopify (`padding_inches` metafield).
+   * After catalog sync this is the size-tier reference on every variant;
+   * the variant pool fallback handles legacy rows that still store 0 on Full Bleed.
    */
   referencePadding?: number;
   /**
@@ -73,6 +74,7 @@ export const FRAMED_PICTURE_SHOPIFY_SIZE_OPTION_LABELS: Record<
   giant: 'Gallery',
   collector: 'Collector',
   exhibition: 'Exhibition',
+  museum: 'Museum',
 };
 
 /** Shopify `Size` option value for a named print tier. */
@@ -135,6 +137,13 @@ export const FRAMED_PICTURE_SIZES = {
     frame: STANDARD_FRAME_INCHES,
     frameColor: 'black',
   },
+  museum: {
+    shortSide: 48,
+    longSide: 72,
+    padding: STANDARD_MAT_INCHES,
+    frame: STANDARD_FRAME_INCHES,
+    frameColor: 'black',
+  },
 } satisfies Record<string, FramedPictureSizeSpec>;
 
 export type FramedPictureNamedSize = keyof typeof FRAMED_PICTURE_SIZES;
@@ -168,24 +177,150 @@ export function getVariantSizeRank(
   return parseInchesMetafield(getVariantPrintMetafield(variant, 'rank'));
 }
 
-/** Build framed-picture spec from Shopify variant metafields (Airtable source of truth). */
+function getReferencePaddingFromMetafield(paddingInches: number | undefined) {
+  if (paddingInches != null && paddingInches > 0) return paddingInches;
+  return STANDARD_MAT_INCHES;
+}
+
+function getReferenceFrameFromMetafield(frameInches: number | undefined) {
+  if (frameInches != null && frameInches > 0) return frameInches;
+  return STANDARD_FRAME_INCHES;
+}
+
+export type PrintVariantRef = {
+  id?: string;
+  metafields?: VariantMetafield[] | null;
+  selectedOptions?: Array<{name: string; value: string}>;
+};
+
+/** Collect variants available on the product detail page for reference inset lookup. */
+export function getPrintVariantPool(product: {
+  selectedOrFirstAvailableVariant?: PrintVariantRef | null;
+  adjacentVariants?: PrintVariantRef[] | null;
+  options?: Array<{
+    name: string;
+    optionValues?: Array<{firstSelectableVariant?: PrintVariantRef | null}>;
+  }>;
+}): PrintVariantRef[] {
+  const byId = new Map<string, PrintVariantRef>();
+  const add = (variant: PrintVariantRef | null | undefined) => {
+    if (!variant?.id) return;
+    byId.set(variant.id, variant);
+  };
+
+  add(product.selectedOrFirstAvailableVariant);
+  for (const variant of product.adjacentVariants ?? []) add(variant);
+  for (const option of product.options ?? []) {
+    if (option.name.toLowerCase() !== 'size') continue;
+    for (const value of option.optionValues ?? []) {
+      add(value.firstSelectableVariant);
+    }
+  }
+
+  return [...byId.values()];
+}
+
+/**
+ * Border-mount mat and moulding width for a size tier.
+ * Full-bleed variants store `padding_inches: 0` — read the bordered sibling instead.
+ */
+export function resolveReferenceInsetsForSize(
+  sizeLabel: string | null | undefined,
+  variantPool: PrintVariantRef[],
+) {
+  if (!sizeLabel) {
+    return {
+      referencePadding: STANDARD_MAT_INCHES,
+      referenceFrame: STANDARD_FRAME_INCHES,
+    };
+  }
+
+  const normalizedSize = sizeLabel.toLowerCase().trim();
+  let referencePadding: number | undefined;
+  let referenceFrame: number | undefined;
+
+  for (const variant of variantPool) {
+    const variantSize = getSelectedOptionValue(variant, 'size');
+    if (variantSize?.toLowerCase().trim() !== normalizedSize) continue;
+
+    const padding = parseInchesMetafield(
+      getVariantPrintMetafield(variant, 'padding_inches'),
+    );
+    const frame = parseInchesMetafield(
+      getVariantPrintMetafield(variant, 'frame_width_inches'),
+    );
+
+    if (padding != null && padding > 0) {
+      referencePadding = Math.max(referencePadding ?? 0, padding);
+    }
+    if (frame != null && frame > 0) {
+      referenceFrame = Math.max(referenceFrame ?? 0, frame);
+    }
+  }
+
+  return {
+    referencePadding: referencePadding ?? STANDARD_MAT_INCHES,
+    referenceFrame: referenceFrame ?? STANDARD_FRAME_INCHES,
+  };
+}
+
+/**
+ * Full-bleed Airtable rows store `padding_inches: 0` and often larger print inches
+ * (the image extends into the mat area). Normalize back to bordered print size.
+ */
+export function resolveCanonicalPrintDimensions(
+  shortSide: number,
+  longSide: number,
+  paddingMetafield: number | undefined,
+  referencePadding: number,
+): {shortSide: number; longSide: number} {
+  if (paddingMetafield != null && paddingMetafield > 0) {
+    return {shortSide, longSide};
+  }
+
+  const inset = referencePadding * 2;
+  const adjusted = {
+    shortSide: shortSide - inset,
+    longSide: longSide - inset,
+  };
+  if (adjusted.shortSide <= 0 || adjusted.longSide <= 0) {
+    return {shortSide, longSide};
+  }
+
+  const namedAfter = resolveNamedSizeFromSpec(adjusted);
+  const namedBefore = resolveNamedSizeFromSpec({shortSide, longSide});
+  if (namedAfter && (!namedBefore || namedAfter === namedBefore)) {
+    return adjusted;
+  }
+
+  return {shortSide, longSide};
+}
+
+/** Build bordered+framed print spec from Shopify variant metafields (Airtable source of truth). */
 export function getFramedPictureSpecFromVariantMetafields(
   variant: {
     metafields?: VariantMetafield[] | null;
     selectedOptions?: Array<{name: string; value: string}>;
   } | null | undefined,
 ): FramedPictureSizeSpec | null {
-  const shortSide = parseInchesMetafield(
+  const rawShortSide = parseInchesMetafield(
     getVariantPrintMetafield(variant, 'short_inches'),
   );
-  const longSide = parseInchesMetafield(
+  const rawLongSide = parseInchesMetafield(
     getVariantPrintMetafield(variant, 'long_inches'),
   );
-  if (!shortSide || !longSide) return null;
+  if (!rawShortSide || !rawLongSide) return null;
 
-  const paddingInches =
-    parseInchesMetafield(getVariantPrintMetafield(variant, 'padding_inches')) ??
-    STANDARD_MAT_INCHES;
+  const rawPaddingInches = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'padding_inches'),
+  );
+  const referencePadding = getReferencePaddingFromMetafield(rawPaddingInches);
+  const {shortSide, longSide} = resolveCanonicalPrintDimensions(
+    rawShortSide,
+    rawLongSide,
+    rawPaddingInches,
+    referencePadding,
+  );
   const frameWidthInches =
     parseInchesMetafield(
       getVariantPrintMetafield(variant, 'frame_width_inches'),
@@ -194,26 +329,69 @@ export function getFramedPictureSpecFromVariantMetafields(
   const frameValue = variant?.selectedOptions?.find(
     (option) => option.name.toLowerCase() === 'frame',
   )?.value;
-  const mountValue = variant?.selectedOptions?.find(
-    (option) => option.name.toLowerCase() === 'mount',
-  )?.value;
-  const normalizedFrame = frameValue?.toLowerCase().trim() ?? '';
 
   return {
     shortSide,
     longSide,
-    padding:
-      resolveMountFromOption(mountValue) === 'fullBleed' ? 0 : paddingInches,
-    frame:
-      normalizedFrame.includes('no frame') ||
-      normalizedFrame.includes('unframed') ||
-      normalizedFrame.includes('none')
-        ? 0
-        : frameWidthInches,
-    referencePadding: paddingInches,
+    padding: referencePadding,
+    frame: frameWidthInches,
+    referencePadding,
     referenceFrame: frameWidthInches,
     frameColor: resolveFrameColorFromOption(frameValue),
   };
+}
+
+/** True when the variant has print inch metafields from the Storefront API. */
+export function variantHasPrintSizingMetafields(
+  variant: {metafields?: VariantMetafield[] | null} | null | undefined,
+) {
+  const shortSide = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'short_inches'),
+  );
+  const longSide = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'long_inches'),
+  );
+  return Boolean(shortSide && longSide);
+}
+
+/** Merge any print metafields present on the variant into a template spec. */
+function applyPartialVariantPrintMetafields(
+  variant: {metafields?: VariantMetafield[] | null} | null | undefined,
+  spec: FramedPictureSizeSpec,
+): FramedPictureSizeSpec {
+  const rawShortSide = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'short_inches'),
+  );
+  const rawLongSide = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'long_inches'),
+  );
+  const rawPaddingInches = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'padding_inches'),
+  );
+  const frameWidthInches = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'frame_width_inches'),
+  );
+
+  const next = {...spec};
+  const referencePadding = getReferencePaddingFromMetafield(rawPaddingInches);
+
+  if (rawShortSide && rawLongSide) {
+    const {shortSide, longSide} = resolveCanonicalPrintDimensions(
+      rawShortSide,
+      rawLongSide,
+      rawPaddingInches,
+      referencePadding,
+    );
+    next.shortSide = shortSide;
+    next.longSide = longSide;
+  }
+  next.referencePadding = referencePadding;
+  next.padding = referencePadding;
+  if (frameWidthInches != null) {
+    next.frame = frameWidthInches;
+    next.referenceFrame = frameWidthInches;
+  }
+  return next;
 }
 
 /** Border-mount mat width for layout locking (prefers Airtable metafield). */
@@ -291,7 +469,26 @@ export const FRAMED_PICTURE_NAMED_SIZE_ORDER = [
   'giant',
   'collector',
   'exhibition',
+  'museum',
 ] as const satisfies readonly FramedPictureNamedSize[];
+
+/** Airtable `print.rank` count — keep in sync with named tiers above. */
+export const FRAMED_PICTURE_TIER_RANK_COUNT =
+  FRAMED_PICTURE_NAMED_SIZE_ORDER.length;
+
+function lerpDetailTierIndex(
+  index: number,
+  min: number,
+  max: number,
+  tierCount = FRAMED_PICTURE_TIER_RANK_COUNT,
+) {
+  if (index < 0) return max;
+
+  const steps = Math.max(tierCount - 1, 1);
+  const clampedIndex = Math.max(0, Math.min(index, tierCount - 1));
+
+  return min + (clampedIndex / steps) * (max - min);
+}
 
 function lerpDetailTierValue(
   namedSize: FramedPictureNamedSize,
@@ -299,12 +496,32 @@ function lerpDetailTierValue(
   max: number,
 ) {
   const index = FRAMED_PICTURE_NAMED_SIZE_ORDER.indexOf(namedSize);
-  if (index < 0) return max;
+  return lerpDetailTierIndex(index, min, max);
+}
 
-  const steps = FRAMED_PICTURE_NAMED_SIZE_ORDER.length - 1;
-  if (steps === 0) return max;
+/** Detail gallery cap from Airtable rank (1 = smallest). */
+export function getDetailMaxLongSideCqiForRank(
+  rank: number,
+  tierCount = FRAMED_PICTURE_TIER_RANK_COUNT,
+) {
+  return lerpDetailTierIndex(
+    rank - 1,
+    FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI,
+    FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI,
+    tierCount,
+  );
+}
 
-  return min + (index / steps) * (max - min);
+export function getDetailMaxHeightFillForRank(
+  rank: number,
+  tierCount = FRAMED_PICTURE_TIER_RANK_COUNT,
+) {
+  return lerpDetailTierIndex(
+    rank - 1,
+    FRAMED_PICTURE_DETAIL_MIN_HEIGHT_FILL,
+    FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL,
+    tierCount,
+  );
 }
 
 export function getDetailMaxLongSideCqiForNamedSize(
@@ -327,6 +544,36 @@ export function getDetailMaxHeightFillForNamedSize(
   );
 }
 
+function resolveDetailTierLongSideCqi(
+  namedSize: FramedPictureNamedSize | undefined,
+  tierRank?: number,
+) {
+  if (tierRank != null && tierRank > 0) {
+    return getDetailMaxLongSideCqiForRank(tierRank);
+  }
+
+  if (namedSize) return getDetailMaxLongSideCqiForNamedSize(namedSize);
+
+  return (
+    (FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI +
+      FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI) /
+    2
+  );
+}
+
+function resolveDetailTierHeightFill(
+  namedSize: FramedPictureNamedSize | undefined,
+  tierRank?: number,
+) {
+  if (tierRank != null && tierRank > 0) {
+    return getDetailMaxHeightFillForRank(tierRank);
+  }
+
+  if (namedSize) return getDetailMaxHeightFillForNamedSize(namedSize);
+
+  return FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL;
+}
+
 export const FRAMED_PICTURE_SIZE_LABELS: Record<FramedPictureNamedSize, string> = {
   small: 'Small',
   medium: 'Medium',
@@ -334,6 +581,7 @@ export const FRAMED_PICTURE_SIZE_LABELS: Record<FramedPictureNamedSize, string> 
   giant: 'Giant',
   collector: 'Collector',
   exhibition: 'Exhibition',
+  museum: 'Museum',
 };
 
 /** Max outer frame width (% of @container) per named print size. */
@@ -345,8 +593,9 @@ export const FRAMED_PICTURE_MAX_WIDTH_CQI: Record<
   medium: 65,
   large: 78,
   giant: 88,
-  collector: 92,
-  exhibition: 92,
+  collector: 90,
+  exhibition: 91,
+  museum: 92,
 };
 
 /** Resolve catalog tier from print inch dimensions (ignores frame/mount overrides). */
@@ -426,6 +675,18 @@ export function getDetailGalleryViewportEstimate() {
   };
 }
 
+/** Summary-strip thumbnail well — keep in sync with `w-18 min-h-18` and wall padding. */
+export const FRAMED_PICTURE_SUMMARY_STRIP_WIDTH_PX = 72;
+export const FRAMED_PICTURE_SUMMARY_STRIP_HEIGHT_PX = 72;
+
+/** Best-effort @container dimensions for the purchase summary strip thumbnail. */
+export function getSummaryStripViewportEstimate() {
+  return {
+    width: FRAMED_PICTURE_SUMMARY_STRIP_WIDTH_PX,
+    height: FRAMED_PICTURE_SUMMARY_STRIP_HEIGHT_PX,
+  };
+}
+
 /** Tier caps only — no viewport height binding. Use before @container is measured. */
 export function getDetailTierFitCaps(
   spec: FramedPictureSizeSpec,
@@ -451,17 +712,12 @@ export function getDetailFitLongSideCqi(
   namedSize: FramedPictureNamedSize | undefined,
   containerWidth: number,
   containerHeight: number,
+  tierRank?: number,
 ) {
   if (containerWidth <= 0 || containerHeight <= 0) return undefined;
 
-  const tierLongSide = namedSize
-    ? getDetailMaxLongSideCqiForNamedSize(namedSize)
-    : (FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI +
-        FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI) /
-      2;
-  const heightFill = namedSize
-    ? getDetailMaxHeightFillForNamedSize(namedSize)
-    : FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL;
+  const tierLongSide = resolveDetailTierLongSideCqi(namedSize, tierRank);
+  const heightFill = resolveDetailTierHeightFill(namedSize, tierRank);
   const heightLongSideCap =
     (containerHeight / containerWidth) * 100 * heightFill;
 
@@ -474,12 +730,14 @@ export function getDetailFitMaxWidthCqi(
   namedSize: FramedPictureNamedSize | undefined,
   containerWidth: number,
   containerHeight: number,
+  tierRank?: number,
 ) {
   const targetLongSide = getDetailFitLongSideCqi(
     spec,
     namedSize,
     containerWidth,
     containerHeight,
+    tierRank,
   );
   if (targetLongSide === undefined) return undefined;
 
@@ -581,6 +839,12 @@ export function formatOuterDimensions(
 ) {
   const {width, height} = getOuterDimensions(spec, orientation);
   return `${formatInches(width)}" × ${formatInches(height)}"`;
+}
+
+/** Human-readable inch value for spec tables; em dash when zero or absent. */
+export function formatSpecificationInches(value: number | null | undefined) {
+  if (value == null || value <= 0) return '—';
+  return `${formatInches(value)}″`;
 }
 
 function formatInches(value: number) {
@@ -685,6 +949,7 @@ function scaleFramedPictureDimensions(
     pictureAspect: number;
   },
   targetLongSideCqi: number,
+  options?: {onlyDown?: boolean},
 ) {
   const {outerWidthCqi, outerHeightCqi} = getOuterDimensionsCqi(
     dimensions.frameCqi,
@@ -694,7 +959,9 @@ function scaleFramedPictureDimensions(
   );
   const longSideCqi = Math.max(outerWidthCqi, outerHeightCqi);
 
-  if (longSideCqi === 0 || longSideCqi <= targetLongSideCqi) return dimensions;
+  if (longSideCqi === 0) return dimensions;
+  if (options?.onlyDown && longSideCqi <= targetLongSideCqi) return dimensions;
+  if (!options?.onlyDown && longSideCqi === targetLongSideCqi) return dimensions;
 
   const scale = targetLongSideCqi / longSideCqi;
   return {
@@ -713,10 +980,12 @@ function fitFramedPictureToContainer(
   },
   maxWidthCqi = DEFAULT_MAX_FRAME_WIDTH_CQI,
   verticalOuterAspect = 1,
+  options?: {onlyDown?: boolean},
 ) {
   return scaleFramedPictureDimensions(
     dimensions,
     maxWidthCqi / verticalOuterAspect,
+    options,
   );
 }
 
@@ -744,15 +1013,16 @@ export function computeFramedPictureSize(
   const outerHeight = pictureHeight + 2 * padding + 2 * frame;
 
   const layoutOuterWidth = pictureWidth + 2 * layoutPadding + 2 * layoutFrame;
-  const verticalLayout = getLayoutOuterDimensions(
+  const layoutVerticalLayout = getLayoutOuterDimensions(
     {shortSide: spec.shortSide, longSide: spec.longSide, frame: layoutFrame},
-    'vertical',
+    orientation,
     layoutPadding,
   );
-  const verticalOuterAspect = verticalLayout.width / verticalLayout.height;
+  const layoutVerticalOuterAspect =
+    layoutVerticalLayout.width / layoutVerticalLayout.height;
 
-  let frameCqi = (layoutFrame / layoutOuterWidth) * 100;
-  let paddingCqi = (layoutPadding / layoutOuterWidth) * 100;
+  let layoutFrameCqi = (layoutFrame / layoutOuterWidth) * 100;
+  let layoutPaddingCqi = (layoutPadding / layoutOuterWidth) * 100;
   let pictureWidthCqi = (pictureWidth / layoutOuterWidth) * 100;
   const pictureAspect = pictureWidth / pictureHeight;
 
@@ -760,31 +1030,34 @@ export function computeFramedPictureSize(
     options?.maxWidthCqi ??
     getMaxWidthCqiForNamedSize(options?.namedSize);
 
-  ({frameCqi, paddingCqi, pictureWidthCqi} = fitFramedPictureToContainer(
-    {
-      frameCqi,
-      paddingCqi,
-      pictureWidthCqi,
-      pictureAspect,
-    },
-    maxWidthCqi,
-    verticalOuterAspect,
-  ));
+  // Tier caps use bordered+framed layout so mount/frame toggles never rescale the print.
+  ({frameCqi: layoutFrameCqi, paddingCqi: layoutPaddingCqi, pictureWidthCqi} =
+    fitFramedPictureToContainer(
+      {
+        frameCqi: layoutFrameCqi,
+        paddingCqi: layoutPaddingCqi,
+        pictureWidthCqi,
+        pictureAspect,
+      },
+      maxWidthCqi,
+      layoutVerticalOuterAspect,
+    ));
 
   if (options?.maxLongSideCqi !== undefined) {
-    ({frameCqi, paddingCqi, pictureWidthCqi} = scaleFramedPictureDimensions(
-      {frameCqi, paddingCqi, pictureWidthCqi, pictureAspect},
-      options.maxLongSideCqi,
-    ));
+    ({frameCqi: layoutFrameCqi, paddingCqi: layoutPaddingCqi, pictureWidthCqi} =
+      scaleFramedPictureDimensions(
+        {
+          frameCqi: layoutFrameCqi,
+          paddingCqi: layoutPaddingCqi,
+          pictureWidthCqi,
+          pictureAspect,
+        },
+        options.maxLongSideCqi,
+      ));
   }
 
-  if (isFullBleed) {
-    paddingCqi = 0;
-  }
-
-  if (isUnframed) {
-    frameCqi = 0;
-  }
+  let frameCqi = isUnframed ? 0 : layoutFrameCqi;
+  let paddingCqi = isFullBleed ? 0 : layoutPaddingCqi;
 
   const containerFill = options?.containerFill ?? FRAMED_PICTURE_DEFAULT_CONTAINER_FILL;
   if (containerFill !== FRAMED_PICTURE_DEFAULT_CONTAINER_FILL) {
@@ -875,7 +1148,6 @@ export function resolveNamedFramedPictureSize(
   /** Airtable size tiers that differ from legacy catalog keys. */
   const airtableAliases: Record<string, FramedPictureNamedSize> = {
     gallery: 'giant',
-    museum: 'exhibition',
   };
   if (airtableAliases[normalized]) return airtableAliases[normalized];
 
@@ -967,24 +1239,31 @@ export function getFramedPictureSpecFromVariant(
   } | null | undefined,
   namedSize?: FramedPictureNamedSize,
   overrides?: {frame?: string | null; mount?: string | null},
+  context?: {variantPool?: PrintVariantRef[]},
 ): FramedPictureSizeSpec {
   const fromMetafields = getFramedPictureSpecFromVariantMetafields(variant);
   const sizeKey = namedSize ?? getFramedSizeFromVariant(variant ?? {});
-  const spec: FramedPictureSizeSpec = fromMetafields ?? {
-    ...FRAMED_PICTURE_SIZES[sizeKey],
-    referencePadding: FRAMED_PICTURE_SIZES[sizeKey].padding,
-    referenceFrame: FRAMED_PICTURE_SIZES[sizeKey].frame,
-  };
+  const spec: FramedPictureSizeSpec = fromMetafields ??
+    applyPartialVariantPrintMetafields(variant, {
+      ...FRAMED_PICTURE_SIZES[sizeKey],
+      referencePadding: FRAMED_PICTURE_SIZES[sizeKey].padding,
+      referenceFrame: FRAMED_PICTURE_SIZES[sizeKey].frame,
+    });
 
-  const referencePadding = getReferencePaddingInches(spec);
-  const referenceFrame = getReferenceFrameInches(spec);
-  spec.referencePadding = referencePadding;
-  spec.referenceFrame = referenceFrame;
+  const sizeLabel = getSelectedOptionValue(variant, 'size');
+  const variantPool =
+    context?.variantPool ?? (variant ? [variant as PrintVariantRef] : []);
+  const referenceInsets = resolveReferenceInsetsForSize(sizeLabel, variantPool);
+
+  spec.referencePadding = referenceInsets.referencePadding;
+  spec.referenceFrame = referenceInsets.referenceFrame;
+  spec.padding = referenceInsets.referencePadding;
+  spec.frame = referenceInsets.referenceFrame;
 
   const frameValue =
-    getSelectedOptionValue(variant, 'frame') ?? overrides?.frame ?? null;
+    overrides?.frame ?? getSelectedOptionValue(variant, 'frame') ?? null;
   const mountValue =
-    getSelectedOptionValue(variant, 'mount') ?? overrides?.mount ?? null;
+    overrides?.mount ?? getSelectedOptionValue(variant, 'mount') ?? null;
   const normalizedFrame = frameValue?.toLowerCase().trim() ?? '';
 
   spec.frameColor = resolveFrameColorFromOption(frameValue);
@@ -1050,5 +1329,278 @@ export function sortSizeOptionValues<
     }
 
     return a.name.localeCompare(b.name);
+  });
+}
+
+export type PrintSizingGuideVariantRow = {
+  sizeLabel: string;
+  frameLabel: string;
+  mountLabel: string;
+  printDimensions: string;
+  matInches: number;
+  mouldingInches: number;
+  outerDimensions: string;
+};
+
+const PRINT_SIZING_GUIDE_FRAME_EXISTENCE_ORDER = ['Framed', 'No Frame'];
+const PRINT_SIZING_GUIDE_MOUNT_ORDER = ['Border', 'Full Bleed'];
+
+function isUnframedFrameLabel(frameLabel: string) {
+  const normalized = frameLabel.toLowerCase().trim();
+  return normalized.includes('no frame') || normalized.includes('unframed');
+}
+
+function deriveFrameExistenceOptions(frameOptions: string[]) {
+  const hasFramed = frameOptions.some((frame) => !isUnframedFrameLabel(frame));
+  const hasUnframed = frameOptions.some((frame) => isUnframedFrameLabel(frame));
+  const options: string[] = [];
+  if (hasFramed) options.push('Framed');
+  if (hasUnframed) options.push('No Frame');
+  return options.length > 0
+    ? options
+    : [...PRINT_SIZING_GUIDE_FRAME_EXISTENCE_ORDER];
+}
+
+function representativeFrameForExistence(
+  frameExistence: string,
+  frameOptions: string[],
+) {
+  if (frameExistence === 'No Frame' || isUnframedFrameLabel(frameExistence)) {
+    return 'No Frame';
+  }
+
+  const framedOption = frameOptions.find(
+    (frame) => !isUnframedFrameLabel(frame),
+  );
+  return framedOption ?? 'Black';
+}
+
+function isInvalidSizingGuideCombination(
+  frameExistence: string,
+  mountLabel: string,
+) {
+  return (
+    frameExistence === 'No Frame' &&
+    resolveMountFromOption(mountLabel) === 'fullBleed'
+  );
+}
+
+function sizeRankForSizingGuide(sizeLabel: string) {
+  const named = resolveNamedFramedPictureSize(sizeLabel);
+  if (!named) return 999;
+  const idx = FRAMED_PICTURE_NAMED_SIZE_ORDER.indexOf(named);
+  return idx >= 0 ? idx : 999;
+}
+
+function findVariantInPool(
+  variantPool: PrintVariantRef[],
+  sizeLabel: string,
+  frameLabel: string,
+  mountLabel: string,
+) {
+  const size = sizeLabel.toLowerCase().trim();
+  const frame = frameLabel.toLowerCase().trim();
+  const mount = mountLabel.toLowerCase().trim();
+
+  return variantPool.find((variant) => {
+    return (
+      getSelectedOptionValue(variant, 'size')?.toLowerCase().trim() === size &&
+      getSelectedOptionValue(variant, 'frame')?.toLowerCase().trim() ===
+        frame &&
+      getSelectedOptionValue(variant, 'mount')?.toLowerCase().trim() === mount
+    );
+  });
+}
+
+function comparePrintSizingGuideRows(
+  a: PrintSizingGuideVariantRow,
+  b: PrintSizingGuideVariantRow,
+) {
+  const rankA = sizeRankForSizingGuide(a.sizeLabel);
+  const rankB = sizeRankForSizingGuide(b.sizeLabel);
+  if (rankA !== rankB) return rankA - rankB;
+
+  const frameA = PRINT_SIZING_GUIDE_FRAME_EXISTENCE_ORDER.indexOf(a.frameLabel);
+  const frameB = PRINT_SIZING_GUIDE_FRAME_EXISTENCE_ORDER.indexOf(b.frameLabel);
+  if (frameA !== frameB) {
+    if (frameA < 0) return 1;
+    if (frameB < 0) return -1;
+    return frameA - frameB;
+  }
+
+  const mountA = PRINT_SIZING_GUIDE_MOUNT_ORDER.indexOf(a.mountLabel);
+  const mountB = PRINT_SIZING_GUIDE_MOUNT_ORDER.indexOf(b.mountLabel);
+  if (mountA !== mountB) {
+    if (mountA < 0) return 1;
+    if (mountB < 0) return -1;
+    return mountA - mountB;
+  }
+
+  return a.sizeLabel.localeCompare(b.sizeLabel);
+}
+
+/** One row per size × frame presence × mount combination for the sizing guide. */
+export function buildPrintSizingGuideVariantRows({
+  sizeOptionValues = [],
+  frameOptions = [],
+  mountOptions = [],
+  variantPool = [],
+  orientation = 'vertical',
+}: {
+  sizeOptionValues?: Array<{
+    name: string;
+    firstSelectableVariant?: PrintVariantRef | null;
+  }>;
+  /** Product frame option labels — used to detect framed vs unframed, not permuted by color. */
+  frameOptions?: string[];
+  mountOptions?: string[];
+  variantPool?: PrintVariantRef[];
+  orientation?: PictureOrientation;
+}): PrintSizingGuideVariantRow[] {
+  const sizes = sizeOptionValues.length
+    ? sortSizeOptionValues(sizeOptionValues)
+    : FRAMED_PICTURE_NAMED_SIZE_ORDER.map((named) => ({
+        name: FRAMED_PICTURE_SHOPIFY_SIZE_OPTION_LABELS[named],
+        firstSelectableVariant: null,
+      }));
+
+  const frameExistenceOptions = deriveFrameExistenceOptions(frameOptions);
+  const mounts =
+    mountOptions.length > 0 ? mountOptions : PRINT_SIZING_GUIDE_MOUNT_ORDER;
+
+  const rows: PrintSizingGuideVariantRow[] = [];
+
+  for (const sizeValue of sizes) {
+    const namedSize = resolveNamedFramedPictureSize(sizeValue.name);
+    const templateKey = namedSize ?? 'medium';
+    const template = FRAMED_PICTURE_SIZES[templateKey];
+    const fallbackVariant = sizeValue.firstSelectableVariant ?? null;
+
+    for (const frameExistence of frameExistenceOptions) {
+      for (const mountLabel of mounts) {
+        if (isInvalidSizingGuideCombination(frameExistence, mountLabel)) {
+          continue;
+        }
+
+        const representativeFrame = representativeFrameForExistence(
+          frameExistence,
+          frameOptions,
+        );
+        const matchedVariant =
+          findVariantInPool(
+            variantPool,
+            sizeValue.name,
+            representativeFrame,
+            mountLabel,
+          ) ?? fallbackVariant;
+
+        const spec = matchedVariant
+          ? getFramedPictureSpecFromVariant(
+              matchedVariant,
+              namedSize,
+              {frame: representativeFrame, mount: mountLabel},
+              {variantPool},
+            )
+          : {
+              ...template,
+              referencePadding: template.padding,
+              referenceFrame: template.frame,
+              padding:
+                resolveMountFromOption(mountLabel) === 'fullBleed'
+                  ? 0
+                  : template.padding,
+              frame:
+                frameExistence === 'No Frame' ? 0 : template.frame,
+            };
+
+        rows.push({
+          sizeLabel: sizeValue.name,
+          frameLabel: frameExistence,
+          mountLabel,
+          printDimensions: formatPrintDimensions(spec, orientation),
+          matInches: spec.padding,
+          mouldingInches: spec.frame,
+          outerDimensions: formatOuterDimensions(spec, orientation),
+        });
+      }
+    }
+  }
+
+  return rows.sort(comparePrintSizingGuideRows);
+}
+
+/** @deprecated Use buildPrintSizingGuideVariantRows */
+export type PrintSizingGuideRow = {
+  label: string;
+  printDimensions: string;
+  borderOuterDimensions: string;
+  fullBleedOuterDimensions: string;
+  matWidthInches: number | null;
+};
+
+/** @deprecated Use buildPrintSizingGuideVariantRows */
+export function buildPrintSizingGuideRows({
+  sizeOptionValues = [],
+  variantPool = [],
+  orientation = 'vertical',
+  frame = 'Black',
+}: {
+  sizeOptionValues?: Array<{
+    name: string;
+    firstSelectableVariant?: PrintVariantRef | null;
+  }>;
+  variantPool?: PrintVariantRef[];
+  orientation?: PictureOrientation;
+  frame?: string | null;
+}): PrintSizingGuideRow[] {
+  const values = sizeOptionValues.length
+    ? sortSizeOptionValues(sizeOptionValues)
+    : FRAMED_PICTURE_NAMED_SIZE_ORDER.map((named) => ({
+        name: FRAMED_PICTURE_SHOPIFY_SIZE_OPTION_LABELS[named],
+        firstSelectableVariant: null,
+      }));
+
+  return values.map((value) => {
+    const variant = value.firstSelectableVariant;
+    const namedSize = resolveNamedFramedPictureSize(value.name);
+    const templateKey = namedSize ?? 'medium';
+    const template = FRAMED_PICTURE_SIZES[templateKey];
+
+    const borderedSpec = variant
+      ? getFramedPictureSpecFromVariant(
+          variant,
+          namedSize,
+          {frame, mount: 'Border'},
+          {variantPool},
+        )
+      : {
+          ...template,
+          referencePadding: template.padding,
+          referenceFrame: template.frame,
+        };
+
+    const fullBleedSpec = variant
+      ? getFramedPictureSpecFromVariant(
+          variant,
+          namedSize,
+          {frame, mount: 'Full Bleed'},
+          {variantPool},
+        )
+      : {
+          ...borderedSpec,
+          padding: 0,
+        };
+
+    return {
+      label: value.name,
+      printDimensions: formatPrintDimensions(borderedSpec, orientation),
+      borderOuterDimensions: formatOuterDimensions(borderedSpec, orientation),
+      fullBleedOuterDimensions: formatOuterDimensions(
+        fullBleedSpec,
+        orientation,
+      ),
+      matWidthInches:
+        borderedSpec.referencePadding ?? borderedSpec.padding ?? null,
+    };
   });
 }

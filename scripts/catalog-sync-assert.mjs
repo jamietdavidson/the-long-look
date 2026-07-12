@@ -12,6 +12,8 @@ import {AIRTABLE} from '../lib/catalog-sync/config.js';
 import {
   fetchVariantCatalog,
   getProductIdByAirtableId,
+  buildCanonicalSizeSizingMap,
+  getCanonicalVariantMetafieldSizing,
   selectedOptionsKey,
   variantSelectionKey,
 } from '../lib/catalog-sync/utils.js';
@@ -210,9 +212,10 @@ assert(
   `Re-sync changed product count: ${afterProducts.length}`,
 );
 
-console.log('5) Assert variant pricing + dimensions match Airtable catalog…');
+console.log('5) Assert variant pricing + canonical print metafields…');
 const catalog = await fetchVariantCatalog($, airtable);
 assert(catalog.length > 0, 'Expected Airtable variant catalog rows');
+const sizingMap = buildCanonicalSizeSizingMap(catalog);
 const sampleProduct = products[0];
 const shopifyVariants = await listShopifyProductVariants(sampleProduct.id);
 const variantsByKey = new Map(
@@ -225,22 +228,55 @@ const variantsByKey = new Map(
 for (const catalogVariant of catalog) {
   const key = variantSelectionKey(catalogVariant);
   const shopifyVariant = variantsByKey.get(key);
+  const canonical = getCanonicalVariantMetafieldSizing(catalogVariant, sizingMap);
+
   assert(shopifyVariant, `Missing Shopify variant for catalog row ${key}`);
   assert(
     normalizePrice(shopifyVariant.price) === normalizePrice(catalogVariant.price),
     `Price mismatch for ${key}: Shopify ${shopifyVariant.price}, Airtable ${catalogVariant.price}`,
   );
   assert(
-    normalizeDecimal(shopifyVariant.padding?.value) === normalizeDecimal(catalogVariant.padding),
-    `Padding mismatch for ${key}: Shopify ${shopifyVariant.padding?.value}, Airtable ${catalogVariant.padding}`,
+    normalizeDecimal(shopifyVariant.short?.value) ===
+      normalizeDecimal(canonical.shortSide),
+    `Short inches mismatch for ${key}: Shopify ${shopifyVariant.short?.value}, expected canonical ${canonical.shortSide}`,
   );
   assert(
-    normalizeDecimal(shopifyVariant.frame?.value) === normalizeDecimal(catalogVariant.frameWidth),
-    `Frame width mismatch for ${key}: Shopify ${shopifyVariant.frame?.value}, Airtable ${catalogVariant.frameWidth}`,
+    normalizeDecimal(shopifyVariant.long?.value) ===
+      normalizeDecimal(canonical.longSide),
+    `Long inches mismatch for ${key}: Shopify ${shopifyVariant.long?.value}, expected canonical ${canonical.longSide}`,
+  );
+  assert(
+    normalizeDecimal(shopifyVariant.padding?.value) ===
+      normalizeDecimal(canonical.referencePadding),
+    `Reference padding mismatch for ${key}: Shopify ${shopifyVariant.padding?.value}, expected canonical ${canonical.referencePadding} (border mat width for size tier)`,
+  );
+  assert(
+    normalizeDecimal(shopifyVariant.frame?.value) ===
+      normalizeDecimal(canonical.frameWidth),
+    `Reference frame width mismatch for ${key}: Shopify ${shopifyVariant.frame?.value}, expected canonical ${canonical.frameWidth}`,
   );
 }
+
+const metafieldsBySize = new Map();
+for (const shopifyVariant of shopifyVariants) {
+  const size = shopifyVariant.selectedOptions.find((o) => o.name === 'Size')?.value;
+  if (!size) continue;
+  const snapshot = [
+    shopifyVariant.short?.value,
+    shopifyVariant.long?.value,
+    shopifyVariant.padding?.value,
+    shopifyVariant.frame?.value,
+  ].join('|');
+  const previous = metafieldsBySize.get(size);
+  assert(
+    !previous || previous === snapshot,
+    `Print metafields differ within size tier ${size}: ${previous} vs ${snapshot}`,
+  );
+  metafieldsBySize.set(size, snapshot);
+}
+
 console.log(
-  `   ✓ ${catalog.length} variants on ${sampleProduct.title} match Airtable pricing + dimensions`,
+  `   ✓ ${catalog.length} variants on ${sampleProduct.title} match canonical pricing + print metafields`,
 );
 
 console.log('\nAll assertions passed.');

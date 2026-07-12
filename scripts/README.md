@@ -24,6 +24,7 @@ Production poller: `services/catalog-sync/` on Railway.
 | Script | Purpose |
 |--------|---------|
 | `register-shopify-order-webhook.mjs` | Point Shopify `orders/create` at Railway |
+| `setup-orders-schema.mjs` | Add structured columns to Airtable Orders |
 | `sync-order-test.mjs` | Replay a saved order JSON into Airtable |
 
 Production webhook receiver: `services/order-sync/` on Railway.

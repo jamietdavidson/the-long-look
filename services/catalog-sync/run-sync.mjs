@@ -7,6 +7,8 @@ import {
   pruneOrphanedPrints,
   syncCommittedArtistsAndCollections,
 } from '../../lib/catalog-sync/utils.js';
+import {ensureShippingPackages} from '../../lib/catalog-sync/shipping-packages.mjs';
+import {fetchVariantCatalog} from '../../lib/catalog-sync/utils.js';
 
 /**
  * @param {{ dryRun?: boolean }} [options]
@@ -42,4 +44,14 @@ export async function syncPrint(printRecordId, {dryRun = false} = {}) {
   const clients = createSyncClients();
   const summary = await runPrintRecordSync(clients, printRecordId, {dryRun});
   return {summary, exports: {}};
+}
+
+/**
+ * Ensure Shopify shipping packages match Airtable variant dimensions.
+ * @param {{ dryRun?: boolean }} [options]
+ */
+export async function syncShippingPackagesJob({dryRun = false} = {}) {
+  const clients = createSyncClients();
+  const catalog = await fetchVariantCatalog(clients.$, clients.airtable);
+  return ensureShippingPackages(clients.$, clients.shopify, catalog, {dryRun});
 }

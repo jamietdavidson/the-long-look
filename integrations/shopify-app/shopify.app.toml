@@ -7,6 +7,7 @@ embedded = false
 
 [access_scopes]
 scopes = "read_orders,write_files,write_metaobjects,write_products,write_publications"
+optional_scopes = ["write_shipping"]
 
 [auth]
 redirect_urls = [ "https://shopify.dev/apps/default-app-home" ]

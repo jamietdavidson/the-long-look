@@ -6,6 +6,7 @@ import {
   syncPrint,
   pruneDeletedPrints,
   syncCommittedArtistsAndCollectionsJob,
+  syncShippingPackagesJob,
 } from './run-sync.mjs';
 
 const BASE = 'https://api.airtable.com/v0';
@@ -58,6 +59,19 @@ export function startPolling({intervalMs, onResult, onError}) {
       console.log(
         `[poll] linked entities: ${linked.artistCount} artist(s), ${linked.collectionCount} collection(s)`,
       );
+
+      const shipping = await syncShippingPackagesJob();
+      if (shipping.specs?.length) {
+        console.log(
+          `[poll] shipping packages: ${shipping.updated.length} updated, ${shipping.pending.length} pending bootstrap`,
+        );
+        if (shipping.pending.length) {
+          console.log(
+            `[poll] pending packages: ${shipping.pending.map((entry) => entry.sizeName).join(', ')}`,
+          );
+        }
+        onResult?.({shipping});
+      }
 
       const ids = await listCommittedPrintIds();
       console.log(`[poll] ${ids.length} print(s) in Committed view`);

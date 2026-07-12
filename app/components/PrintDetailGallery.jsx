@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useMemo, useRef, useState} from 'react';
+import {forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
@@ -11,13 +11,13 @@ import {
 import {
   getDetailFitLongSideCqi,
   getDetailFitMaxWidthCqi,
-  getDetailTierFitCaps,
+  getDetailGalleryViewportEstimate,
   getFramedSizeFromVariant,
   getTierCapLayoutSpec,
+  getVariantSizeRank,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
 import {getFramedSizeFromSearchParams} from '~/lib/print-options';
-import {useContainerSize} from '~/lib/use-container-size';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
@@ -105,13 +105,15 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  const containerSize = useContainerSize(wallRef);
+  const [containerSize, setContainerSize] = useState(getDetailGalleryViewportEstimate);
 
   const tierForCaps =
     namedSize ??
     getFramedSizeFromSearchParams(searchParams) ??
     resolveNamedSizeFromSpec(framedSpec) ??
     (selectedVariant ? getFramedSizeFromVariant(selectedVariant) : undefined);
+
+  const tierRank = getVariantSizeRank(selectedVariant);
 
   const tierCapSpec = useMemo(
     () => getTierCapLayoutSpec(framedSpec),
@@ -129,30 +131,61 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
+  const measuredContainerSize =
+    containerSize.width > 0 && containerSize.height > 0
+      ? containerSize
+      : getDetailGalleryViewportEstimate();
+
   const slideFitCaps = useMemo(() => {
     return slides.map(() => {
-      if (!containerSize || !tierForCaps) {
-        return tierForCaps
-          ? getDetailTierFitCaps(tierCapSpec, tierForCaps)
-          : {maxWidthCqi: undefined, maxLongSideCqi: undefined};
+      if (!tierForCaps) {
+        return {maxWidthCqi: undefined, maxLongSideCqi: undefined};
       }
 
       return {
         maxWidthCqi: getDetailFitMaxWidthCqi(
           tierCapSpec,
           tierForCaps,
-          containerSize.width,
-          containerSize.height,
+          measuredContainerSize.width,
+          measuredContainerSize.height,
+          tierRank,
         ),
         maxLongSideCqi: getDetailFitLongSideCqi(
           tierCapSpec,
           tierForCaps,
-          containerSize.width,
-          containerSize.height,
+          measuredContainerSize.width,
+          measuredContainerSize.height,
+          tierRank,
         ),
       };
     });
-  }, [slides, tierCapSpec, tierForCaps, containerSize]);
+  }, [slides, tierCapSpec, tierForCaps, tierRank, measuredContainerSize]);
+
+  useLayoutEffect(() => {
+    const element = wallRef.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      const {width, height} = element.getBoundingClientRect();
+      if (width <= 0 || height <= 0) return;
+
+      setContainerSize((previous) => {
+        if (
+          Math.round(previous.width) === Math.round(width) &&
+          Math.round(previous.height) === Math.round(height)
+        ) {
+          return previous;
+        }
+        return {width, height};
+      });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setSlideIndex(0);
@@ -223,18 +256,16 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
               )}
             >
               <div className="pointer-events-none flex max-h-full max-w-full items-center justify-center overflow-hidden select-none [&_*]:pointer-events-none [&_img]:drag-none">
-                {containerSize ? (
-                  <FramedPicture
-                    image={image}
-                    alt={alt}
-                    size={activeSlide.spec}
-                    loading="eager"
-                    sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
-                    maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
-                    maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
-                    interactive={false}
-                  />
-                ) : null}
+                <FramedPicture
+                  image={image}
+                  alt={alt}
+                  size={activeSlide.spec}
+                  loading="eager"
+                  sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
+                  maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
+                  maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
+                  interactive={false}
+                />
               </div>
             </motion.div>
           </AnimatePresence>

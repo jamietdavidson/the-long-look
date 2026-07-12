@@ -28,7 +28,9 @@ import {
   FRAMED_PICTURE_SIZES,
   getFramedPictureSpecFromVariant,
   getMaxWidthCqiForNamedSize,
+  getPrintVariantPool,
   getSummaryStripFitLongSideCqi,
+  getSummaryStripViewportEstimate,
   sortSizeOptionValues,
 } from '~/lib/framed-picture';
 import {
@@ -121,6 +123,27 @@ export function PrintPurchasePanel({
     selectedVariant,
     searchParams,
   );
+
+  const variantPool = useMemo(
+    () =>
+      getPrintVariantPool({
+        ...product,
+        selectedOrFirstAvailableVariant: selectedVariant,
+      }),
+    [product, selectedVariant],
+  );
+
+  const frameOptions = useMemo(() => {
+    const fromOption = frameOption?.optionValues
+      ?.filter((value) => !isExcludedFrameOption(value.name))
+      .map((value) => value.name);
+    return fromOption?.length ? fromOption : [...DEFAULT_FRAME_OPTIONS];
+  }, [frameOption]);
+
+  const mountOptions = useMemo(() => {
+    const fromOption = mountOption?.optionValues?.map((value) => value.name);
+    return fromOption?.length ? fromOption : [...DEFAULT_MOUNT_OPTIONS];
+  }, [mountOption]);
 
   const cartLines =
     selectedVariant
@@ -249,6 +272,7 @@ export function PrintPurchasePanel({
           orientation={orientation}
           frame={selectedFrame}
           mount={selectedMount}
+          variantPool={variantPool}
           onSelect={selectOptionValue}
         />
       ) : null}
@@ -270,7 +294,16 @@ export function PrintPurchasePanel({
       </FrameMountOptions>
     </PrintPurchaseDock>
 
-      <PrintProductInfoAside selectedFrame={selectedFrame} />
+      <PrintProductInfoAside
+        selectedFrame={selectedFrame}
+        sizingGuide={{
+          sizeOptionValues: sizeOption?.optionValues ?? [],
+          frameOptions,
+          mountOptions,
+          variantPool,
+          orientation,
+        }}
+      />
     </div>
   );
 }
@@ -744,15 +777,18 @@ function PrintPurchaseSummaryCard({
     [framedSpec.frame, framedSpec.frameColor, framedSpec.padding],
   );
   const stripRef = useRef(null);
-  const containerSize = useContainerSize(stripRef);
-  const fitLongSideCqi = containerSize
-    ? getSummaryStripFitLongSideCqi(
-        summaryFramedSpec,
-        'large',
-        containerSize.width,
-        containerSize.height,
-      )
-    : undefined;
+  const containerSize = useContainerSize(stripRef, {
+    initialSize: getSummaryStripViewportEstimate,
+  });
+  const fitLongSideCqi =
+    containerSize.width > 0 && containerSize.height > 0
+      ? getSummaryStripFitLongSideCqi(
+          summaryFramedSpec,
+          'large',
+          containerSize.width,
+          containerSize.height,
+        )
+      : undefined;
 
   return (
     <button
@@ -764,17 +800,15 @@ function PrintPurchaseSummaryCard({
       <div className="flex w-18 shrink-0 self-stretch overflow-hidden bg-[#ececea]">
         {image?.url ? (
           <FramedPictureWall variant="summaryStrip" containerRef={stripRef}>
-            {containerSize ? (
-              <FramedPicture
-                image={image}
-                alt={title}
-                size={summaryFramedSpec}
-                sizes={FRAMED_PICTURE_IMAGE_SIZES.compact}
-                interactive={false}
-                maxWidthCqi={getMaxWidthCqiForNamedSize('large')}
-                maxLongSideCqi={fitLongSideCqi}
-              />
-            ) : null}
+            <FramedPicture
+              image={image}
+              alt={title}
+              size={summaryFramedSpec}
+              sizes={FRAMED_PICTURE_IMAGE_SIZES.compact}
+              interactive={false}
+              maxWidthCqi={getMaxWidthCqiForNamedSize('large')}
+              maxLongSideCqi={fitLongSideCqi}
+            />
           </FramedPictureWall>
         ) : (
           <div className="size-full bg-neutral-100" aria-hidden />
@@ -852,10 +886,11 @@ export function PrintFeatureList() {
  *   orientation: import('~/lib/framed-picture').PictureOrientation;
  *   frame: string;
  *   mount: string;
+ *   variantPool: import('~/lib/framed-picture').PrintVariantRef[];
  *   onSelect: (variantUriQuery: string, selected: boolean) => void;
  * }}
  */
-function SizeTable({option, orientation, frame, mount, onSelect}) {
+function SizeTable({option, orientation, frame, mount, variantPool, onSelect}) {
   const values = sortSizeOptionValues(option.optionValues);
 
   return (
@@ -863,7 +898,12 @@ function SizeTable({option, orientation, frame, mount, onSelect}) {
       rows={values.map((value) => {
         const variant = value.firstSelectableVariant;
         const spec = variant
-          ? getFramedPictureSpecFromVariant(variant, undefined, {frame, mount})
+          ? getFramedPictureSpecFromVariant(
+              variant,
+              undefined,
+              {frame, mount},
+              {variantPool},
+            )
           : null;
         const dimensions = spec
           ? formatOuterDimensions(spec, orientation)

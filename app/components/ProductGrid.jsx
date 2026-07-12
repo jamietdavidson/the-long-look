@@ -1,5 +1,5 @@
 import {Link} from 'react-router';
-import {useRef, useState} from 'react';
+import {useState} from 'react';
 import {Money} from '@shopify/hydrogen';
 import {FavoriteButton} from '~/components/FavoriteButton';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
@@ -13,7 +13,6 @@ import {
   FRAMED_PICTURE_GRID_CONTAINER_FILL,
   getCatalogFramedPictureSpec,
 } from '~/lib/framed-picture';
-import {useContainerReady} from '~/lib/use-container-size';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 import {printPath, printsPath, artistPath} from '~/lib/paths';
@@ -155,8 +154,6 @@ function SplitProductCard({
   const variantUrl = printPath(product.handle);
   const isCompact = size === 'compact';
   const [hovered, setHovered] = useState(false);
-  const wellRef = useRef(null);
-  const containerReady = useContainerReady(wellRef);
   const catalogFramedSpec = getCatalogFramedPictureSpec(product);
 
   return (
@@ -172,25 +169,22 @@ function SplitProductCard({
           className="block"
         >
           <div
-            ref={wellRef}
             className={cn(
               '@container flex aspect-8/9 items-center justify-center overflow-hidden bg-[#ececea]',
               splitWellClassName,
             )}
           >
             <div className="flex size-full min-h-0 min-w-0 items-center justify-center">
-              {containerReady ? (
-                <FramedPicture
-                  image={product.featuredImage}
-                  alt={product.title}
-                  size={catalogFramedSpec}
-                  loading={loading}
-                  sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
-                  containerFill={containerFill}
-                  hovered={hovered}
-                  interactive
-                />
-              ) : null}
+              <FramedPicture
+                image={product.featuredImage}
+                alt={product.title}
+                size={catalogFramedSpec}
+                loading={loading}
+                sizes={FRAMED_PICTURE_IMAGE_SIZES.grid}
+                containerFill={containerFill}
+                hovered={hovered}
+                interactive
+              />
             </div>
           </div>
         </Link>

@@ -24,6 +24,7 @@ export const FRAMED_PICTURE_IMAGE_SIZES = {
  * @param {{
  *   variant?: 'default' | 'detail' | 'gridCard' | 'compact' | 'summaryStrip';
  *   className?: string;
+ *   style?: import('react').CSSProperties;
  *   containerRef?: import('react').Ref<HTMLDivElement>;
  *   children: import('react').ReactNode;
  * }}
@@ -31,6 +32,7 @@ export const FRAMED_PICTURE_IMAGE_SIZES = {
 export function FramedPictureWall({
   variant = 'default',
   className = '',
+  style,
   containerRef,
   children,
 }) {
@@ -38,6 +40,7 @@ export function FramedPictureWall({
     <div
       ref={containerRef}
       className={cn(FRAMED_PICTURE_WALL[variant], className)}
+      style={style}
     >
       {children}
     </div>

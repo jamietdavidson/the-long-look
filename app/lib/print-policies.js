@@ -14,8 +14,8 @@ export const PRINT_FAQ_SECTIONS = [
     id: 'sizing',
     title: 'Sizing',
     paragraphs: [
-      'Prints are offered in six sizes, from Small (8×12″) through Exhibition (40×60″), all in a 2:3 aspect ratio.',
-      'Choose a white mat border or a full-bleed presentation without a mat. Outer dimensions include the frame and mat when selected.',
+      'Prints are offered in seven sizes, from Small (8×12″) through Museum, all in a 2:3 aspect ratio. The print area is the same whether you choose a mat border or full bleed — only the outer frame size changes.',
+      'Border adds a white mat around the image; full bleed extends the image to the inside edge of the frame. The table below lists each size with framed and unframed options, mount style, mat width, moulding width, and outer dimensions. Black and white frames share the same measurements.',
     ],
   },
   {
