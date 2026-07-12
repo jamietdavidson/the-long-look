@@ -660,8 +660,10 @@ export async function getPublicationIds($, shopify) {
     query: `query { publications(first: 25) { nodes { id name } } }`,
   });
   const nodes = data.publications?.nodes ?? [];
-  const wanted = nodes.filter((pub) => /online store|hydrogen|headless/i.test(pub.name));
-  return (wanted.length ? wanted : nodes).map((pub) => pub.id);
+  // Hydrogen/headless channels often use the store name (e.g. "The Long Look"), not
+  // "Hydrogen" in the publication name — publish everywhere except POS.
+  const wanted = nodes.filter((pub) => !/point of sale/i.test(pub.name));
+  return wanted.map((pub) => pub.id);
 }
 
 export async function createFileFromUrl($, shopify, {url, alt}) {
