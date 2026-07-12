@@ -27,4 +27,5 @@ jobs:
       - name: Deploy
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_CONFIG_FILE: /services/catalog-sync/railway.toml
         run: railway up --ci --detach --service the-long-look

@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "services/catalog-sync/Dockerfile"
+dockerfilePath = "/services/catalog-sync/Dockerfile"
 watchPatterns = [
   "services/catalog-sync/**",
   "lib/catalog-sync/**",

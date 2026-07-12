@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "services/order-sync/Dockerfile"
+dockerfilePath = "/services/order-sync/Dockerfile"
 watchPatterns = [
   "services/order-sync/**",
   "lib/order-sync/**",
