@@ -423,6 +423,7 @@ export function PrintPurchaseDock({
     expanded || (!expanded && galleryInView && !asideOpen),
   );
   const targetPanelHeightRef = useRef(null);
+  const didInitDockRef = useRef(false);
 
   const isShell = expanded || shellExpanded;
   const showDock = expanded || showCollapsedCta || shellExpanded;
@@ -535,6 +536,21 @@ export function PrintPurchaseDock({
   useLayoutEffect(() => {
     if (!isMobileViewport || !isShell) return;
     if (prevExpandedRef.current === expanded) return;
+
+    // First mobile pass is the viewport correction (panel defaults to expanded
+    // so the SSR desktop panel paints without a flash). Apply the collapsed
+    // state instantly instead of animating it down on load.
+    if (!didInitDockRef.current) {
+      didInitDockRef.current = true;
+      prevExpandedRef.current = expanded;
+      if (!expanded) {
+        setShellExpanded(false);
+        setContentInFlow(false);
+        setPanelHeight(null);
+        targetPanelHeightRef.current = null;
+      }
+      return;
+    }
 
     prevExpandedRef.current = expanded;
     startDockAnimation(expanded);
