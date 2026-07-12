@@ -82,7 +82,11 @@ function bumpVersion(version) {
   if (!match) {
     return '0.0.1';
   }
-  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
+  const patch = Number(match[3]);
+  if (!Number.isFinite(patch)) {
+    return '0.0.1';
+  }
+  return `${match[1]}.${match[2]}.${patch + 1}`;
 }
 
 function extractVersion(code) {
@@ -385,6 +389,13 @@ function publishedMatchesBundle(publishedCode, bundled) {
     return false;
   }
 
+  const requiredInBundle = ['resolvePrintRecord', 'appC7O4qp56Rdaj7c'];
+  for (const marker of requiredInBundle) {
+    if (bundled.includes(marker) && !publishedCode.includes(marker)) {
+      return false;
+    }
+  }
+
   const sharedAnchors = [
     'appC7O4qp56Rdaj7c',
     'resolvePrintRecord',
@@ -419,7 +430,15 @@ async function publishWorkflowAction(apiKey, orgId, workflowConfig, bundled, sta
   const existingPublished = workflowConfig.publishedComponentId
     ? await getComponent(apiKey, orgId, workflowConfig.publishedComponentId)
     : await getComponent(apiKey, orgId, workflowConfig.componentKey);
-  const nextVersion = bumpVersion(existingPublished?.version ?? startVersion);
+  const publishedByKey = await getComponent(apiKey, orgId, workflowConfig.componentKey);
+  const baseVersion = [existingPublished?.version, publishedByKey?.version]
+    .filter(Boolean)
+    .sort((a, b) => {
+      const pa = Number(a.split('.').pop());
+      const pb = Number(b.split('.').pop());
+      return pb - pa;
+    })[0];
+  const nextVersion = bumpVersion(baseVersion ?? existingPublished?.version ?? startVersion);
   const tempDir = mkdtempSync(join(tmpdir(), 'pipedream-publish-'));
   const publishPath = join(tempDir, `${workflowConfig.source}.js`);
   configurePdCli(apiKey, orgId);
@@ -428,6 +447,7 @@ async function publishWorkflowAction(apiKey, orgId, workflowConfig, bundled, sta
     bundled,
     workflowConfig,
     nextVersion,
+    {dev: true},
   );
 
   let published;
@@ -561,7 +581,7 @@ function publishWithCli(componentPath, {dev = false} = {}) {
   return {};
 }
 
-function publishActionWithVersionRetry(componentPath, bundled, workflowConfig, startVersion) {
+function publishActionWithVersionRetry(componentPath, bundled, workflowConfig, startVersion, {dev = false} = {}) {
   const writePublishCode = (version) => {
     const publishCode = buildPublishCode(bundled, {
       componentKey: workflowConfig.componentKey,
@@ -577,15 +597,22 @@ function publishActionWithVersionRetry(componentPath, bundled, workflowConfig, s
     writePublishCode(version);
 
     try {
-      publishWithCli(componentPath);
+      publishWithCli(componentPath, {dev});
       return version;
     } catch (error) {
       const message = String(error.message);
-      if (!/already published|409/.test(message)) {
-        throw error;
+      if (/already published|409/.test(message)) {
+        version = bumpVersion(version);
+        log(`Publish version conflict for ${workflowConfig.componentKey}, retrying as ${version}`);
+        continue;
       }
-      version = bumpVersion(version);
-      log(`Publish version conflict for ${workflowConfig.componentKey}, retrying as ${version}`);
+      const minVersion = /must be greater than ([\d.]+)/.exec(message)?.[1];
+      if (minVersion) {
+        version = bumpVersion(minVersion);
+        log(`Publish requires version > ${minVersion}, retrying as ${version}`);
+        continue;
+      }
+      throw error;
     }
   }
 
@@ -682,7 +709,6 @@ function codeMarkers(code) {
   return {
     defineComponent: /export default defineComponent\(\{/.test(code),
     plainExport: /export default \{/.test(code) && !/defineComponent/.test(code),
-    getTriggerPrintRecord: code.includes('getTriggerPrintRecord'),
     resolvePrintRecord: code.includes('resolvePrintRecord'),
     markRecordCommitted: code.includes('markRecordCommitted'),
     collectionField: /collection:\s*'Collection'/.test(code),
