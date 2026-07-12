@@ -107,6 +107,81 @@ export const FRAMED_PICTURE_SIZES = {
 
 export type FramedPictureNamedSize = keyof typeof FRAMED_PICTURE_SIZES;
 
+type VariantMetafield = {
+  namespace?: string | null;
+  key?: string | null;
+  value?: string | null;
+};
+
+/** Read a print dimension metafield synced from Airtable via Pipedream. */
+export function getVariantPrintMetafield(
+  variant: {metafields?: VariantMetafield[] | null} | null | undefined,
+  key: string,
+) {
+  return variant?.metafields?.find(
+    (field) => field.namespace === 'print' && field.key === key,
+  )?.value;
+}
+
+function parseInchesMetafield(value?: string | null) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** Size tier rank (1 = smallest) from Shopify variant metafield. */
+export function getVariantSizeRank(
+  variant: {metafields?: VariantMetafield[] | null} | null | undefined,
+) {
+  return parseInchesMetafield(getVariantPrintMetafield(variant, 'rank'));
+}
+
+/** Build framed-picture spec from Shopify variant metafields (Airtable source of truth). */
+export function getFramedPictureSpecFromVariantMetafields(
+  variant: {
+    metafields?: VariantMetafield[] | null;
+    selectedOptions?: Array<{name: string; value: string}>;
+  } | null | undefined,
+): FramedPictureSizeSpec | null {
+  const shortSide = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'short_inches'),
+  );
+  const longSide = parseInchesMetafield(
+    getVariantPrintMetafield(variant, 'long_inches'),
+  );
+  if (!shortSide || !longSide) return null;
+
+  const paddingInches =
+    parseInchesMetafield(getVariantPrintMetafield(variant, 'padding_inches')) ??
+    STANDARD_MAT_INCHES;
+  const frameWidthInches =
+    parseInchesMetafield(
+      getVariantPrintMetafield(variant, 'frame_width_inches'),
+    ) ?? STANDARD_FRAME_INCHES;
+
+  const frameValue = variant?.selectedOptions?.find(
+    (option) => option.name.toLowerCase() === 'frame',
+  )?.value;
+  const mountValue = variant?.selectedOptions?.find(
+    (option) => option.name.toLowerCase() === 'mount',
+  )?.value;
+  const normalizedFrame = frameValue?.toLowerCase().trim() ?? '';
+
+  return {
+    shortSide,
+    longSide,
+    padding:
+      resolveMountFromOption(mountValue) === 'fullBleed' ? 0 : paddingInches,
+    frame:
+      normalizedFrame.includes('no frame') ||
+      normalizedFrame.includes('unframed') ||
+      normalizedFrame.includes('none')
+        ? 0
+        : frameWidthInches,
+    frameColor: resolveFrameColorFromOption(frameValue),
+  };
+}
+
 /** Print tiers in ascending size order for detail-page interpolation. */
 export const FRAMED_PICTURE_NAMED_SIZE_ORDER = [
   'small',
@@ -708,6 +783,13 @@ export function resolveNamedFramedPictureSize(
   >).find(([, name]) => name.toLowerCase() === normalized);
   if (byLabel) return byLabel[0];
 
+  /** Airtable size tiers that differ from legacy catalog keys. */
+  const airtableAliases: Record<string, FramedPictureNamedSize> = {
+    gallery: 'giant',
+    museum: 'exhibition',
+  };
+  if (airtableAliases[normalized]) return airtableAliases[normalized];
+
   if (isFramedPictureNamedSize(normalized)) return normalized;
 
   for (const [key, spec] of Object.entries(FRAMED_PICTURE_SIZES) as Array<
@@ -789,12 +871,19 @@ function getSelectedOptionValue(
 
 /** @param {{selectedOptions?: Array<{name: string; value: string}>; title?: string | null}} variant */
 export function getFramedPictureSpecFromVariant(
-  variant: {selectedOptions?: Array<{name: string; value: string}>; title?: string | null} | null | undefined,
+  variant: {
+    metafields?: VariantMetafield[] | null;
+    selectedOptions?: Array<{name: string; value: string}>;
+    title?: string | null;
+  } | null | undefined,
   namedSize?: FramedPictureNamedSize,
   overrides?: {frame?: string | null; mount?: string | null},
 ): FramedPictureSizeSpec {
+  const fromMetafields = getFramedPictureSpecFromVariantMetafields(variant);
   const sizeKey = namedSize ?? getFramedSizeFromVariant(variant ?? {});
-  const spec: FramedPictureSizeSpec = {...FRAMED_PICTURE_SIZES[sizeKey]};
+  const spec: FramedPictureSizeSpec = fromMetafields ?? {
+    ...FRAMED_PICTURE_SIZES[sizeKey],
+  };
 
   const frameValue =
     getSelectedOptionValue(variant, 'frame') ?? overrides?.frame ?? null;
@@ -819,21 +908,33 @@ export function getFramedPictureSpecFromVariant(
   return spec;
 }
 
-/** Sort Shopify size option values in catalog order (Small → Exhibition). */
+/** Sort Shopify size option values — prefers Airtable rank metafield, then legacy order. */
 export function sortSizeOptionValues<
-  T extends {name: string},
+  T extends {
+    name: string;
+    firstSelectableVariant?: {
+      metafields?: VariantMetafield[] | null;
+    } | null;
+  },
 >(values: T[]): T[] {
-  const order = Object.keys(FRAMED_PICTURE_SIZES);
+  const legacyOrder = Object.keys(FRAMED_PICTURE_SIZES);
 
   return [...values].sort((a, b) => {
-    const aKey = resolveNamedFramedPictureSize(a.name) ?? a.name;
-    const bKey = resolveNamedFramedPictureSize(b.name) ?? b.name;
-    const aIndex = order.indexOf(aKey);
-    const bIndex = order.indexOf(bKey);
+    const rankA =
+      getVariantSizeRank(a.firstSelectableVariant) ??
+      legacyOrder.indexOf(resolveNamedFramedPictureSize(a.name) ?? '');
+    const rankB =
+      getVariantSizeRank(b.firstSelectableVariant) ??
+      legacyOrder.indexOf(resolveNamedFramedPictureSize(b.name) ?? '');
 
-    if (aIndex === -1 && bIndex === -1) return a.name.localeCompare(b.name);
-    if (aIndex === -1) return 1;
-    if (bIndex === -1) return -1;
-    return aIndex - bIndex;
+    if (rankA !== rankB) {
+      const aValid = rankA >= 0;
+      const bValid = rankB >= 0;
+      if (aValid && bValid) return rankA - rankB;
+      if (aValid) return -1;
+      if (bValid) return 1;
+    }
+
+    return a.name.localeCompare(b.name);
   });
 }

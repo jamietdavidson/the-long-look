@@ -25,12 +25,10 @@ import {useAside} from '~/components/Aside';
 import {getPrintLineAttributes} from '~/lib/cart';
 import {
   formatOuterDimensions,
-  FRAMED_PICTURE_SIZE_LABELS,
   FRAMED_PICTURE_SIZES,
   getFramedPictureSpecFromVariant,
   getMaxWidthCqiForNamedSize,
   getSummaryStripFitLongSideCqi,
-  resolveNamedFramedPictureSize,
   sortSizeOptionValues,
 } from '~/lib/framed-picture';
 import {
@@ -879,22 +877,19 @@ function SizeTable({option, orientation, frame, mount, onSelect}) {
   return (
     <SizeOptionTable
       rows={values.map((value) => {
-        const namedSize = resolveNamedFramedPictureSize(value.name);
-        const label = namedSize
-          ? FRAMED_PICTURE_SIZE_LABELS[namedSize]
-          : value.name;
-        const dimensions = namedSize
-          ? formatOuterDimensions(
-              getFramedPictureSpecFromVariant(null, namedSize, {frame, mount}),
-              orientation,
-            )
+        const variant = value.firstSelectableVariant;
+        const spec = variant
+          ? getFramedPictureSpecFromVariant(variant, undefined, {frame, mount})
+          : null;
+        const dimensions = spec
+          ? formatOuterDimensions(spec, orientation)
           : null;
 
         return {
           key: value.name,
-          label,
+          label: value.name,
           dimensions,
-          price: value.firstSelectableVariant?.price ?? null,
+          price: variant?.price ?? null,
           selected: value.selected,
           disabled: !value.exists,
           onSelect: () => onSelect(value.variantUriQuery, value.selected),

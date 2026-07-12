@@ -28,20 +28,20 @@ create_with_refs() {
 
 echo "Creating artist definition..."
 create_with_refs artist Artist name \
-  "[{ key: \"name\", name: \"Name\", type: \"single_line_text_field\", required: true }, { key: \"bio\", name: \"Bio\", type: \"multi_line_text_field\" }, { key: \"birth_year\", name: \"Birth Year\", type: \"number_integer\" }, { key: \"location\", name: \"Location\", type: \"single_line_text_field\" }, { key: \"portrait\", name: \"Portrait\", type: \"file_reference\" }, { key: \"instagram_handle\", name: \"Instagram Handle\", type: \"single_line_text_field\" }, { key: \"tags\", name: \"Tags\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$TAG_ID\" }] }]"
+  "[{ key: \"name\", name: \"Name\", type: \"single_line_text_field\", required: true }, { key: \"bio\", name: \"Bio\", type: \"multi_line_text_field\" }, { key: \"birth_year\", name: \"Birth Year\", type: \"number_integer\" }, { key: \"location\", name: \"Location\", type: \"single_line_text_field\" }, { key: \"portrait\", name: \"Portrait\", type: \"file_reference\" }, { key: \"instagram_handle\", name: \"Instagram Handle\", type: \"single_line_text_field\" }, { key: \"airtable_record_id\", name: \"Airtable Record ID\", type: \"single_line_text_field\" }, { key: \"tags\", name: \"Tags\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$TAG_ID\" }] }]"
 
 ARTIST_ID=$(run --query 'query { metaobjectDefinitions(first: 10, type: "artist") { nodes { id } } }' \
   | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.metaobjectDefinitions.nodes[0].id)")
 
 echo "Creating collection definition..."
 create_with_refs collection Collection title \
-  "[{ key: \"title\", name: \"Title\", type: \"single_line_text_field\", required: true }, { key: \"description\", name: \"Description\", type: \"multi_line_text_field\" }, { key: \"cover_image\", name: \"Cover Image\", type: \"file_reference\" }, { key: \"tags\", name: \"Tags\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$TAG_ID\" }] }]"
+  "[{ key: \"title\", name: \"Title\", type: \"single_line_text_field\", required: true }, { key: \"description\", name: \"Description\", type: \"multi_line_text_field\" }, { key: \"cover_image\", name: \"Cover Image\", type: \"file_reference\" }, { key: \"airtable_record_id\", name: \"Airtable Record ID\", type: \"single_line_text_field\" }, { key: \"tags\", name: \"Tags\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$TAG_ID\" }] }]"
 
 COLLECTION_ID=$(run --query 'query { metaobjectDefinitions(first: 10, type: "collection") { nodes { id } } }' \
   | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.metaobjectDefinitions.nodes[0].id)")
 
 echo "Creating picture definition..."
 create_with_refs picture Picture title \
-  "[{ key: \"title\", name: \"Title\", type: \"single_line_text_field\", required: true }, { key: \"image\", name: \"Image\", type: \"file_reference\", required: true }, { key: \"description\", name: \"Description\", type: \"multi_line_text_field\" }, { key: \"artist\", name: \"Artist\", type: \"metaobject_reference\", required: true, validations: [{ name: \"metaobject_definition_id\", value: \"$ARTIST_ID\" }] }, { key: \"collections\", name: \"Collections\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$COLLECTION_ID\" }] }, { key: \"tags\", name: \"Tags\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$TAG_ID\" }] }, { key: \"product\", name: \"Product\", type: \"product_reference\" }]"
+  "[{ key: \"title\", name: \"Title\", type: \"single_line_text_field\", required: true }, { key: \"image\", name: \"Image\", type: \"file_reference\", required: true }, { key: \"description\", name: \"Description\", type: \"multi_line_text_field\" }, { key: \"artist\", name: \"Artist\", type: \"metaobject_reference\", required: true, validations: [{ name: \"metaobject_definition_id\", value: \"$ARTIST_ID\" }] }, { key: \"collections\", name: \"Collections\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$COLLECTION_ID\" }] }, { key: \"tags\", name: \"Tags\", type: \"list.metaobject_reference\", validations: [{ name: \"metaobject_definition_id\", value: \"$TAG_ID\" }] }, { key: \"product\", name: \"Product\", type: \"product_reference\" }, { key: \"airtable_record_id\", name: \"Airtable Record ID\", type: \"single_line_text_field\" }]"
 
 echo "Done. Manage entries in Shopify Admin → Content → Metaobjects."

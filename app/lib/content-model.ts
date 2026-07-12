@@ -86,12 +86,14 @@ export const CONTENT_FIELDS = {
     portrait: 'portrait',
     instagramHandle: 'instagram_handle',
     tags: 'tags',
+    airtableRecordId: 'airtable_record_id',
   },
   collection: {
     title: 'title',
     description: 'description',
     coverImage: 'cover_image',
     tags: 'tags',
+    airtableRecordId: 'airtable_record_id',
   },
   picture: {
     title: 'title',
@@ -101,5 +103,6 @@ export const CONTENT_FIELDS = {
     collections: 'collections',
     tags: 'tags',
     product: 'product',
+    airtableRecordId: 'airtable_record_id',
   },
 } as const;

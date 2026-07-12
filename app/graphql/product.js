@@ -32,6 +32,20 @@ export const PRODUCT_VARIANT_FRAGMENT = `#graphql
       amount
       currencyCode
     }
+    metafields(
+      identifiers: [
+        {namespace: "print", key: "short_inches"}
+        {namespace: "print", key: "long_inches"}
+        {namespace: "print", key: "padding_inches"}
+        {namespace: "print", key: "frame_width_inches"}
+        {namespace: "print", key: "rank"}
+      ]
+    ) {
+      namespace
+      key
+      value
+      type
+    }
   }
 `;
 
