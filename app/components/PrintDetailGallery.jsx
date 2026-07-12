@@ -9,6 +9,7 @@ import {
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
 import {
+  FRAMED_PICTURE_GRID_CONTAINER_FILL,
   getDetailMaxHeightFillForNamedSize,
   getDetailTierFitCaps,
   getFramedSizeFromVariant,
@@ -213,13 +214,14 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
                 hasMultipleSlides && 'cursor-grab active:cursor-grabbing',
               )}
             >
-              <div className="pointer-events-none flex max-h-full max-w-full items-center justify-center overflow-hidden select-none [&_*]:pointer-events-none [&_img]:drag-none">
+              <div className="pointer-events-none flex max-h-full max-w-full items-center justify-center select-none [&_*]:pointer-events-none [&_img]:drag-none">
                 <FramedPicture
                   image={image}
                   alt={alt}
                   size={activeSlide.spec}
                   loading="eager"
                   sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
+                  containerFill={FRAMED_PICTURE_GRID_CONTAINER_FILL}
                   maxWidthCqi={tierCaps?.maxWidthCqi}
                   maxLongSideCqi={tierCaps?.maxLongSideCqi}
                   detailHeightFillCqh={detailHeightFillCqh}
