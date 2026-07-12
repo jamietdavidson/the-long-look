@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {forwardRef, useEffect, useMemo, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
@@ -11,13 +11,12 @@ import {
 import {
   getDetailFitLongSideCqi,
   getDetailFitMaxWidthCqi,
-  getDetailGalleryViewportEstimate,
   getFramedSizeFromVariant,
   getTierCapLayoutSpec,
-  getVariantSizeRank,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
 import {getFramedSizeFromSearchParams} from '~/lib/print-options';
+import {useDetailGalleryContainerAspectRatio} from '~/lib/use-detail-gallery-aspect';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
@@ -88,6 +87,7 @@ const slideVariants = {
  *   namedSize?: import('~/lib/framed-picture').FramedPictureNamedSize;
  *   selectedVariant?: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
  *   printHandle?: string;
+ *   placeholderSrc?: string | null;
  * }}
  */
 export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
@@ -98,6 +98,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     namedSize,
     selectedVariant,
     printHandle,
+    placeholderSrc = null,
   },
   ref,
 ) {
@@ -105,15 +106,13 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  const [containerSize, setContainerSize] = useState(getDetailGalleryViewportEstimate);
+  const containerAspectRatio = useDetailGalleryContainerAspectRatio();
 
   const tierForCaps =
     namedSize ??
     getFramedSizeFromSearchParams(searchParams) ??
     resolveNamedSizeFromSpec(framedSpec) ??
     (selectedVariant ? getFramedSizeFromVariant(selectedVariant) : undefined);
-
-  const tierRank = getVariantSizeRank(selectedVariant);
 
   const tierCapSpec = useMemo(
     () => getTierCapLayoutSpec(framedSpec),
@@ -131,11 +130,6 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
-  const measuredContainerSize =
-    containerSize.width > 0 && containerSize.height > 0
-      ? containerSize
-      : getDetailGalleryViewportEstimate();
-
   const slideFitCaps = useMemo(() => {
     return slides.map(() => {
       if (!tierForCaps) {
@@ -146,46 +140,16 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
         maxWidthCqi: getDetailFitMaxWidthCqi(
           tierCapSpec,
           tierForCaps,
-          measuredContainerSize.width,
-          measuredContainerSize.height,
-          tierRank,
+          containerAspectRatio,
         ),
         maxLongSideCqi: getDetailFitLongSideCqi(
           tierCapSpec,
           tierForCaps,
-          measuredContainerSize.width,
-          measuredContainerSize.height,
-          tierRank,
+          containerAspectRatio,
         ),
       };
     });
-  }, [slides, tierCapSpec, tierForCaps, tierRank, measuredContainerSize]);
-
-  useLayoutEffect(() => {
-    const element = wallRef.current;
-    if (!element) return;
-
-    const updateSize = () => {
-      const {width, height} = element.getBoundingClientRect();
-      if (width <= 0 || height <= 0) return;
-
-      setContainerSize((previous) => {
-        if (
-          Math.round(previous.width) === Math.round(width) &&
-          Math.round(previous.height) === Math.round(height)
-        ) {
-          return previous;
-        }
-        return {width, height};
-      });
-    };
-
-    updateSize();
-
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  }, [slides, tierCapSpec, tierForCaps, containerAspectRatio]);
 
   useEffect(() => {
     setSlideIndex(0);
@@ -265,6 +229,8 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
                   maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
                   maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
                   interactive={false}
+                  placeholderSrc={placeholderSrc}
+                  imagePriority="detail"
                 />
               </div>
             </motion.div>

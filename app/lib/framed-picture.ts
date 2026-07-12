@@ -638,41 +638,69 @@ function getLayoutOuterAspectForTierCap(
   return verticalLayout.width / verticalLayout.height;
 }
 
-/** Mobile detail gallery height — 5/8 viewport; keep in sync with PrintDetailGallery Tailwind classes. */
-export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO = 5 / 8;
+/** Mobile detail gallery height — 62.5dvh; keep in sync with PrintDetailGallery Tailwind classes. */
+export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_DVH = 62.5;
 
 /** md breakpoint — keep in sync with PrintDetailGallery `md:w-1/2 md:h-screen`. */
 export const FRAMED_PICTURE_DETAIL_GALLERY_DESKTOP_BREAKPOINT_PX = 768;
 
-/** SSR fallback width before @container is measured (typical phone). */
-const FRAMED_PICTURE_DETAIL_GALLERY_SSR_WIDTH_PX = 393;
+/** SSR fallback height/width before viewport units are available. */
+export const FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO =
+  FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_DVH / 100;
 
-/** Best-effort @container dimensions before layout measurement. */
-export function getDetailGalleryViewportEstimate() {
-  if (typeof window === 'undefined') {
-    return {
-      width: FRAMED_PICTURE_DETAIL_GALLERY_SSR_WIDTH_PX,
-      height:
-        FRAMED_PICTURE_DETAIL_GALLERY_SSR_WIDTH_PX *
-        FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO,
-    };
+let cssViewportUnitProbe: HTMLDivElement | null = null;
+
+function readCssViewportUnitLength(
+  axis: 'height' | 'width',
+  unit: 'dvh' | 'vh' | 'vw',
+): number {
+  if (typeof document === 'undefined') return 0;
+
+  if (!cssViewportUnitProbe) {
+    cssViewportUnitProbe = document.createElement('div');
+    cssViewportUnitProbe.style.cssText =
+      'position:absolute;visibility:hidden;pointer-events:none;top:0;left:0;height:0;width:0';
+    document.documentElement.appendChild(cssViewportUnitProbe);
   }
 
-  const isDesktop = window.matchMedia(
+  if (axis === 'height') {
+    cssViewportUnitProbe.style.height = `100${unit}`;
+    cssViewportUnitProbe.style.width = '0';
+    return cssViewportUnitProbe.offsetHeight / 100;
+  }
+
+  cssViewportUnitProbe.style.width = `100${unit}`;
+  cssViewportUnitProbe.style.height = '0';
+  return cssViewportUnitProbe.offsetWidth / 100;
+}
+
+function isDetailGalleryDesktopViewport() {
+  return window.matchMedia(
     `(min-width: ${FRAMED_PICTURE_DETAIL_GALLERY_DESKTOP_BREAKPOINT_PX}px)`,
   ).matches;
+}
 
-  if (isDesktop) {
-    return {
-      width: window.innerWidth / 2,
-      height: window.innerHeight,
-    };
+/**
+ * Height-to-width ratio of the detail gallery @container.
+ * Matches PrintDetailGallery Tailwind: `h-[62.5dvh] w-full md:h-screen md:w-1/2`.
+ */
+export function getDetailGalleryContainerAspectRatio() {
+  if (typeof window === 'undefined') {
+    return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
   }
 
-  return {
-    width: window.innerWidth,
-    height: window.innerHeight * FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_RATIO,
-  };
+  const vw = readCssViewportUnitLength('width', 'vw');
+  if (vw <= 0) return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
+
+  if (isDetailGalleryDesktopViewport()) {
+    const vh = readCssViewportUnitLength('height', 'vh');
+    if (vh <= 0) return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
+    return (100 * vh) / (50 * vw);
+  }
+
+  const dvh = readCssViewportUnitLength('height', 'dvh');
+  if (dvh <= 0) return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
+  return (FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_DVH * dvh) / (100 * vw);
 }
 
 /** Summary-strip thumbnail well — keep in sync with `w-18 min-h-18` and wall padding. */
@@ -710,16 +738,14 @@ export function getDetailTierFitCaps(
 export function getDetailFitLongSideCqi(
   spec: FramedPictureSizeSpec,
   namedSize: FramedPictureNamedSize | undefined,
-  containerWidth: number,
-  containerHeight: number,
+  containerHeightToWidth: number,
   tierRank?: number,
 ) {
-  if (containerWidth <= 0 || containerHeight <= 0) return undefined;
+  if (containerHeightToWidth <= 0) return undefined;
 
   const tierLongSide = resolveDetailTierLongSideCqi(namedSize, tierRank);
   const heightFill = resolveDetailTierHeightFill(namedSize, tierRank);
-  const heightLongSideCap =
-    (containerHeight / containerWidth) * 100 * heightFill;
+  const heightLongSideCap = containerHeightToWidth * 100 * heightFill;
 
   return Math.min(tierLongSide, heightLongSideCap);
 }
@@ -728,15 +754,13 @@ export function getDetailFitLongSideCqi(
 export function getDetailFitMaxWidthCqi(
   spec: FramedPictureSizeSpec,
   namedSize: FramedPictureNamedSize | undefined,
-  containerWidth: number,
-  containerHeight: number,
+  containerHeightToWidth: number,
   tierRank?: number,
 ) {
   const targetLongSide = getDetailFitLongSideCqi(
     spec,
     namedSize,
-    containerWidth,
-    containerHeight,
+    containerHeightToWidth,
     tierRank,
   );
   if (targetLongSide === undefined) return undefined;

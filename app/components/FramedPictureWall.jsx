@@ -16,7 +16,7 @@ export const FRAMED_PICTURE_WALL = {
 
 export const FRAMED_PICTURE_IMAGE_SIZES = {
   grid: '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 33vw, 25vw',
-  detail: '(max-width: 768px) 100vw, 50vw',
+  detail: '(max-width: 768px) 100vw, 42vw',
   compact: '112px',
 };
 

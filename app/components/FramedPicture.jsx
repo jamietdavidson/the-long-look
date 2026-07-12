@@ -161,6 +161,8 @@ function buildFramedPictureShadows(
  *   lighting?: FramedPictureLighting;
  *   maxWidthCqi?: number;
  *   maxLongSideCqi?: number;
+ *   placeholderSrc?: string | null;
+ *   imagePriority?: 'grid' | 'detail';
  * }}
  */
 export function FramedPicture({
@@ -176,6 +178,8 @@ export function FramedPicture({
   lighting = FRAMED_PICTURE_LIGHTING_DEFAULT,
   maxWidthCqi,
   maxLongSideCqi,
+  placeholderSrc = null,
+  imagePriority = 'grid',
 }) {
   const [hoveredState, setHoveredState] = useState(false);
   const hovered = controlledHovered ?? hoveredState;
@@ -230,6 +234,8 @@ export function FramedPicture({
             shadows={shadows}
             loading={loading}
             sizes={sizes}
+            placeholderSrc={placeholderSrc}
+            priority={imagePriority}
           />
         </FramedPictureBorder>
       </FramedPictureFrame>

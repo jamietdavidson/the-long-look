@@ -95,7 +95,7 @@ const server = createServer(async (req, res) => {
       console.log(
         `[order-sync] ${result.action} ${result.orderName} (${result.shopifyOrderId}) → ${result.airtableRecordId}` +
           (result.labelStatus ? ` label=${result.labelStatus}` : '') +
-          (result.fedexTracking ? ` tracking=${result.fedexTracking}` : ''),
+          (result.carrierTracking ? ` tracking=${result.carrierTracking}` : ''),
       );
       return json(res, 200, {ok: true, ...result});
     } catch (error) {

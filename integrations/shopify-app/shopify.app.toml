@@ -6,7 +6,7 @@ application_url = "https://shopify.dev/apps/default-app-home"
 embedded = false
 
 [access_scopes]
-scopes = "read_orders,write_files,write_metaobjects,write_products,write_publications"
+scopes = "read_orders,write_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders,write_files,write_metaobjects,write_products,write_publications"
 optional_scopes = ["write_shipping"]
 
 [auth]

@@ -1,5 +1,5 @@
 import {Link} from 'react-router';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {Money} from '@shopify/hydrogen';
 import {FavoriteButton} from '~/components/FavoriteButton';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
@@ -16,6 +16,12 @@ import {
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 import {printPath, printsPath, artistPath} from '~/lib/paths';
+import {
+  getPrintLinkState,
+  warmPrintDetailFromCard,
+} from '~/lib/warm-print-detail';
+import {cachePrintCatalogCards} from '~/lib/print-product-client-cache';
+import {usePrintCardWarmup} from '~/lib/use-print-card-warmup';
 
 export const printGridClassName =
   'grid w-full gap-1 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[100rem]:grid-cols-4';
@@ -86,17 +92,35 @@ export function ProductCard({
   const isCompact = size === 'compact';
   const [hovered, setHovered] = useState(false);
   const catalogFramedSpec = getCatalogFramedPictureSpec(product);
+  const warmupRef = usePrintCardWarmup(product);
+
+  const warmDetailImage = () => {
+    warmPrintDetailFromCard(product, warmupRef.current);
+  };
 
   return (
     <article
+      ref={warmupRef}
       className={cn('block h-full w-full', className)}
     >
       <div
         className="relative"
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => {
+          setHovered(true);
+          warmDetailImage();
+        }}
         onMouseLeave={() => setHovered(false)}
+        onPointerDown={warmDetailImage}
       >
-        <Link to={variantUrl} prefetch="intent" className="block">
+        <Link
+          to={variantUrl}
+          prefetch="viewport"
+          state={getPrintLinkState(product)}
+          onMouseEnter={warmDetailImage}
+          onFocus={warmDetailImage}
+          onClick={warmDetailImage}
+          className="block"
+        >
           <FramedPictureWall
             variant="gridCard"
             className={cn(isCompact && 'px-3 pt-6 pb-4', wallClassName)}
@@ -155,17 +179,30 @@ function SplitProductCard({
   const isCompact = size === 'compact';
   const [hovered, setHovered] = useState(false);
   const catalogFramedSpec = getCatalogFramedPictureSpec(product);
+  const warmupRef = usePrintCardWarmup(product);
+
+  const warmDetailImage = () => {
+    warmPrintDetailFromCard(product, warmupRef.current);
+  };
 
   return (
-    <article className={cn('block h-full bg-white', className)}>
+    <article ref={warmupRef} className={cn('block h-full bg-white', className)}>
       <div
         className="relative"
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => {
+          setHovered(true);
+          warmDetailImage();
+        }}
         onMouseLeave={() => setHovered(false)}
+        onPointerDown={warmDetailImage}
       >
         <Link
           to={variantUrl}
-          prefetch="intent"
+          prefetch="viewport"
+          state={getPrintLinkState(product)}
+          onMouseEnter={warmDetailImage}
+          onFocus={warmDetailImage}
+          onClick={warmDetailImage}
           className="block"
         >
           <div
@@ -376,6 +413,10 @@ export function ProductGrid({
   };
   const resolvedProducts = connection?.nodes ?? products;
   const isEmpty = resolvedProducts.length === 0;
+
+  useEffect(() => {
+    cachePrintCatalogCards(resolvedProducts);
+  }, [resolvedProducts]);
 
   return (
     <section className="w-full">

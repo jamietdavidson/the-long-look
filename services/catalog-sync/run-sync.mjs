@@ -40,9 +40,9 @@ export async function syncCommittedArtistsAndCollectionsJob({dryRun = false} = {
  * @param {string} printRecordId Airtable print record id (rec…)
  * @param {{ dryRun?: boolean }} [options]
  */
-export async function syncPrint(printRecordId, {dryRun = false} = {}) {
+export async function syncPrint(printRecordId, {dryRun = false, forceImageResync = false} = {}) {
   const clients = createSyncClients();
-  const summary = await runPrintRecordSync(clients, printRecordId, {dryRun});
+  const summary = await runPrintRecordSync(clients, printRecordId, {dryRun, forceImageResync});
   return {summary, exports: {}};
 }
 

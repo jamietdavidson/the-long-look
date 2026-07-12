@@ -11,6 +11,12 @@ set -a && source services/catalog-sync/.env.railway && set +a
 node scripts/run-catalog-sync.mjs recXXXXXXXXXXXXXX
 ```
 
+Re-upload all print images as optimized WebP (e.g. after changing `PRINT_IMAGE_MAX_PX`):
+
+```bash
+cd services/catalog-sync && node ../../scripts/resync-print-images.mjs
+```
+
 Production poller: `services/catalog-sync/` on Railway.
 
 ## Order sync

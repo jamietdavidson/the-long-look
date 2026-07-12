@@ -39,7 +39,7 @@ export default function PrintsIndex() {
       <ProductGrid
         products={products.nodes}
         {...printCatalogGridProps}
-        eagerCount={4}
+        eagerCount={6}
         emptyMessage="No prints for sale yet. Commit prints in Airtable to sync them to Shopify."
       />
     </>

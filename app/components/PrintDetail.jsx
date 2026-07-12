@@ -1,5 +1,5 @@
-import {useRef, useEffect, useMemo} from 'react';
-import {Link, useNavigate, useSearchParams} from 'react-router';
+import {useRef, useEffect, useMemo, Suspense} from 'react';
+import {Await, Link, useNavigate, useSearchParams} from 'react-router';
 import {
   getAdjacentAndFirstAvailableVariants,
   Money,
@@ -29,15 +29,32 @@ import {
   normalizeProductOptionSearchParams,
 } from '~/lib/print-options';
 import {useGalleryInView} from '~/lib/use-gallery-in-view';
+import {isPromise} from '~/lib/print-product-client-cache';
 
 /**
  * @param {{
  *   product: import('storefrontapi.generated').ProductFragment;
  *   artist?: import('~/lib/content-model').Artist | null;
  *   recommended?: Array<import('~/lib/print-catalog').PrintCatalogCard>;
+ *   suppressGalleryImage?: boolean;
+ *   galleryImageOverride?: {
+ *     id?: string;
+ *     url: string;
+ *     altText?: string | null;
+ *     width?: number | null;
+ *     height?: number | null;
+ *   } | null;
+ *   placeholderImageSrc?: string | null;
  * }}
  */
-export function PrintDetail({product, artist = null, recommended = []}) {
+export function PrintDetail({
+  product,
+  artist = null,
+  recommended = [],
+  suppressGalleryImage = false,
+  galleryImageOverride = null,
+  placeholderImageSrc = null,
+}) {
   const galleryRef = useRef(null);
   const galleryInView = useGalleryInView(galleryRef, 0.15);
   const navigate = useNavigate();
@@ -99,30 +116,58 @@ export function PrintDetail({product, artist = null, recommended = []}) {
   const minPrice =
     product.priceRange?.minVariantPrice ?? selectedVariant?.price ?? null;
 
+  const galleryImage = suppressGalleryImage ? galleryImageOverride : image;
+  const artistPromise = isPromise(artist) ? artist : null;
+  const resolvedArtist = artistPromise ? null : artist;
+  const recommendedPromise = isPromise(recommended) ? recommended : null;
+
   return (
     <>
       <div className="flex w-full flex-col md:flex-row md:items-start">
         <PrintDetailGallery
           ref={galleryRef}
-          image={image}
+          image={galleryImage}
           alt={product.title}
           framedSpec={framedSpec}
           namedSize={resolvedNamedSize}
           selectedVariant={selectedVariant}
           printHandle={product.handle}
+          placeholderSrc={placeholderImageSrc}
         />
         <PrintDetailAside>
-          <PrintDetailHeader
-            product={product}
-            artist={artist}
-            minPrice={minPrice}
-          />
+          {artistPromise ? (
+            <Suspense
+              fallback={
+                <PrintDetailHeader
+                  product={product}
+                  artist={null}
+                  minPrice={minPrice}
+                />
+              }
+            >
+              <Await resolve={artistPromise}>
+                {(resolved) => (
+                  <PrintDetailHeader
+                    product={product}
+                    artist={resolved}
+                    minPrice={minPrice}
+                  />
+                )}
+              </Await>
+            </Suspense>
+          ) : (
+            <PrintDetailHeader
+              product={product}
+              artist={resolvedArtist}
+              minPrice={minPrice}
+            />
+          )}
           <div className="space-y-4">
             <PrintPurchasePanel
               product={product}
               selectedVariant={selectedVariant}
               printHandle={product.handle}
-              artistName={artist?.name ?? product.vendor}
+              artistName={resolvedArtist?.name ?? product.vendor}
               orientation={orientation}
               galleryInView={galleryInView}
               title={product.title}
@@ -133,7 +178,15 @@ export function PrintDetail({product, artist = null, recommended = []}) {
           </div>
         </PrintDetailAside>
       </div>
-      <RecommendedForYou products={recommended} />
+      {recommendedPromise ? (
+        <Suspense fallback={null}>
+          <Await resolve={recommendedPromise}>
+            {(products) => <RecommendedForYou products={products ?? []} />}
+          </Await>
+        </Suspense>
+      ) : (
+        <RecommendedForYou products={recommended} />
+      )}
     </>
   );
 }

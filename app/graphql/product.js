@@ -108,6 +108,103 @@ export const PRODUCT_FRAGMENT = `#graphql
   ${PRODUCT_VARIANT_FRAGMENT}
 `;
 
+export const PRINT_DETAIL_VARIANT_FRAGMENT = `#graphql
+  fragment PrintDetailVariant on ProductVariant {
+    availableForSale
+    id
+    price {
+      amount
+      currencyCode
+    }
+    selectedOptions {
+      name
+      value
+    }
+    metafields(
+      identifiers: [
+        {namespace: "print", key: "short_inches"}
+        {namespace: "print", key: "long_inches"}
+        {namespace: "print", key: "padding_inches"}
+        {namespace: "print", key: "frame_width_inches"}
+        {namespace: "print", key: "rank"}
+      ]
+    ) {
+      namespace
+      key
+      value
+      type
+    }
+  }
+`;
+
+export const PRINT_PRODUCT_FRAGMENT = `#graphql
+  fragment PrintProduct on Product {
+    id
+    title
+    vendor
+    handle
+    productType
+    description
+    featuredImage {
+      id
+      url
+      altText
+      width
+      height
+    }
+    priceRange {
+      minVariantPrice {
+        amount
+        currencyCode
+      }
+    }
+    encodedVariantExistence
+    encodedVariantAvailability
+    options {
+      name
+      optionValues {
+        name
+        firstSelectableVariant {
+          ...PrintDetailVariant
+        }
+        swatch {
+          color
+          image {
+            previewImage {
+              url
+            }
+          }
+        }
+      }
+    }
+    selectedOrFirstAvailableVariant(
+      selectedOptions: $selectedOptions
+      ignoreUnknownOptions: true
+      caseInsensitiveMatch: true
+    ) {
+      ...PrintDetailVariant
+    }
+    adjacentVariants(selectedOptions: $selectedOptions) {
+      ...PrintDetailVariant
+    }
+  }
+  ${PRINT_DETAIL_VARIANT_FRAGMENT}
+`;
+
+export const PRINT_PRODUCT_QUERY = `#graphql
+  query PrintProduct(
+    $country: CountryCode
+    $handle: String!
+    $language: LanguageCode
+    $selectedOptions: [SelectedOptionInput!]!
+  ) @inContext(country: $country, language: $language) {
+    product(handle: $handle) {
+      ...PrintProduct
+    }
+  }
+  ${PRINT_PRODUCT_FRAGMENT}
+`;
+
 export const PRODUCT_QUERY = `#graphql
   query Product(
     $country: CountryCode
