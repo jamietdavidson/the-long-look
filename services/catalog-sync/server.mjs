@@ -5,8 +5,9 @@
  *
  * Endpoints:
  *   GET  /health
- *   POST /sync/:recordId  — optional manual sync (auth if SYNC_SECRET is set)
+ *   POST /sync/:recordId  — optional manual sync (requires SYNC_SECRET)
  */
+import {timingSafeEqual} from 'node:crypto';
 import {createServer} from 'node:http';
 import {syncPrint} from './run-sync.mjs';
 import {startPolling} from './poll.mjs';
@@ -20,11 +21,19 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function secretsMatch(provided, expected) {
+  const providedBuffer = Buffer.from(provided ?? '', 'utf8');
+  const expectedBuffer = Buffer.from(expected ?? '', 'utf8');
+  if (providedBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
 function authorized(req) {
-  if (!SYNC_SECRET) return true;
+  if (!SYNC_SECRET) return false;
   const header = req.headers.authorization ?? '';
   const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-  return bearer === SYNC_SECRET || req.headers['x-sync-secret'] === SYNC_SECRET;
+  const provided = bearer || req.headers['x-sync-secret'] || '';
+  return secretsMatch(provided, SYNC_SECRET);
 }
 
 async function handleSync(res, recordId, dryRun = false) {
@@ -38,7 +47,7 @@ async function handleSync(res, recordId, dryRun = false) {
     return json(res, 200, {ok: true, printId: recordId, summary});
   } catch (error) {
     console.error(`[sync] ${recordId} failed:`, error.message);
-    return json(res, 500, {ok: false, printId: recordId, error: error.message});
+    return json(res, 500, {ok: false, printId: recordId, error: 'Sync failed'});
   }
 }
 
@@ -57,6 +66,9 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && path.startsWith('/sync/')) {
+    if (!SYNC_SECRET) {
+      return json(res, 503, {error: 'Manual sync is disabled (SYNC_SECRET not configured)'});
+    }
     if (!authorized(req)) {
       return json(res, 401, {error: 'Unauthorized'});
     }
@@ -75,6 +87,9 @@ server.listen(PORT, () => {
   }
   if (!process.env.SHOPIFY_ACCESS_TOKEN && !process.env.SHOPIFY_ADMIN_TOKEN) {
     console.warn('[catalog-sync] WARNING: SHOPIFY_ACCESS_TOKEN not set');
+  }
+  if (!SYNC_SECRET) {
+    console.warn('[catalog-sync] WARNING: SYNC_SECRET not set — POST /sync is disabled');
   }
 
   startPolling({

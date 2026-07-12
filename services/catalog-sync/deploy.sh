@@ -12,5 +12,5 @@ echo "Deploying catalog-sync from repo root…"
 railway up --detach
 
 echo "Done. Set variables if needed:"
-echo "  railway variables set AIRTABLE_PAT=… SHOPIFY_ACCESS_TOKEN=… WEBHOOK_SECRET=… POLL_INTERVAL_MS=300000"
+echo "  railway variables set AIRTABLE_PAT=… SHOPIFY_ACCESS_TOKEN=… SYNC_SECRET=… POLL_INTERVAL_MS=300000"
 echo "Then generate a public URL in Railway → Networking."

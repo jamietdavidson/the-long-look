@@ -3,6 +3,7 @@ import {createServer} from 'node:http';
 import {syncShopifyOrderToAirtable} from '../../lib/order-sync/sync-order.mjs';
 
 const PORT = Number(process.env.PORT ?? 3000);
+const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES ?? 1_048_576);
 const WEBHOOK_SECRET =
   process.env.SHOPIFY_WEBHOOK_SECRET?.trim() ??
   process.env.SHOPIFY_API_SECRET?.trim() ??
@@ -29,10 +30,19 @@ function verifyShopifyWebhook(rawBody, hmacHeader) {
   return timingSafeEqual(digestBuffer, headerBuffer);
 }
 
-function readRawBody(req) {
+function readRawBody(req, maxBytes = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
+    let total = 0;
+    req.on('data', (chunk) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        req.destroy();
+        reject(new Error('Request body too large'));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
@@ -45,26 +55,19 @@ const server = createServer(async (req, res) => {
   const path = url.pathname.replace(/\/+$/, '') || '/';
 
   if (req.method === 'GET' && path === '/health') {
-    return json(res, 200, {
-      ok: true,
-      service: 'order-sync',
-      webhookSecretConfigured: Boolean(WEBHOOK_SECRET),
-    });
+    return json(res, 200, {ok: true, service: 'order-sync'});
   }
 
   if (req.method === 'POST' && path === '/webhooks/shopify/orders') {
     const topic = req.headers['x-shopify-topic'];
     const hmac = req.headers['x-shopify-hmac-sha256'];
 
-    if (!ACCEPTED_TOPICS.has(String(topic ?? ''))) {
-      return json(res, 200, {ok: true, ignored: true, topic});
-    }
-
     let rawBody;
     try {
       rawBody = await readRawBody(req);
     } catch (error) {
-      return json(res, 400, {ok: false, error: error.message});
+      const status = error.message === 'Request body too large' ? 413 : 400;
+      return json(res, status, {ok: false, error: 'Invalid request body'});
     }
 
     try {
@@ -72,7 +75,12 @@ const server = createServer(async (req, res) => {
         return json(res, 401, {ok: false, error: 'Invalid webhook signature'});
       }
     } catch (error) {
-      return json(res, 500, {ok: false, error: error.message});
+      console.error('[order-sync] webhook verification failed:', error.message);
+      return json(res, 500, {ok: false, error: 'Webhook verification unavailable'});
+    }
+
+    if (!ACCEPTED_TOPICS.has(String(topic ?? ''))) {
+      return json(res, 200, {ok: true, ignored: true});
     }
 
     let order;
@@ -92,7 +100,7 @@ const server = createServer(async (req, res) => {
       return json(res, 200, {ok: true, ...result});
     } catch (error) {
       console.error('[order-sync] failed:', error.message);
-      return json(res, 500, {ok: false, error: error.message});
+      return json(res, 500, {ok: false, error: 'Order sync failed'});
     }
   }
 

@@ -6,6 +6,7 @@ on:
     paths:
       - 'services/order-sync/**'
       - 'lib/order-sync/**'
+      - 'lib/catalog-sync/**'
       - 'lib/http.mjs'
       - '.github/workflows/railway-order-sync.yml'
   workflow_dispatch:
