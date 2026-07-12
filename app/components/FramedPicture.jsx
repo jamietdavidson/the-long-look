@@ -5,6 +5,8 @@ import {FramedPictureImage} from '~/components/FramedPictureImage';
 import {FRAMED_PICTURE_IMAGE_SIZES} from '~/components/FramedPictureWall';
 import {
   computeFramedPictureSize,
+  framedPictureCqi,
+  getDetailFitUnit,
   getOrientationFromImage,
   resolveFramedPictureSize,
   resolveNamedSizeFromSpec,
@@ -82,7 +84,7 @@ function buildFramedPictureShadows(
   const color = (alpha) => `rgba(0,0,0,${alpha})`;
 
   const cast = (distance, blur, alpha, scale) =>
-    `${shadowX * distance * scale}cqi ${shadowY * distance * scale}cqi ${blur * scale * diffusion}cqi ${color(alpha * intensity)}`;
+    `${framedPictureCqi(shadowX * distance * scale)} ${framedPictureCqi(shadowY * distance * scale)} ${framedPictureCqi(blur * scale * diffusion)} ${color(alpha * intensity)}`;
 
   const shadowProfile = (weight = 1, scale = dropF) => {
     if (weight === 0 || scale === 0) return 'none';
@@ -161,6 +163,10 @@ function buildFramedPictureShadows(
  *   lighting?: FramedPictureLighting;
  *   maxWidthCqi?: number;
  *   maxLongSideCqi?: number;
+ *   detailHeightFillCqh?: number;
+ * @description Max outer height as a percentage of the @container height. When
+ *   set, caps the frame in CSS via `--fp-unit: min(1cqi, k·1cqh)`. Requires the
+ *   @container to use `container-type: size`.
  *   placeholderSrc?: string | null;
  *   imagePriority?: 'grid' | 'detail';
  * }}
@@ -178,6 +184,7 @@ export function FramedPicture({
   lighting = FRAMED_PICTURE_LIGHTING_DEFAULT,
   maxWidthCqi,
   maxLongSideCqi,
+  detailHeightFillCqh,
   placeholderSrc = null,
   imagePriority = 'grid',
 }) {
@@ -206,6 +213,21 @@ export function FramedPicture({
           : computed.pictureWidthCqi * 0.04,
   });
 
+  const outerWidthCqi =
+    computed.pictureWidthCqi + 2 * computed.paddingCqi + 2 * computed.frameCqi;
+  const outerHeightCqi =
+    computed.pictureWidthCqi / computed.pictureAspect +
+    2 * computed.paddingCqi +
+    2 * computed.frameCqi;
+  const fitUnit =
+    detailHeightFillCqh != null && outerHeightCqi > 0
+      ? getDetailFitUnit(
+          outerWidthCqi,
+          outerWidthCqi / outerHeightCqi,
+          detailHeightFillCqh,
+        )
+      : undefined;
+
   return (
     <div
       className={className}
@@ -216,6 +238,7 @@ export function FramedPicture({
         width: 'fit-content',
         maxWidth: '100%',
         maxHeight: '100%',
+        ...(fitUnit ? {'--fp-unit': fitUnit} : {}),
       }}
       onMouseEnter={useInternalHover ? () => setHoveredState(true) : undefined}
       onMouseLeave={useInternalHover ? () => setHoveredState(false) : undefined}

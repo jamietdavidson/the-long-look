@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useMemo, useRef, useState} from 'react';
+import {forwardRef, useEffect, useMemo, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {AnimatePresence, motion} from 'framer-motion';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
@@ -9,14 +9,13 @@ import {
   FramedPictureWall,
 } from '~/components/FramedPictureWall';
 import {
-  getDetailFitLongSideCqi,
-  getDetailFitMaxWidthCqi,
+  getDetailMaxHeightFillForNamedSize,
+  getDetailTierFitCaps,
   getFramedSizeFromVariant,
   getTierCapLayoutSpec,
   resolveNamedSizeFromSpec,
 } from '~/lib/framed-picture';
 import {getFramedSizeFromSearchParams} from '~/lib/print-options';
-import {useDetailGalleryContainerAspectRatio} from '~/lib/use-detail-gallery-aspect';
 import {cn} from '~/lib/utils';
 import {type} from '~/lib/typography';
 
@@ -103,16 +102,19 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   ref,
 ) {
   const [searchParams] = useSearchParams();
-  const wallRef = useRef(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  const containerAspectRatio = useDetailGalleryContainerAspectRatio();
 
+  // Scale must track the SAME source as the proportions (`framedSpec`, which is
+  // derived from `selectedVariant`). Deriving the tier from the optimistic
+  // variant/spec keeps size and proportions in lockstep — reading the size from
+  // `searchParams` lags a render behind the optimistic variant and splits the
+  // update into two cycles (proportions first, then scale).
   const tierForCaps =
-    namedSize ??
-    getFramedSizeFromSearchParams(searchParams) ??
+    (selectedVariant ? getFramedSizeFromVariant(selectedVariant) : undefined) ??
     resolveNamedSizeFromSpec(framedSpec) ??
-    (selectedVariant ? getFramedSizeFromVariant(selectedVariant) : undefined);
+    namedSize ??
+    getFramedSizeFromSearchParams(searchParams);
 
   const tierCapSpec = useMemo(
     () => getTierCapLayoutSpec(framedSpec),
@@ -130,26 +132,19 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
   const activeSlide = slides[slideIndex] ?? slides[0];
   const hasMultipleSlides = slides.length > 1;
 
-  const slideFitCaps = useMemo(() => {
-    return slides.map(() => {
-      if (!tierForCaps) {
-        return {maxWidthCqi: undefined, maxLongSideCqi: undefined};
-      }
+  // Tier caps are viewport-independent (deterministic on the first paint). The
+  // height budget is applied in CSS via `detailHeightFillCqh`, so the browser
+  // resolves the final scale in one layout pass — no measure/re-render cycle.
+  const tierCaps = useMemo(
+    () => (tierForCaps ? getDetailTierFitCaps(tierCapSpec, tierForCaps) : null),
+    [tierCapSpec, tierForCaps],
+  );
 
-      return {
-        maxWidthCqi: getDetailFitMaxWidthCqi(
-          tierCapSpec,
-          tierForCaps,
-          containerAspectRatio,
-        ),
-        maxLongSideCqi: getDetailFitLongSideCqi(
-          tierCapSpec,
-          tierForCaps,
-          containerAspectRatio,
-        ),
-      };
-    });
-  }, [slides, tierCapSpec, tierForCaps, containerAspectRatio]);
+  const detailHeightFillCqh = useMemo(
+    () =>
+      tierForCaps ? getDetailMaxHeightFillForNamedSize(tierForCaps) * 100 : undefined,
+    [tierForCaps],
+  );
 
   useEffect(() => {
     setSlideIndex(0);
@@ -188,7 +183,6 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     >
       <FramedPictureWall
         variant="detail"
-        containerRef={wallRef}
         className="h-full w-full"
       >
         <div
@@ -226,8 +220,9 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
                   size={activeSlide.spec}
                   loading="eager"
                   sizes={FRAMED_PICTURE_IMAGE_SIZES.detail}
-                  maxWidthCqi={slideFitCaps[slideIndex]?.maxWidthCqi}
-                  maxLongSideCqi={slideFitCaps[slideIndex]?.maxLongSideCqi}
+                  maxWidthCqi={tierCaps?.maxWidthCqi}
+                  maxLongSideCqi={tierCaps?.maxLongSideCqi}
+                  detailHeightFillCqh={detailHeightFillCqh}
                   interactive={false}
                   placeholderSrc={placeholderSrc}
                   imagePriority="detail"

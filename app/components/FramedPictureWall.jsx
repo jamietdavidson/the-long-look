@@ -5,7 +5,7 @@ export const FRAMED_PICTURE_WALL = {
   default:
     '@container flex w-full items-center justify-center bg-[#ececea] px-5 py-10',
   detail:
-    '@container flex h-full w-full items-center justify-center bg-[#ececea]',
+    'flex h-full w-full items-center justify-center bg-[#ececea] [container-type:size]',
   gridCard:
     '@container flex h-full w-full flex-col items-stretch bg-[#ececea] px-5 pt-10 pb-6',
   compact:

@@ -1,5 +1,6 @@
 import matPaperTexture from '~/assets/mat-paper-texture.png';
 import {FramedPictureInnerEdgeShadows} from '~/components/FramedPictureInnerEdgeShadows';
+import {framedPictureCqi} from '~/lib/framed-picture';
 
 /**
  * @param {{
@@ -24,7 +25,7 @@ export function FramedPictureBorder({computed, shadows, children}) {
       style={{
         position: 'relative',
         lineHeight: 1,
-        padding: `${computed.paddingCqi}cqi`,
+        padding: framedPictureCqi(computed.paddingCqi),
         backgroundColor: computed.colors.matFace,
         backgroundImage: `url(${matPaperTexture})`,
         backgroundRepeat: 'repeat',
@@ -32,7 +33,7 @@ export function FramedPictureBorder({computed, shadows, children}) {
         ...(isUnframed
           ? {
               boxShadow: shadows.frame,
-              borderRadius: '0.1cqi',
+              borderRadius: framedPictureCqi(0.1),
             }
           : {}),
       }}
@@ -43,7 +44,7 @@ export function FramedPictureBorder({computed, shadows, children}) {
           style={{
             width: '100%',
             height: '100%',
-            border: `${computed.paddingCqi * 0.08}cqi solid #dfdfdf`,
+            border: `${framedPictureCqi(computed.paddingCqi * 0.08)} solid #dfdfdf`,
           }}
         >
           {children}

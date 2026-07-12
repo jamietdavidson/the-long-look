@@ -1,3 +1,5 @@
+import {framedPictureCqi} from '~/lib/framed-picture';
+
 /**
  * @param {{
  *   computed: import('~/lib/framed-picture').FramedPictureComputed;
@@ -24,12 +26,12 @@ export function FramedPictureFrame({
         width: 'fit-content',
         maxWidth: '100%',
         maxHeight: '100%',
-        borderWidth: `${computed.frameCqi}cqi`,
+        borderWidth: framedPictureCqi(computed.frameCqi),
         borderStyle: 'solid',
         borderColor: computed.colors.frameBorder,
         backgroundColor: computed.colors.frameFace,
         boxShadow: computed.frameCqi > 0 ? shadows.frame : undefined,
-        borderRadius: computed.frameCqi > 0 ? '0.1cqi' : undefined,
+        borderRadius: computed.frameCqi > 0 ? framedPictureCqi(0.1) : undefined,
         ...(interactive
           ? {
               transform: hovered ? 'scale(1.03)' : 'scale(1)',
@@ -44,7 +46,7 @@ export function FramedPictureFrame({
         style={{
           width: 'fit-content',
           lineHeight: 1,
-          borderWidth: `${junctionBorderCqi}cqi`,
+          borderWidth: framedPictureCqi(junctionBorderCqi),
           borderStyle: 'solid',
           borderColor: computed.colors.frameMatJunction,
         }}

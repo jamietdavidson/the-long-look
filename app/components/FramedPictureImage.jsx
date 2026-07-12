@@ -1,11 +1,12 @@
 import {useEffect, useState} from 'react';
 import {Image} from '@shopify/hydrogen';
 import {FramedPictureInnerEdgeShadows} from '~/components/FramedPictureInnerEdgeShadows';
+import {framedPictureCqi} from '~/lib/framed-picture';
 import {
   buildShopifyWidthUrl,
   decodeShopifyImageUrl,
   getPrintDetailImageWidth,
-  getPrintGridImageWidth,
+  PRINT_GRID_IMAGE_WIDTH,
   shopifyWidthOnlyLoader,
 } from '~/lib/preload-shopify-image';
 
@@ -61,7 +62,7 @@ export function FramedPictureImage({
               position: 'relative',
               maxWidth: '100%',
               overflow: 'hidden',
-              width: `${computed.pictureWidthCqi}cqi`,
+              width: framedPictureCqi(computed.pictureWidthCqi),
               aspectRatio: computed.pictureAspect,
               backgroundColor: computed.colors.matFace,
             }}
@@ -97,13 +98,18 @@ export function FramedPictureImage({
           style={{
             maxWidth: '100%',
             backgroundColor: '#f5f5f5',
-            width: `${computed.pictureWidthCqi}cqi`,
+            width: framedPictureCqi(computed.pictureWidthCqi),
             aspectRatio: computed.pictureAspect,
           }}
         />
       )}
     </>
   );
+}
+
+/** Set `fetchpriority` via the DOM to avoid React 18's unknown-prop warning. */
+function setHighFetchPriority(element) {
+  if (element) element.setAttribute('fetchpriority', 'high');
 }
 
 /**
@@ -117,13 +123,11 @@ function DetailPictureImage({image, alt, computed, placeholderSrc}) {
     detailWidth,
     image.width,
   );
+  // Deterministic width so SSR and the first client render agree (avoids a
+  // hydration src mismatch). The high-res upgrade happens post-mount below.
   const baseSrc =
     placeholderSrc ||
-    buildShopifyWidthUrl(
-      image.url,
-      getPrintGridImageWidth(image),
-      image.width,
-    );
+    buildShopifyWidthUrl(image.url, PRINT_GRID_IMAGE_WIDTH, image.width);
 
   const [upgradeSrc, setUpgradeSrc] = useState(
     () => (baseSrc === detailSrc ? detailSrc : null),
@@ -151,7 +155,7 @@ function DetailPictureImage({image, alt, computed, placeholderSrc}) {
     position: 'relative',
     maxWidth: '100%',
     overflow: 'hidden',
-    width: `${computed.pictureWidthCqi}cqi`,
+    width: framedPictureCqi(computed.pictureWidthCqi),
     aspectRatio: computed.pictureAspect,
     backgroundColor: computed.colors.matFace,
   };
@@ -171,7 +175,7 @@ function DetailPictureImage({image, alt, computed, placeholderSrc}) {
         alt={image.altText || alt}
         src={baseSrc}
         decoding="sync"
-        fetchPriority="high"
+        ref={setHighFetchPriority}
         draggable={false}
         style={{
           ...imgStyle,

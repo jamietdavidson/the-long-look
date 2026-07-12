@@ -544,36 +544,6 @@ export function getDetailMaxHeightFillForNamedSize(
   );
 }
 
-function resolveDetailTierLongSideCqi(
-  namedSize: FramedPictureNamedSize | undefined,
-  tierRank?: number,
-) {
-  if (tierRank != null && tierRank > 0) {
-    return getDetailMaxLongSideCqiForRank(tierRank);
-  }
-
-  if (namedSize) return getDetailMaxLongSideCqiForNamedSize(namedSize);
-
-  return (
-    (FRAMED_PICTURE_DETAIL_MIN_LONG_SIDE_CQI +
-      FRAMED_PICTURE_DETAIL_MAX_LONG_SIDE_CQI) /
-    2
-  );
-}
-
-function resolveDetailTierHeightFill(
-  namedSize: FramedPictureNamedSize | undefined,
-  tierRank?: number,
-) {
-  if (tierRank != null && tierRank > 0) {
-    return getDetailMaxHeightFillForRank(tierRank);
-  }
-
-  if (namedSize) return getDetailMaxHeightFillForNamedSize(namedSize);
-
-  return FRAMED_PICTURE_DETAIL_MAX_HEIGHT_FILL;
-}
-
 export const FRAMED_PICTURE_SIZE_LABELS: Record<FramedPictureNamedSize, string> = {
   small: 'Small',
   medium: 'Medium',
@@ -638,69 +608,34 @@ function getLayoutOuterAspectForTierCap(
   return verticalLayout.width / verticalLayout.height;
 }
 
-/** Mobile detail gallery height — 62.5dvh; keep in sync with PrintDetailGallery Tailwind classes. */
-export const FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_DVH = 62.5;
-
-/** md breakpoint — keep in sync with PrintDetailGallery `md:w-1/2 md:h-screen`. */
-export const FRAMED_PICTURE_DETAIL_GALLERY_DESKTOP_BREAKPOINT_PX = 768;
-
-/** SSR fallback height/width before viewport units are available. */
-export const FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO =
-  FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_DVH / 100;
-
-let cssViewportUnitProbe: HTMLDivElement | null = null;
-
-function readCssViewportUnitLength(
-  axis: 'height' | 'width',
-  unit: 'dvh' | 'vh' | 'vw',
-): number {
-  if (typeof document === 'undefined') return 0;
-
-  if (!cssViewportUnitProbe) {
-    cssViewportUnitProbe = document.createElement('div');
-    cssViewportUnitProbe.style.cssText =
-      'position:absolute;visibility:hidden;pointer-events:none;top:0;left:0;height:0;width:0';
-    document.documentElement.appendChild(cssViewportUnitProbe);
-  }
-
-  if (axis === 'height') {
-    cssViewportUnitProbe.style.height = `100${unit}`;
-    cssViewportUnitProbe.style.width = '0';
-    return cssViewportUnitProbe.offsetHeight / 100;
-  }
-
-  cssViewportUnitProbe.style.width = `100${unit}`;
-  cssViewportUnitProbe.style.height = '0';
-  return cssViewportUnitProbe.offsetWidth / 100;
-}
-
-function isDetailGalleryDesktopViewport() {
-  return window.matchMedia(
-    `(min-width: ${FRAMED_PICTURE_DETAIL_GALLERY_DESKTOP_BREAKPOINT_PX}px)`,
-  ).matches;
+/**
+ * CSS length for a framed-picture `cqi` value, scaled by the optional `--fp-unit`
+ * fit factor. When `--fp-unit` is unset it falls back to `1cqi`, so grid/compact
+ * variants render identically to a plain `${value}cqi`. The detail gallery sets
+ * `--fp-unit` to `min(1cqi, k * 1cqh)` so the frame is height-capped by the
+ * browser in a single layout pass — no JS measurement or extra render cycle.
+ */
+export function framedPictureCqi(value: number): string {
+  return `calc(var(--fp-unit, 1cqi) * ${value})`;
 }
 
 /**
- * Height-to-width ratio of the detail gallery @container.
- * Matches PrintDetailGallery Tailwind: `h-[62.5dvh] w-full md:h-screen md:w-1/2`.
+ * `--fp-unit` value that caps the framed picture's outer height at
+ * `heightFillCqh` percent of the @container height while keeping the tier's
+ * width budget. Requires the @container to use `container-type: size`.
+ *
+ * @param outerWidthCqi Outer frame width in cqi (tier-capped).
+ * @param outerAspect Outer width / outer height.
+ * @param heightFillCqh Max outer height as a percentage of container height.
  */
-export function getDetailGalleryContainerAspectRatio() {
-  if (typeof window === 'undefined') {
-    return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
-  }
-
-  const vw = readCssViewportUnitLength('width', 'vw');
-  if (vw <= 0) return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
-
-  if (isDetailGalleryDesktopViewport()) {
-    const vh = readCssViewportUnitLength('height', 'vh');
-    if (vh <= 0) return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
-    return (100 * vh) / (50 * vw);
-  }
-
-  const dvh = readCssViewportUnitLength('height', 'dvh');
-  if (dvh <= 0) return FRAMED_PICTURE_DETAIL_GALLERY_SSR_ASPECT_RATIO;
-  return (FRAMED_PICTURE_DETAIL_GALLERY_MOBILE_HEIGHT_DVH * dvh) / (100 * vw);
+export function getDetailFitUnit(
+  outerWidthCqi: number,
+  outerAspect: number,
+  heightFillCqh: number,
+): string {
+  if (outerWidthCqi <= 0 || outerAspect <= 0) return '1cqi';
+  const k = (heightFillCqh * outerAspect) / outerWidthCqi;
+  return `min(1cqi, ${k.toFixed(4)}cqh)`;
 }
 
 /** Summary-strip thumbnail well — keep in sync with `w-18 min-h-18` and wall padding. */
@@ -732,47 +667,6 @@ export function getDetailTierFitCaps(
     maxLongSideCqi,
     maxWidthCqi: maxLongSideCqi * verticalOuterAspect,
   };
-}
-
-/** Max outer long edge (cqi) for a detail gallery @container. */
-export function getDetailFitLongSideCqi(
-  spec: FramedPictureSizeSpec,
-  namedSize: FramedPictureNamedSize | undefined,
-  containerHeightToWidth: number,
-  tierRank?: number,
-) {
-  if (containerHeightToWidth <= 0) return undefined;
-
-  const tierLongSide = resolveDetailTierLongSideCqi(namedSize, tierRank);
-  const heightFill = resolveDetailTierHeightFill(namedSize, tierRank);
-  const heightLongSideCap = containerHeightToWidth * 100 * heightFill;
-
-  return Math.min(tierLongSide, heightLongSideCap);
-}
-
-/** Cap outer width (cqi) so the frame fits within a detail gallery viewport. */
-export function getDetailFitMaxWidthCqi(
-  spec: FramedPictureSizeSpec,
-  namedSize: FramedPictureNamedSize | undefined,
-  containerHeightToWidth: number,
-  tierRank?: number,
-) {
-  const targetLongSide = getDetailFitLongSideCqi(
-    spec,
-    namedSize,
-    containerHeightToWidth,
-    tierRank,
-  );
-  if (targetLongSide === undefined) return undefined;
-
-  const {layoutPadding, layoutFrame} = getTierCapLayoutInsets(spec);
-  const verticalOuterAspect = getLayoutOuterAspectForTierCap(
-    spec,
-    layoutPadding,
-    layoutFrame,
-  );
-
-  return targetLongSide * verticalOuterAspect;
 }
 
 /** Cap outer long edge for summary-strip / compact thumbnails. */
