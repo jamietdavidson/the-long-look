@@ -19,12 +19,12 @@ Airtable trigger: Prints → Committed view (new record)
 2. Sync linked Artist → Shopify artist metaobject
 3. Sync linked Collections → Shopify collection metaobjects
 4. Sync Print → picture metaobject + product
-5. Prune Shopify products/pictures not in Airtable Committed view
+5. Prune Shopify products/pictures deleted from Airtable (any status still in Airtable is kept)
 6. Write back Artist Status → Commited (Airtable typo on Artists/Collections)
 7. Write back Collection Status → Commited
 ```
 
-Re-running is safe: Shopify entities are upserted by **Airtable record ID** (with handle fallback for legacy rows). Handles/titles can change in Airtable without creating duplicates. Prints removed from the Committed view (or deleted from Airtable) are removed from Shopify on the next sync run.
+Re-running is safe: Shopify entities are upserted by **Airtable record ID** (with handle fallback for legacy rows). Handles/titles can change in Airtable without creating duplicates. Prints **deleted from Airtable** are removed from Shopify on the next sync run. Legacy products without `airtable.record_id` are matched by handle; only rows with no Airtable ID or name match are pruned. Prints that still exist in Airtable (Pending, Staged, Committed, etc.) are left in Shopify even if they leave the Committed view.
 
 ### Airtable ID fields (one-time Shopify setup)
 

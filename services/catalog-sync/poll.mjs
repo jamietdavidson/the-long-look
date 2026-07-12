@@ -2,7 +2,7 @@
  * Poll Airtable Prints → Committed view and sync each record.
  */
 import {AIRTABLE} from '../../scripts/pipedream/airtable-shopify-sync-catalog/config.js';
-import {syncPrint} from './run-sync.mjs';
+import {syncPrint, pruneDeletedPrints} from './run-sync.mjs';
 
 const BASE = 'https://api.airtable.com/v0';
 
@@ -56,6 +56,13 @@ export function startPolling({intervalMs, onResult, onError}) {
         const result = await syncPrint(printId);
         onResult?.({printId, result});
       }
+
+      const prune = await pruneDeletedPrints();
+      console.log(
+        `[poll] prune: ${prune.count} removed` +
+          (prune.shopifyTotal != null ? ` (${prune.shopifyTotal} Fine Art Print products checked)` : ''),
+      );
+      if (prune.count > 0) onResult?.({prune});
     } catch (error) {
       onError?.(error);
       console.error('[poll] Error:', error.message);

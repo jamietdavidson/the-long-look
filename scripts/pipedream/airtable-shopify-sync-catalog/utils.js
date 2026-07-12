@@ -304,6 +304,26 @@ export async function listCommittedPrints($, airtable) {
   return records;
 }
 
+/** Every print row in Airtable (any status) — used to detect deleted records. */
+export async function listAllPrintRecords($, airtable) {
+  const records = [];
+  let offset;
+
+  do {
+    const params = new URLSearchParams();
+    if (offset) params.set('offset', offset);
+
+    const response = await airtableRequest($, airtable, {
+      path: `/${AIRTABLE.baseId}/${tablePath('prints')}?${params}`,
+    });
+
+    records.push(...(response.records ?? []).map(normalizePrintRecord));
+    offset = response.offset;
+  } while (offset);
+
+  return records;
+}
+
 export function printHandle(record) {
   return slugify(textValue(record?.fields?.[AIRTABLE.prints.name]));
 }
@@ -403,19 +423,25 @@ export async function removePrintByHandle($, shopify, handle, dryRun) {
   return removePrintByAirtableId($, shopify, null, handle, dryRun);
 }
 
-/** Remove Shopify print products + picture metaobjects not in Airtable Committed view. */
+/** Remove Shopify print products + picture metaobjects whose Airtable row was deleted. */
 export async function pruneOrphanedPrints($, airtable, shopify, dryRun) {
-  const committed = await listCommittedPrints($, airtable);
-  const validRecordIds = new Set(committed.map((record) => record.id));
+  const airtablePrints = await listAllPrintRecords($, airtable);
+  const validRecordIds = new Set(airtablePrints.map((record) => record.id));
+  const validHandles = new Set(airtablePrints.map((record) => printHandle(record)));
 
   const shopifyProducts = await listFineArtPrintProducts($, shopify);
   const orphans = shopifyProducts.filter((product) => {
-    if (!product.airtableRecordId) return false;
-    return !validRecordIds.has(product.airtableRecordId);
+    if (product.airtableRecordId && validRecordIds.has(product.airtableRecordId)) {
+      return false;
+    }
+    if (product.handle && validHandles.has(product.handle)) {
+      return false;
+    }
+    return true;
   });
 
   if (!orphans.length) {
-    return {removed: [], wouldRemove: [], count: 0};
+    return {removed: [], wouldRemove: [], count: 0, shopifyTotal: shopifyProducts.length};
   }
 
   if (dryRun) {
@@ -427,28 +453,28 @@ export async function pruneOrphanedPrints($, airtable, shopify, dryRun) {
         productId: product.id,
       })),
       count: orphans.length,
+      shopifyTotal: shopifyProducts.length,
     };
   }
 
   const removed = [];
   for (const orphan of orphans) {
-    const pictureId = await getMetaobjectIdByAirtableId(
+    const result = await removePrintByAirtableId(
       $,
       shopify,
-      'picture',
       orphan.airtableRecordId,
+      orphan.handle,
+      dryRun,
     );
-    if (orphan.id) await deleteProduct($, shopify, orphan.id);
-    if (pictureId) await deleteMetaobject($, shopify, pictureId);
     removed.push({
       airtableRecordId: orphan.airtableRecordId,
       handle: orphan.handle,
       productId: orphan.id,
-      pictureId,
+      ...result,
     });
   }
 
-  return {removed, count: removed.length};
+  return {removed, count: removed.length, shopifyTotal: shopifyProducts.length};
 }
 
 export async function fetchVariantCatalog($, airtable) {

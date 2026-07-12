@@ -11,6 +11,7 @@ node_modules
 .env
 .env.local
 .env.*.local
+services/catalog-sync/.env.railway
 .shopify
 .react-router
 .next

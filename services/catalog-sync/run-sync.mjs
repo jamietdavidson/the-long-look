@@ -12,6 +12,7 @@ const SYNC_DIR = join(REPO_ROOT, 'scripts/pipedream/airtable-shopify-sync-catalo
 const PLATFORM_SHIM = join(REPO_ROOT, 'scripts/pipedream/e2e-pipedream-platform.mjs');
 
 let cachedComponent;
+let cachedUtils;
 
 function stripExportsForInline(content) {
   return content.replace(
@@ -66,10 +67,66 @@ async function loadComponent() {
   return cachedComponent;
 }
 
+async function loadUtils() {
+  if (cachedUtils) return cachedUtils;
+
+  globalThis.defineComponent = (component) => component;
+
+  const platformShim = readFileSync(PLATFORM_SHIM, 'utf8').replace(
+    /^export\s+async function axios/m,
+    'async function axios',
+  );
+
+  const parts = [platformShim];
+  for (const file of ['config.js', 'utils.js']) {
+    let content = readFileSync(join(SYNC_DIR, file), 'utf8');
+    content = removeRelativeImports(content);
+    content = removePlatformImports(content);
+    parts.push(stripExportsForInline(content));
+  }
+
+  const tempDir = mkdtempSync(join(tmpdir(), 'catalog-sync-utils-'));
+  const modulePath = join(tempDir, 'utils-bundle.mjs');
+  writeFileSync(
+    modulePath,
+    `${parts.join('\n\n')}\nexport { pruneOrphanedPrints };\n`,
+    'utf8',
+  );
+
+  cachedUtils = await import(modulePath);
+  return cachedUtils;
+}
+
 function requireEnv(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required env var: ${name}`);
   return value;
+}
+
+function createClients() {
+  const airtablePat = requireEnv('AIRTABLE_PAT');
+  const shopifyToken =
+    process.env.SHOPIFY_ACCESS_TOKEN?.trim() ?? process.env.SHOPIFY_ADMIN_TOKEN?.trim();
+  if (!shopifyToken) {
+    throw new Error('Missing SHOPIFY_ACCESS_TOKEN or SHOPIFY_ADMIN_TOKEN');
+  }
+
+  const shopId = process.env.SHOPIFY_SHOP_ID?.trim() ?? 'thelonglookco';
+  return {
+    airtable: {$auth: {oauth_access_token: airtablePat}},
+    shopify: {$auth: {shop_id: shopId, access_token: shopifyToken}},
+    $: {},
+  };
+}
+
+/**
+ * Remove Shopify prints whose Airtable row no longer exists.
+ * @param {{ dryRun?: boolean }} [options]
+ */
+export async function pruneDeletedPrints({dryRun = false} = {}) {
+  const {pruneOrphanedPrints} = await loadUtils();
+  const {$, airtable, shopify} = createClients();
+  return pruneOrphanedPrints($, airtable, shopify, dryRun);
 }
 
 /**
@@ -78,15 +135,7 @@ function requireEnv(name) {
  */
 export async function syncPrint(printRecordId, {dryRun = false} = {}) {
   const component = await loadComponent();
-  const airtablePat = requireEnv('AIRTABLE_PAT');
-  const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN?.trim() ?? process.env.SHOPIFY_ADMIN_TOKEN?.trim();
-  if (!shopifyToken) {
-    throw new Error('Missing SHOPIFY_ACCESS_TOKEN or SHOPIFY_ADMIN_TOKEN');
-  }
-
-  const shopId = process.env.SHOPIFY_SHOP_ID?.trim() ?? 'thelonglookco';
-  const airtable = {$auth: {oauth_access_token: airtablePat}};
-  const shopify = {$auth: {shop_id: shopId, access_token: shopifyToken}};
+  const {airtable, shopify} = createClients();
 
   const steps = {trigger: {event: {id: printRecordId}}};
   const exports = {};

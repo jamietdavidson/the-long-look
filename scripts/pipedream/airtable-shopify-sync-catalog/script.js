@@ -17,9 +17,7 @@ import {
   resolvePrintRecord,
   linkedRecordIds,
   markRecordCommitted,
-  printHandle,
   pruneOrphanedPrints,
-  removePrintByAirtableId,
   syncArtist,
   syncCollection,
   syncPrint,
@@ -56,18 +54,9 @@ export default defineComponent({
     const printStatus = textValue(printFields[AIRTABLE.prints.status]);
 
     if (printStatus !== committedStatus) {
-      const handle = printHandle(printRecord);
-      const removal = await removePrintByAirtableId(
-        $,
-        shopify,
-        printRecord.id,
-        handle,
-        dryRun,
-      );
       const prune = await pruneOrphanedPrints($, airtable, shopify, dryRun);
       const summary = {
         printId: printRecord.id,
-        print: removal,
         prune,
         dryRun,
         skippedSync: true,
