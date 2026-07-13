@@ -1,6 +1,9 @@
 import {createHmac, timingSafeEqual} from 'node:crypto';
 import {createServer} from 'node:http';
+import {FULFILLMENT_POLL} from '../../lib/order-sync/config.js';
+import {createLabelForFulfillment} from '../../lib/order-sync/fulfillment-label.mjs';
 import {syncShopifyOrderToAirtable} from '../../lib/order-sync/sync-order.mjs';
+import {startFulfillmentPolling} from './poll-fulfillments.mjs';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES ?? 1_048_576);
@@ -8,10 +11,39 @@ const WEBHOOK_SECRET =
   process.env.SHOPIFY_WEBHOOK_SECRET?.trim() ??
   process.env.SHOPIFY_API_SECRET?.trim() ??
   process.env.SHOPIFY_CLIENT_SECRET?.trim();
+const AIRTABLE_WEBHOOK_SECRET =
+  process.env.AIRTABLE_WEBHOOK_SECRET?.trim() ??
+  process.env.SYNC_SECRET?.trim();
 
 function json(res, status, body) {
   res.writeHead(status, {'Content-Type': 'application/json'});
   res.end(JSON.stringify(body));
+}
+
+function secretsMatch(provided, expected) {
+  const providedBuffer = Buffer.from(provided ?? '', 'utf8');
+  const expectedBuffer = Buffer.from(expected ?? '', 'utf8');
+  if (providedBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+function authorizedAirtableWebhook(req) {
+  if (!AIRTABLE_WEBHOOK_SECRET) return true;
+  const header = req.headers.authorization ?? '';
+  const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const provided = bearer || req.headers['x-sync-secret'] || '';
+  return secretsMatch(provided, AIRTABLE_WEBHOOK_SECRET);
+}
+
+function fulfillmentRecordIdFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (typeof payload.recordId === 'string') return payload.recordId;
+  if (typeof payload.record_id === 'string') return payload.record_id;
+  if (typeof payload.id === 'string' && payload.id.startsWith('rec')) return payload.id;
+  const record = payload.record;
+  if (typeof record === 'string' && record.startsWith('rec')) return record;
+  if (record && typeof record.id === 'string') return record.id;
+  return null;
 }
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
@@ -92,10 +124,11 @@ const server = createServer(async (req, res) => {
 
     try {
       const result = await syncShopifyOrderToAirtable(order);
+      const fulfillmentSummary = result.fulfillments
+        ? ` fulfillments=${result.fulfillments.created} created, ${result.fulfillments.existing} existing`
+        : '';
       console.log(
-        `[order-sync] ${result.action} ${result.orderName} (${result.shopifyOrderId}) → ${result.airtableRecordId}` +
-          (result.labelStatus ? ` label=${result.labelStatus}` : '') +
-          (result.carrierTracking ? ` tracking=${result.carrierTracking}` : ''),
+        `[order-sync] ${result.action} ${result.orderName} (${result.shopifyOrderId}) → ${result.airtableRecordId}${fulfillmentSummary}`,
       );
       return json(res, 200, {ok: true, ...result});
     } catch (error) {
@@ -104,11 +137,52 @@ const server = createServer(async (req, res) => {
     }
   }
 
+  if (req.method === 'POST' && path === '/webhooks/airtable/fulfillments') {
+    if (!authorizedAirtableWebhook(req)) {
+      return json(res, 401, {ok: false, error: 'Unauthorized'});
+    }
+
+    let rawBody;
+    try {
+      rawBody = await readRawBody(req);
+    } catch (error) {
+      const status = error.message === 'Request body too large' ? 413 : 400;
+      return json(res, status, {ok: false, error: 'Invalid request body'});
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return json(res, 400, {ok: false, error: 'Invalid JSON body'});
+    }
+
+    const fulfillmentRecordId = fulfillmentRecordIdFromPayload(payload);
+    if (!fulfillmentRecordId) {
+      return json(res, 400, {ok: false, error: 'Missing fulfillment record id'});
+    }
+
+    try {
+      const result = await createLabelForFulfillment(fulfillmentRecordId);
+      console.log(
+        `[order-sync] fulfillment ${fulfillmentRecordId} → ${result.action}` +
+          (result.trackingNumber ? ` tracking=${result.trackingNumber}` : '') +
+          (result.reason ? ` (${result.reason})` : '') +
+          (result.error ? ` error=${result.error}` : ''),
+      );
+      return json(res, 200, {ok: true, ...result});
+    } catch (error) {
+      console.error('[order-sync] fulfillment label failed:', error.message);
+      return json(res, 500, {ok: false, error: 'Fulfillment label failed'});
+    }
+  }
+
   return json(res, 404, {error: 'Not found'});
 });
 
 server.listen(PORT, () => {
   console.log(`[order-sync] listening on :${PORT}`);
+  startFulfillmentPolling({intervalMs: FULFILLMENT_POLL.intervalMs});
   if (!process.env.AIRTABLE_PAT) {
     console.warn('[order-sync] WARNING: AIRTABLE_PAT not set');
   }

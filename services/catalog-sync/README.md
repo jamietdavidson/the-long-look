@@ -41,6 +41,36 @@ Optional manual sync (for debugging): `POST /sync/:recordId` — set `SYNC_SECRE
 
 Print images are downloaded from Airtable, resized, encoded as WebP, and uploaded to Shopify via staged upload. Re-sync skips image processing when the Airtable attachment id is unchanged (`print.picture_source_id` metafield).
 
+### Shipping packages (box dimensions)
+
+Shopify **does not show package GIDs** in Admin, and the public Admin API has **no query to list packages** — only `shippingPackageUpdate` / `shippingPackageDelete` / `shippingPackageMakeDefault` (which require a GID you already have).
+
+**Variant weights** sync from Airtable `Predicted Weight (lb)` without package IDs. To also sync **box dimensions** and link variants to packages:
+
+1. In Shopify Admin, open **Settings → Shipping and delivery → Packages**
+2. Open browser **DevTools → Network**, filter `graphql` or `Fetch`
+3. Refresh the page or click a package — find a response containing your package names (`Small`, `Medium`, …) and `gid://shopify/ShippingPackage/…`
+4. Copy that JSON response and run:
+
+```bash
+pbpaste | node services/catalog-sync/bootstrap-shipping-packages.mjs --stdin
+```
+
+Or pass a manual map:
+
+```bash
+node services/catalog-sync/bootstrap-shipping-packages.mjs --ids '{
+  "small": "gid://shopify/ShippingPackage/…",
+  "medium": "gid://shopify/ShippingPackage/…"
+}'
+```
+
+One-off weight push (no package IDs needed):
+
+```bash
+node services/catalog-sync/sync-shipping.mjs
+```
+
 ## Deploy to Railway
 
 1. Log in: `railway login`

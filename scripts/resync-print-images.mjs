@@ -13,7 +13,7 @@ import {syncPrint} from '../services/catalog-sync/run-sync.mjs';
 
 const dryRun = process.argv.includes('--dry-run');
 
-const clients = createSyncClients();
+const clients = await createSyncClients();
 const records = await listCommittedPrints(clients.$, clients.airtable);
 const ids = records.map((record) => record.id);
 
