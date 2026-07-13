@@ -35,11 +35,12 @@ export function startPolling({intervalMs, onResult, onError}) {
 
       const deletions = await syncDeletionsJob();
       if (deletions.count > 0) {
+        const variantRemoved = deletions.variantPrune?.count ?? 0;
         console.log(
           `[poll] deletions: ${deletions.removed.prints.length} print(s), ` +
-            `${deletions.removed.variants.length} product variant group(s), ` +
             `${deletions.removed.artists.length} artist(s), ` +
-            `${deletions.removed.collections.length} collection(s)`,
+            `${deletions.removed.collections.length} collection(s), ` +
+            `${variantRemoved} variant(s)`,
         );
         onResult?.({deletions});
       }

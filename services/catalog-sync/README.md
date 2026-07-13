@@ -10,7 +10,7 @@ The service **polls** Airtable every minute (configurable) for Prints, Artists, 
 
 Queued **variants** update shipping packages and push the catalog (prices, dimensions, new Size/Frame/Mount combinations) to every Fine Art Print product. Print sync uses only **Committed** variant rows.
 
-Each poll also lists all Airtable record ids and linked Shopify entities, then removes orphans (deleted print products, artist/collection metaobjects, and product variants whose Airtable row or Size/Frame/Mount combo no longer exists). Variant rows write an `airtable.record_id` metafield on sync for stable matching; older variants without that metafield fall back to Size/Frame/Mount.
+Each poll lists every Airtable row and linked Shopify entity, then removes orphans: print products (by record id or handle), artist/collection metaobjects (by record id, slugified name, or stable handle), and product variants (by `airtable.record_id` or Size/Frame/Mount).
 
 ## Endpoints
 
