@@ -1,5 +1,5 @@
 # Shopify custom app: from-airtable-sync-catalog
-# Deploy config (scopes + webhooks): shopify app deploy --allow-updates --no-build
+# Deploy config (scopes): shopify app deploy --allow-updates --no-build
 client_id = "8b1b256d022e0466fa53236d06d65f3e"
 name = "from-airtable-sync-catalog"
 application_url = "https://shopify.dev/apps/default-app-home"
@@ -11,14 +11,3 @@ optional_scopes = ["write_shipping"]
 
 [auth]
 redirect_urls = [ "https://shopify.dev/apps/default-app-home" ]
-
-[webhooks]
-api_version = "2025-10"
-
-[[webhooks.subscriptions]]
-topics = ["orders/create"]
-uri = "https://order-sync-production-ceeb.up.railway.app/webhooks/shopify/orders"
-
-[[webhooks.subscriptions]]
-topics = ["orders/paid"]
-uri = "https://order-sync-production-ceeb.up.railway.app/webhooks/shopify/orders"

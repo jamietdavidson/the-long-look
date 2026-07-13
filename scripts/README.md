@@ -28,4 +28,4 @@ set -a && source services/catalog-sync/.env.railway && set +a
 node scripts/sync-order-test.mjs path/to/order.json
 ```
 
-Production webhook receiver: `services/order-sync/` on Railway. See `services/order-sync/README.md`.
+Production poller: `services/order-sync/` on Railway. See `services/order-sync/README.md`.

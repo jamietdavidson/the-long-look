@@ -1,3 +1,6 @@
+import {ORDER_SYNC_POLL} from '../../lib/order-sync/config.js';
+import {listShopifyOrdersUpdatedSince} from '../../lib/order-sync/shopify-admin.mjs';
+import {syncShopifyOrderToAirtable} from '../../lib/order-sync/sync-order.mjs';
 import {listFulfillmentsNeedingLabels} from '../../lib/order-sync/airtable.mjs';
 import {createLabelForFulfillment} from '../../lib/order-sync/fulfillment-label.mjs';
 import {
@@ -8,19 +11,48 @@ import {
   schedulePickupRecord,
 } from '../../lib/order-sync/fulfillment-pickup.mjs';
 
+function lookbackIso(hours) {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
+async function syncRecentShopifyOrders($) {
+  const updatedSince = lookbackIso(ORDER_SYNC_POLL.lookbackHours);
+  const orders = await listShopifyOrdersUpdatedSince(updatedSince);
+  const results = [];
+
+  for (const order of orders) {
+    try {
+      const result = await syncShopifyOrderToAirtable(order);
+      results.push(result);
+      if (result.action === 'created') {
+        console.log(
+          `[order-sync] created ${result.orderName} (${result.shopifyOrderId}) → ${result.airtableRecordId}`,
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[order-sync] order sync failed for ${order.id ?? 'unknown'}: ${error.message}`,
+      );
+      results.push({action: 'failed', shopifyOrderId: order.id, error: error.message});
+    }
+  }
+
+  return results;
+}
+
 /**
- * Poll Airtable for fulfillment and pickup status changes that need backend actions.
+ * Outbound polling only — Shopify orders, Airtable fulfillments, and pickups.
  */
-export function startFulfillmentPolling({intervalMs, onResult, onError}) {
+export function startOrderSyncPolling({intervalMs = ORDER_SYNC_POLL.intervalMs, onResult, onError} = {}) {
   if (!intervalMs || intervalMs < 60_000) {
     console.log(
-      '[fulfillment-poll] Polling disabled (FULFILLMENT_POLL_INTERVAL_MS must be >= 60000)',
+      '[order-sync] Polling disabled (ORDER_SYNC_POLL_INTERVAL_MS must be >= 60000)',
     );
     return () => {};
   }
 
   console.log(
-    `[fulfillment-poll] Watching fulfillments + pickups every ${intervalMs / 1000}s`,
+    `[order-sync] Polling Shopify orders + Airtable every ${intervalMs / 1000}s (lookback ${ORDER_SYNC_POLL.lookbackHours}h)`,
   );
 
   let stopped = false;
@@ -32,6 +64,11 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
 
     try {
       const $ = {};
+      const orderResults = await syncRecentShopifyOrders($);
+      if (orderResults.some((result) => result.action === 'created')) {
+        console.log(`[order-sync] synced ${orderResults.length} Shopify order(s)`);
+      }
+
       const [labelRecords, linkRecords, scheduleRecords] = await Promise.all([
         listFulfillmentsNeedingLabels($),
         listFulfillmentsNeedingPickup($),
@@ -39,25 +76,23 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
       ]);
 
       if (labelRecords.length > 0) {
-        console.log(`[fulfillment-poll] ${labelRecords.length} fulfillment(s) need labels`);
+        console.log(`[order-sync] ${labelRecords.length} fulfillment(s) need labels`);
       }
       if (linkRecords.length > 0) {
-        console.log(`[fulfillment-poll] ${linkRecords.length} fulfillment(s) need pickup links`);
+        console.log(`[order-sync] ${linkRecords.length} fulfillment(s) need pickup links`);
       }
       if (scheduleRecords.length > 0) {
-        console.log(`[fulfillment-poll] ${scheduleRecords.length} pickup(s) need carrier scheduling`);
+        console.log(`[order-sync] ${scheduleRecords.length} pickup(s) need carrier scheduling`);
       }
 
       for (const record of labelRecords) {
         const result = await createLabelForFulfillment(record.id);
         if (result.action === 'labeled') {
-          console.log(
-            `[fulfillment-poll] labeled ${record.id} tracking=${result.trackingNumber}`,
-          );
+          console.log(`[order-sync] labeled ${record.id} tracking=${result.trackingNumber}`);
         } else if (result.action === 'failed') {
-          console.error(`[fulfillment-poll] failed ${record.id}: ${result.error}`);
+          console.error(`[order-sync] failed ${record.id}: ${result.error}`);
         } else if (result.action === 'skipped' && result.reason) {
-          console.log(`[fulfillment-poll] skipped ${record.id}: ${result.reason}`);
+          console.log(`[order-sync] skipped ${record.id}: ${result.reason}`);
         }
         onResult?.({fulfillmentRecordId: record.id, result});
       }
@@ -66,10 +101,10 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
         const result = await linkFulfillmentToPickup(record.id);
         if (result.action === 'linked') {
           console.log(
-            `[fulfillment-poll] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) status=${result.pickupStatus}`,
+            `[order-sync] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) status=${result.pickupStatus}`,
           );
         } else if (result.action === 'skipped' && result.reason) {
-          console.log(`[fulfillment-poll] skipped ${record.id}: ${result.reason}`);
+          console.log(`[order-sync] skipped ${record.id}: ${result.reason}`);
         }
         onResult?.({fulfillmentRecordId: record.id, result});
       }
@@ -78,23 +113,23 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
         const result = await schedulePickupRecord(record.id);
         if (result.action === 'scheduled') {
           console.log(
-            `[fulfillment-poll] scheduled pickup ${record.id} confirmation=${result.confirmation ?? 'n/a'}`,
+            `[order-sync] scheduled pickup ${record.id} confirmation=${result.confirmation ?? 'n/a'}`,
           );
         } else if (result.action === 'failed') {
-          console.error(`[fulfillment-poll] pickup schedule failed ${record.id}: ${result.error}`);
+          console.error(`[order-sync] pickup schedule failed ${record.id}: ${result.error}`);
         } else if (result.action === 'skipped' && result.reason) {
-          console.log(`[fulfillment-poll] skipped pickup ${record.id}: ${result.reason}`);
+          console.log(`[order-sync] skipped pickup ${record.id}: ${result.reason}`);
         }
         onResult?.({pickupRecordId: record.id, result});
       }
 
       const confirmed = await confirmCompletedPickups($);
       for (const result of confirmed) {
-        console.log(`[fulfillment-poll] confirmed pickup ${result.pickupRecordId}`);
+        console.log(`[order-sync] confirmed pickup ${result.pickupRecordId}`);
         onResult?.({pickupRecordId: result.pickupRecordId, result});
       }
     } catch (error) {
-      console.error('[fulfillment-poll] tick failed:', error.message);
+      console.error('[order-sync] poll tick failed:', error.message);
       onError?.(error);
     } finally {
       ticking = false;
@@ -110,3 +145,6 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
     stopped = true;
   };
 }
+
+/** @deprecated Use startOrderSyncPolling */
+export const startFulfillmentPolling = startOrderSyncPolling;
