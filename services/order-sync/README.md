@@ -9,14 +9,16 @@ Receives **Shopify order webhooks** and creates/updates rows in the Airtable **O
 | `GET` | `/health` | Liveness check |
 | `POST` | `/webhooks/shopify/orders` | Shopify `orders/create` and `orders/paid` webhooks |
 | `POST` | `/webhooks/airtable/fulfillments` | Optional Airtable automation when a fulfillment moves to **In Progress** or **Pickup Requested** |
+| `POST` | `/webhooks/airtable/pickups` | Optional Airtable automation when a pickup moves to **Requested** |
 
 ## Flow
 
 1. **Shopify webhook** → create/update **Orders** row + one **Fullfillments** row per line-item unit (linked Print + Variant when Shopify metafields are present).
 2. Team sets a fulfillment to **In Progress** in Airtable when ready to ship.
 3. **EasyPost label purchase** runs via polling (every 60s) or the Airtable webhook → one label per fulfillment → **Shipping: Label** URL on that row + `fulfillmentCreate` in Shopify with tracking.
-4. Team sets a fulfillment to **Pickup Requested** when the package is ready for courier collection.
-5. **Pickup linking** assigns the fulfillment to the next upcoming row in **Pickups** (auto-created on Tue/Fri afternoons if none exist) and schedules a carrier pickup in EasyPost when the label carrier supports it (UPS, FedEx, Canada Post — not Purolator).
+4. Team sets a fulfillment to **Pickup Requested** when the package is ready — links it to the next **Pickups** row (auto-created on Tue/Fri afternoons if none exist). New pickup rows start as **Pending**.
+5. Set the **Pickups** row to **Requested** when ready to book the carrier — EasyPost schedules the truck and moves the row to **Scheduled**.
+6. After the pickup window passes, the poller marks the row **Confirmed**.
 
 Labels are **not** purchased at checkout time.
 
@@ -76,13 +78,17 @@ Base `appC7O4qp56Rdaj7c`. Field names are in `lib/order-sync/config.js`.
 |-------|------|
 | **Orders** (`tbltQOChGICsCnfkX`) | One row per Shopify order |
 | **Fullfillments** (`tblQsjLIW8loNh0qR`) | One row per physical unit; Status `Ordered` → `In Progress` → `Pickup Requested` → … |
-| **Pickups** (`tbld2RYHB2XL9ELXA`) | One row per courier pickup window; linked from Fullfillments → **Pickup** |
+| **Pickups** (`tbld2RYHB2XL9ELXA`) | Pickup windows: **Pending** → **Requested** → **Scheduled** → **Confirmed** |
 
 ### Optional Airtable automation
 
-When **Status** changes to **In Progress** or **Pickup Requested**, POST the record id to:
+When **Status** changes to **In Progress** or **Pickup Requested**, POST the fulfillment record id to:
 
 `https://<your-railway-domain>/webhooks/airtable/fulfillments`
+
+When a **Pickups** row changes to **Requested**, POST the pickup record id to:
+
+`https://<your-railway-domain>/webhooks/airtable/pickups`
 
 Body: `{"recordId":"rec…"}` with `Authorization: Bearer <AIRTABLE_WEBHOOK_SECRET>` if configured.
 

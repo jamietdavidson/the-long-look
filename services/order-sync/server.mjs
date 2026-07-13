@@ -2,6 +2,7 @@ import {createHmac, timingSafeEqual} from 'node:crypto';
 import {createServer} from 'node:http';
 import {FULFILLMENT_POLL} from '../../lib/order-sync/config.js';
 import {processFulfillmentAction} from '../../lib/order-sync/fulfillment-action.mjs';
+import {processPickupAction} from '../../lib/order-sync/pickup-action.mjs';
 import {syncShopifyOrderToAirtable} from '../../lib/order-sync/sync-order.mjs';
 import {startFulfillmentPolling} from './poll-fulfillments.mjs';
 
@@ -44,6 +45,13 @@ function fulfillmentRecordIdFromPayload(payload) {
   if (typeof record === 'string' && record.startsWith('rec')) return record;
   if (record && typeof record.id === 'string') return record.id;
   return null;
+}
+
+function pickupRecordIdFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (typeof payload.pickupRecordId === 'string') return payload.pickupRecordId;
+  if (typeof payload.pickup_record_id === 'string') return payload.pickup_record_id;
+  return fulfillmentRecordIdFromPayload(payload);
 }
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
@@ -134,6 +142,46 @@ const server = createServer(async (req, res) => {
     } catch (error) {
       console.error('[order-sync] failed:', error.message);
       return json(res, 500, {ok: false, error: 'Order sync failed'});
+    }
+  }
+
+  if (req.method === 'POST' && path === '/webhooks/airtable/pickups') {
+    if (!authorizedAirtableWebhook(req)) {
+      return json(res, 401, {ok: false, error: 'Unauthorized'});
+    }
+
+    let rawBody;
+    try {
+      rawBody = await readRawBody(req);
+    } catch (error) {
+      const status = error.message === 'Request body too large' ? 413 : 400;
+      return json(res, status, {ok: false, error: 'Invalid request body'});
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return json(res, 400, {ok: false, error: 'Invalid JSON body'});
+    }
+
+    const pickupRecordId = pickupRecordIdFromPayload(payload);
+    if (!pickupRecordId) {
+      return json(res, 400, {ok: false, error: 'Missing pickup record id'});
+    }
+
+    try {
+      const result = await processPickupAction(pickupRecordId);
+      console.log(
+        `[order-sync] pickup ${pickupRecordId} → ${result.action}` +
+          (result.confirmation ? ` confirmation=${result.confirmation}` : '') +
+          (result.reason ? ` (${result.reason})` : '') +
+          (result.error ? ` error=${result.error}` : ''),
+      );
+      return json(res, 200, {ok: true, ...result});
+    } catch (error) {
+      console.error('[order-sync] pickup action failed:', error.message);
+      return json(res, 500, {ok: false, error: 'Pickup action failed'});
     }
   }
 

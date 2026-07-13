@@ -1,9 +1,15 @@
 import {listFulfillmentsNeedingLabels} from '../../lib/order-sync/airtable.mjs';
 import {createLabelForFulfillment} from '../../lib/order-sync/fulfillment-label.mjs';
-import {linkFulfillmentToPickup, listFulfillmentsNeedingPickup} from '../../lib/order-sync/fulfillment-pickup.mjs';
+import {
+  confirmCompletedPickups,
+  linkFulfillmentToPickup,
+  listFulfillmentsNeedingPickup,
+  listPickupsNeedingSchedule,
+  schedulePickupRecord,
+} from '../../lib/order-sync/fulfillment-pickup.mjs';
 
 /**
- * Poll Airtable for fulfillment status changes that need backend actions.
+ * Poll Airtable for fulfillment and pickup status changes that need backend actions.
  */
 export function startFulfillmentPolling({intervalMs, onResult, onError}) {
   if (!intervalMs || intervalMs < 60_000) {
@@ -14,7 +20,7 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
   }
 
   console.log(
-    `[fulfillment-poll] Watching In Progress + Pickup Requested fulfillments every ${intervalMs / 1000}s`,
+    `[fulfillment-poll] Watching fulfillments + pickups every ${intervalMs / 1000}s`,
   );
 
   let stopped = false;
@@ -26,16 +32,20 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
 
     try {
       const $ = {};
-      const [labelRecords, pickupRecords] = await Promise.all([
+      const [labelRecords, linkRecords, scheduleRecords] = await Promise.all([
         listFulfillmentsNeedingLabels($),
         listFulfillmentsNeedingPickup($),
+        listPickupsNeedingSchedule($),
       ]);
 
       if (labelRecords.length > 0) {
         console.log(`[fulfillment-poll] ${labelRecords.length} fulfillment(s) need labels`);
       }
-      if (pickupRecords.length > 0) {
-        console.log(`[fulfillment-poll] ${pickupRecords.length} fulfillment(s) need pickup links`);
+      if (linkRecords.length > 0) {
+        console.log(`[fulfillment-poll] ${linkRecords.length} fulfillment(s) need pickup links`);
+      }
+      if (scheduleRecords.length > 0) {
+        console.log(`[fulfillment-poll] ${scheduleRecords.length} pickup(s) need carrier scheduling`);
       }
 
       for (const record of labelRecords) {
@@ -52,19 +62,36 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
         onResult?.({fulfillmentRecordId: record.id, result});
       }
 
-      for (const record of pickupRecords) {
+      for (const record of linkRecords) {
         const result = await linkFulfillmentToPickup(record.id);
         if (result.action === 'linked') {
-          const pickupStatus = result.easypostPickup?.action === 'scheduled'
-            ? `easypost pickup ${result.easypostPickup.easypostPickupId} confirmation=${result.easypostPickup.confirmation ?? 'n/a'}`
-            : result.easypostPickup?.reason ?? 'no easypost pickup';
           console.log(
-            `[fulfillment-poll] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) ${pickupStatus}`,
+            `[fulfillment-poll] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) status=${result.pickupStatus}`,
           );
         } else if (result.action === 'skipped' && result.reason) {
           console.log(`[fulfillment-poll] skipped ${record.id}: ${result.reason}`);
         }
         onResult?.({fulfillmentRecordId: record.id, result});
+      }
+
+      for (const record of scheduleRecords) {
+        const result = await schedulePickupRecord(record.id);
+        if (result.action === 'scheduled') {
+          console.log(
+            `[fulfillment-poll] scheduled pickup ${record.id} confirmation=${result.confirmation ?? 'n/a'}`,
+          );
+        } else if (result.action === 'failed') {
+          console.error(`[fulfillment-poll] pickup schedule failed ${record.id}: ${result.error}`);
+        } else if (result.action === 'skipped' && result.reason) {
+          console.log(`[fulfillment-poll] skipped pickup ${record.id}: ${result.reason}`);
+        }
+        onResult?.({pickupRecordId: record.id, result});
+      }
+
+      const confirmed = await confirmCompletedPickups($);
+      for (const result of confirmed) {
+        console.log(`[fulfillment-poll] confirmed pickup ${result.pickupRecordId}`);
+        onResult?.({pickupRecordId: result.pickupRecordId, result});
       }
     } catch (error) {
       console.error('[fulfillment-poll] tick failed:', error.message);
