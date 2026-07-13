@@ -41,9 +41,9 @@ Labels are **not** purchased at checkout time.
 | `EASYPOST_FROM_COUNTRY` | no | Default `CA` |
 | `EASYPOST_FROM_PHONE` | no | Ship-from phone |
 | `EASYPOST_FROM_ADDRESS_JSON` | no | Optional JSON override for the full from-address object |
-| `EASYPOST_PREFERRED_CARRIERS` | no | Comma-separated carrier preference when buying (default `Purolator,CanadaPost,UPS,FedExDefault`) |
-| `EASYPOST_OVERSIZED_CARRIERS` | no | Carriers for oversized parcels — longest side > 60", second-longest > 30", or weight > 70 lb (default `Purolator,UPS,FedExDefault`; excludes Canada Post) |
-| `EASYPOST_CHECKOUT_CARRIER_MAP` | no | JSON map of checkout `shipping_lines` title/code → carrier name(s), e.g. `{"Standard":"Purolator"}` |
+| `EASYPOST_PREFERRED_CARRIERS` | no | Pickup-capable carriers only when buying labels (default `CanadaPost,UPS,FedExDefault`; Purolator is excluded) |
+| `EASYPOST_OVERSIZED_CARRIERS` | no | Pickup-capable carriers for oversized parcels (default `UPS,FedExDefault`) |
+| `EASYPOST_CHECKOUT_CARRIER_MAP` | no | JSON map of checkout `shipping_lines` title/code → pickup-capable carrier name(s) |
 | `FULFILLMENT_POLL_INTERVAL_MS` | no | Poll for In Progress / Pickup Requested fulfillments (default `60000`, min `60000`) |
 | `AIRTABLE_PICKUPS_TABLE_ID` | no | Pickups table id (default `tbld2RYHB2XL9ELXA`) |
 | `PICKUP_SCHEDULE_*` | no | Pickup auto-create schedule (see `lib/order-sync/config.js`) |
@@ -65,9 +65,9 @@ Shopify credentials are still required for order fetch, label PDF upload to Shop
 |------|----------|
 | **Per-product label URL** | Fullfillments → **Shipping: Label** |
 | **Label cost** | Fullfillments → **Shipping: Cost** (EasyPost purchased rate) |
-| **Carrier + service** | EasyPost rate selection (prefers Purolator/Canada Post by default) |
+| **Carrier + service** | EasyPost rate selection (pickup-capable carriers only: Canada Post, UPS, FedEx) |
 | **Shopify tracking** | `fulfillmentCreate` on the matching line item when the label is purchased |
-| **Carrier pickup** | EasyPost Pickup API on **Pickup Requested** (skipped for Purolator — drop-off only) |
+| **Carrier pickup** | EasyPost Pickup API when **Pickups** status is **Requested** |
 | **Box dimensions** | Shopify shipping package registry (catalog-sync), one package per fulfillment |
 
 ## Airtable schema
