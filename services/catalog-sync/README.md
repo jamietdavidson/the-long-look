@@ -6,11 +6,13 @@ Replaces Pipedream for **Airtable → Shopify** print catalog sync. Core logic l
 
 ## How it works
 
-The service **polls** Airtable every minute (configurable) for Prints, Artists, Collections, and Variants with Status **Queued**, syncs them to Shopify, then marks them **Committed**. Queued artists and collections sync even when they have no linked prints. Related artist/collection rows are still created or updated when a print is queued.
+The service **polls** Airtable on an interval (default 60s, starting immediately after each tick completes). Records with Status **Queued** are synced and marked **Committed**. Each tick: variant sync → artists/collections → prints. Orphan pruning runs on a separate interval (default 5 minutes).
 
-Queued **variants** update shipping packages and push the catalog (prices, dimensions, new Size/Frame/Mount combinations) to every Fine Art Print product. Print sync uses only **Committed** variant rows.
+Queued **variants** update shipping packages and push the catalog (prices, dimensions, new Size/Frame/Mount combinations) to every Fine Art Print product in parallel (`SYNC_CONCURRENCY`, default 5). Print sync uses only **Committed** variant rows.
 
-Each poll lists every Airtable row and linked Shopify entity, then removes orphans: print products (by record id or handle), artist/collection metaobjects (by record id, slugified name, or stable handle), and product variants (by `airtable.record_id` or Size/Frame/Mount).
+On each deletion pass, the service compares Airtable rows to Shopify entities and removes orphans: print products (by record id or handle), artist/collection metaobjects (by record id, slugified name, or stable handle), matching native Shopify collections (by `airtable.record_id`), and product variants (by `airtable.record_id` or Size/Frame/Mount).
+
+**Storefront vs Admin:** Collection pages on the site read **collection metaobjects** only. Catalog sync also mirrors each editorial collection to a native Shopify collection (same handle, `airtable.record_id` metafield) and keeps print membership in sync. A smart **Fine Art Prints** collection (`product_type` rule) is created automatically for Shopify Admin merchandising.
 
 ## Endpoints
 
@@ -27,11 +29,15 @@ Optional manual sync (for debugging): `POST /sync/:recordId` — set `SYNC_SECRE
 | `AIRTABLE_PAT` | yes | Airtable personal access token |
 | `SHOPIFY_ACCESS_TOKEN` | yes | Shopify Admin API token (`shpat_…`) for `thelonglookco` |
 | `POLL_INTERVAL_MS` | no | Default `60000` (1 minute). Minimum `60000`. |
+| `SYNC_CONCURRENCY` | no | Parallel Shopify/Airtable ops per job (default `5`, max `20`). |
+| `DELETION_POLL_INTERVAL_MS` | no | How often to run orphan pruning (default `300000` / 5 min). |
 | `SHOPIFY_SHOP_ID` | no | Default `thelonglookco` |
 | `SYNC_SECRET` | no | Optional auth for manual `POST /sync/…` only |
 | `PRINT_IMAGE_MAX_PX` | no | Long-edge cap before WebP encode (default `2400`) |
 | `PRINT_IMAGE_WEBP_QUALITY` | no | WebP quality 1–100 (default `82`) |
 | `PORT` | no | Set by Railway |
+| `SHOPIFY_ALL_PRINTS_COLLECTION_HANDLE` | no | Smart collection handle for all prints (default `fine-art-prints`) |
+| `SHOPIFY_ALL_PRINTS_COLLECTION_TITLE` | no | Title for the all-prints smart collection (default `Fine Art Prints`) |
 
 Print images are downloaded from Airtable, resized, encoded as WebP, and uploaded to Shopify via staged upload. Re-sync skips image processing when the Airtable attachment id is unchanged (`print.picture_source_id` metafield).
 

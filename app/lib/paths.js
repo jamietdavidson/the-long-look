@@ -3,7 +3,7 @@
  *
  * /prints      — picture catalog & detail pages
  * /artists     — artist index & profiles
- * /collections — curated content collections (+ Shopify collections)
+ * /collections — curated content collections (metaobjects)
  * /products    — Shopify products (checkout)
  */
 
