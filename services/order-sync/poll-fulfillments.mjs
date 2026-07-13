@@ -1,5 +1,5 @@
-import {listFulfillmentsNeedingLabels} from './airtable.mjs';
-import {createLabelForFulfillment} from './fulfillment-label.mjs';
+import {listFulfillmentsNeedingLabels} from '../../lib/order-sync/airtable.mjs';
+import {createLabelForFulfillment} from '../../lib/order-sync/fulfillment-label.mjs';
 
 /**
  * Poll Airtable for Fullfillments moved to In Progress and purchase labels.
