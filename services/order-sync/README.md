@@ -8,13 +8,15 @@ Receives **Shopify order webhooks** and creates/updates rows in the Airtable **O
 |--------|------|-------------|
 | `GET` | `/health` | Liveness check |
 | `POST` | `/webhooks/shopify/orders` | Shopify `orders/create` and `orders/paid` webhooks |
-| `POST` | `/webhooks/airtable/fulfillments` | Optional Airtable automation when a fulfillment moves to In Progress |
+| `POST` | `/webhooks/airtable/fulfillments` | Optional Airtable automation when a fulfillment moves to **In Progress** or **Pickup Requested** |
 
 ## Flow
 
 1. **Shopify webhook** → create/update **Orders** row + one **Fullfillments** row per line-item unit (linked Print + Variant when Shopify metafields are present).
 2. Team sets a fulfillment to **In Progress** in Airtable when ready to ship.
 3. **Label purchase** runs via polling (every 60s) or the Airtable webhook → one DHL label per fulfillment → **Shipping: Label** URL on that row.
+4. Team sets a fulfillment to **Pickup Requested** when the package is ready for courier collection.
+5. **Pickup linking** assigns the fulfillment to the next upcoming row in **Pickups** (auto-created on Tue/Fri afternoons if none exist).
 
 Labels are **not** purchased at checkout time anymore.
 
@@ -22,12 +24,17 @@ Labels are **not** purchased at checkout time anymore.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `AIRTABLE_PAT` | yes | Airtable personal access token (write access to Orders + Fullfillments) |
+| `AIRTABLE_PAT` | yes | Airtable personal access token (write access to Orders, Fullfillments, and Pickups) |
 | `SHOPIFY_WEBHOOK_SECRET` | yes | Shopify webhook signing secret |
 | `SHOPIFY_ACCESS_TOKEN` | for labels | Optional static Admin token (`shpat_…`) |
 | `SHOPIFY_CLIENT_ID` | for labels | App client ID — with `SHOPIFY_CLIENT_SECRET`, tokens auto-refresh every 24h |
 | `SHOPIFY_CLIENT_SECRET` | for labels | App client secret from `shopify app env show` |
-| `FULFILLMENT_POLL_INTERVAL_MS` | no | Poll for In Progress fulfillments (default `60000`, min `60000`) |
+| `FULFILLMENT_POLL_INTERVAL_MS` | no | Poll for In Progress / Pickup Requested fulfillments (default `60000`, min `60000`) |
+| `AIRTABLE_PICKUPS_TABLE_ID` | no | Pickups table id or name (default `Pickups`) |
+| `PICKUP_SCHEDULE_TIMEZONE` | no | IANA timezone for default pickup slots (default `America/Vancouver`) |
+| `PICKUP_SCHEDULE_HOUR` | no | Local hour for auto-created pickups (default `14` = 2 PM) |
+| `PICKUP_SCHEDULE_MINUTE` | no | Local minute for auto-created pickups (default `0`) |
+| `PICKUP_SCHEDULE_DAYS` | no | Comma-separated weekdays (default `2,5` = Tue/Fri; names like `tuesday,friday` also work) |
 | `AIRTABLE_WEBHOOK_SECRET` | no | Bearer / `x-sync-secret` for `/webhooks/airtable/fulfillments` |
 | `SHOPIFY_SHOP_ID` | no | Default `thelonglookco` |
 | `SHOPIFY_GRAPHQL_VERSION` | no | Default `2026-07` (required for `shippingLabelPurchase`) |
@@ -59,11 +66,23 @@ Base `appC7O4qp56Rdaj7c`. Field names are in `lib/order-sync/config.js`.
 | Table | Role |
 |-------|------|
 | **Orders** (`tbltQOChGICsCnfkX`) | One row per Shopify order |
-| **Fullfillments** (`tblQsjLIW8loNh0qR`) | One row per physical unit; Status `Ordered` → `In Progress` → … |
+| **Fullfillments** (`tblQsjLIW8loNh0qR`) | One row per physical unit; Status `Ordered` → `In Progress` → `Pickup Requested` → … |
+| **Pickups** (`tbld2RYHB2XL9ELXA`) | One row per courier pickup window; linked from Fullfillments → **Pickup** |
+
+### Pickups table
+
+| Field | Type | Notes |
+|-------|------|--------|
+| **When** | Date and time | Tue/Fri afternoons by default; editable in Airtable |
+| **Status** | Single select | `Pending`, `Scheduled`, `Confirmed` — backend creates as `Scheduled`; treats `Confirmed` or past **When** as done |
+| **Notes** | Long text | Auto-filled label on create (e.g. `Pickup · Fri Jul 11, 2026 · 2:00 PM`) |
+| **Fullfillments** | Link | Inverse of **Pickup** on Fullfillments |
+
+On **Fullfillments**, **Pickup** (link → Pickups) and **Status** values including **Pickup Requested** are already configured.
 
 ### Optional Airtable automation
 
-When **Status** changes to **In Progress**, POST the record id to:
+When **Status** changes to **In Progress** or **Pickup Requested**, POST the record id to:
 
 `https://<your-railway-domain>/webhooks/airtable/fulfillments`
 

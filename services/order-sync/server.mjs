@@ -1,7 +1,7 @@
 import {createHmac, timingSafeEqual} from 'node:crypto';
 import {createServer} from 'node:http';
 import {FULFILLMENT_POLL} from '../../lib/order-sync/config.js';
-import {createLabelForFulfillment} from '../../lib/order-sync/fulfillment-label.mjs';
+import {processFulfillmentAction} from '../../lib/order-sync/fulfillment-action.mjs';
 import {syncShopifyOrderToAirtable} from '../../lib/order-sync/sync-order.mjs';
 import {startFulfillmentPolling} from './poll-fulfillments.mjs';
 
@@ -163,17 +163,19 @@ const server = createServer(async (req, res) => {
     }
 
     try {
-      const result = await createLabelForFulfillment(fulfillmentRecordId);
+      const result = await processFulfillmentAction(fulfillmentRecordId);
       console.log(
         `[order-sync] fulfillment ${fulfillmentRecordId} → ${result.action}` +
           (result.trackingNumber ? ` tracking=${result.trackingNumber}` : '') +
+          (result.pickupRecordId ? ` pickup=${result.pickupRecordId}` : '') +
+          (result.scheduledAt ? ` scheduled=${result.scheduledAt}` : '') +
           (result.reason ? ` (${result.reason})` : '') +
           (result.error ? ` error=${result.error}` : ''),
       );
       return json(res, 200, {ok: true, ...result});
     } catch (error) {
-      console.error('[order-sync] fulfillment label failed:', error.message);
-      return json(res, 500, {ok: false, error: 'Fulfillment label failed'});
+      console.error('[order-sync] fulfillment action failed:', error.message);
+      return json(res, 500, {ok: false, error: 'Fulfillment action failed'});
     }
   }
 

@@ -1,8 +1,9 @@
 import {listFulfillmentsNeedingLabels} from '../../lib/order-sync/airtable.mjs';
 import {createLabelForFulfillment} from '../../lib/order-sync/fulfillment-label.mjs';
+import {linkFulfillmentToPickup, listFulfillmentsNeedingPickup} from '../../lib/order-sync/fulfillment-pickup.mjs';
 
 /**
- * Poll Airtable for Fullfillments moved to In Progress and purchase labels.
+ * Poll Airtable for fulfillment status changes that need backend actions.
  */
 export function startFulfillmentPolling({intervalMs, onResult, onError}) {
   if (!intervalMs || intervalMs < 60_000) {
@@ -12,7 +13,9 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
     return () => {};
   }
 
-  console.log(`[fulfillment-poll] Watching In Progress fulfillments every ${intervalMs / 1000}s`);
+  console.log(
+    `[fulfillment-poll] Watching In Progress + Pickup Requested fulfillments every ${intervalMs / 1000}s`,
+  );
 
   let stopped = false;
   let ticking = false;
@@ -22,12 +25,20 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
     ticking = true;
 
     try {
-      const records = await listFulfillmentsNeedingLabels({});
-      if (records.length > 0) {
-        console.log(`[fulfillment-poll] ${records.length} fulfillment(s) need labels`);
+      const $ = {};
+      const [labelRecords, pickupRecords] = await Promise.all([
+        listFulfillmentsNeedingLabels($),
+        listFulfillmentsNeedingPickup($),
+      ]);
+
+      if (labelRecords.length > 0) {
+        console.log(`[fulfillment-poll] ${labelRecords.length} fulfillment(s) need labels`);
+      }
+      if (pickupRecords.length > 0) {
+        console.log(`[fulfillment-poll] ${pickupRecords.length} fulfillment(s) need pickup links`);
       }
 
-      for (const record of records) {
+      for (const record of labelRecords) {
         const result = await createLabelForFulfillment(record.id);
         if (result.action === 'labeled') {
           console.log(
@@ -35,6 +46,18 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
           );
         } else if (result.action === 'failed') {
           console.error(`[fulfillment-poll] failed ${record.id}: ${result.error}`);
+        } else if (result.action === 'skipped' && result.reason) {
+          console.log(`[fulfillment-poll] skipped ${record.id}: ${result.reason}`);
+        }
+        onResult?.({fulfillmentRecordId: record.id, result});
+      }
+
+      for (const record of pickupRecords) {
+        const result = await linkFulfillmentToPickup(record.id);
+        if (result.action === 'linked') {
+          console.log(
+            `[fulfillment-poll] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt})`,
+          );
         } else if (result.action === 'skipped' && result.reason) {
           console.log(`[fulfillment-poll] skipped ${record.id}: ${result.reason}`);
         }
