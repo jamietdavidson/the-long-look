@@ -4,11 +4,11 @@ import {cn} from '~/lib/utils';
 
 /**
  * Toggle favourite for a print — bottom-right overlay on image cards.
- * @param {{handle: string; className?: string; size?: 'sm' | 'md'}}
+ * @param {{productId: string; className?: string; size?: 'sm' | 'md'}}
  */
-export function FavoriteButton({handle, className, size = 'md'}) {
+export function FavoriteButton({productId, className, size = 'md'}) {
   const hasHydrated = useFavoritesStore((state) => state.hasHydrated);
-  const isFavorite = useFavoritesStore((state) => state.isFavorite(handle));
+  const isFavorite = useFavoritesStore((state) => state.isFavorite(productId));
   const toggle = useFavoritesStore((state) => state.toggle);
 
   const favorited = hasHydrated && isFavorite;
@@ -29,7 +29,7 @@ export function FavoriteButton({handle, className, size = 'md'}) {
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        toggle(handle);
+        toggle(productId);
       }}
     >
       <Heart

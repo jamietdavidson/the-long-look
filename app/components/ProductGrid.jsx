@@ -142,7 +142,7 @@ export function ProductCard({
           </FramedPictureWall>
         </Link>
         <FavoriteButton
-          handle={product.handle}
+          productId={product.id}
           className="absolute right-3 bottom-3 z-10"
         />
       </div>
@@ -228,7 +228,7 @@ function SplitProductCard({
           </div>
         </Link>
         <FavoriteButton
-          handle={product.handle}
+          productId={product.id}
           className="absolute right-3 bottom-3 z-10"
         />
       </div>

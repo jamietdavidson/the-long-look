@@ -85,7 +85,7 @@ const slideVariants = {
  *   framedSpec: import('~/lib/framed-picture').FramedPictureSizeSpec;
  *   namedSize?: import('~/lib/framed-picture').FramedPictureNamedSize;
  *   selectedVariant?: import('storefrontapi.generated').ProductFragment['selectedOrFirstAvailableVariant'];
- *   printHandle?: string;
+ *   printId?: string;
  *   placeholderSrc?: string | null;
  * }}
  */
@@ -96,7 +96,7 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
     framedSpec,
     namedSize,
     selectedVariant,
-    printHandle,
+    printId,
     placeholderSrc = null,
   },
   ref,
@@ -254,9 +254,9 @@ export const PrintDetailGallery = forwardRef(function PrintDetailGallery(
         </>
       ) : null}
 
-      {printHandle ? (
+      {printId ? (
         <FavoriteButton
-          handle={printHandle}
+          productId={printId}
           className="absolute right-4 bottom-4 z-10"
         />
       ) : null}

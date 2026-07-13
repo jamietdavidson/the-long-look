@@ -55,10 +55,10 @@ export default function FavouritesPage() {
 /** @param {{allProducts: LoaderReturnData['products']['nodes']}} */
 function FavouritesGrid({allProducts}) {
   const hasHydrated = useFavoritesStore((state) => state.hasHydrated);
-  const handles = useFavoritesStore((state) => state.handles);
+  const ids = useFavoritesStore((state) => state.ids);
 
   const favourites = hasHydrated
-    ? allProducts.filter((product) => handles.includes(product.handle))
+    ? allProducts.filter((product) => ids.includes(product.id))
     : [];
 
   if (!hasHydrated) {

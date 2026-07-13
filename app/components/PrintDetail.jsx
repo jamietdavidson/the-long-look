@@ -131,7 +131,7 @@ export function PrintDetail({
           framedSpec={framedSpec}
           namedSize={resolvedNamedSize}
           selectedVariant={selectedVariant}
-          printHandle={product.handle}
+          printId={product.id}
           placeholderSrc={placeholderImageSrc}
         />
         <PrintDetailAside>

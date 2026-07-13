@@ -424,7 +424,8 @@ export function Header({color = 'black', mode = 'filled', autohide = true}) {
  * }} */
 function FavouritesLink({color, dimClass, hoverHandlers}) {
   const hasHydrated = useFavoritesStore((state) => state.hasHydrated);
-  const count = useFavoritesStore((state) => state.handles.length);
+  const hasReconciled = useFavoritesStore((state) => state.hasReconciled);
+  const count = useFavoritesStore((state) => state.ids.length);
 
   return (
     <NavLink
@@ -439,7 +440,7 @@ function FavouritesLink({color, dimClass, hoverHandlers}) {
       {...hoverHandlers}
     >
       <Heart size={HEADER_ACTION_ICON_SIZE} strokeWidth={HEADER_ACTION_ICON_STROKE} />
-      {hasHydrated && count > 0 ? (
+      {hasHydrated && hasReconciled && count > 0 ? (
         <span
           className={cn(
             'absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white',

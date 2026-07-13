@@ -1,4 +1,8 @@
-import {PRINT_PRODUCTS_QUERY, PRODUCT_QUERY} from '~/graphql/product';
+import {
+  PRINT_PRODUCT_INDEX_QUERY,
+  PRINT_PRODUCTS_QUERY,
+  PRODUCT_QUERY,
+} from '~/graphql/product';
 import {ARTISTS_QUERY} from '~/graphql/content-model';
 import type {Artist} from '~/lib/content-model';
 import {getPrintDetailSelectedOptions} from '~/lib/print-options';
@@ -274,6 +278,39 @@ export function toPrintProductConnection(products: PrintCatalogProduct[], artist
       endCursor: null,
     },
   };
+}
+
+export type PrintProductIndexEntry = {
+  id: string;
+  handle: string;
+};
+
+export async function loadPrintProductIndex(
+  storefront: Storefront,
+): Promise<PrintProductIndexEntry[]> {
+  const products: PrintProductIndexEntry[] = [];
+  let after: string | null = null;
+
+  do {
+    const data = await storefront.query(PRINT_PRODUCT_INDEX_QUERY, {
+      variables: {
+        first: 100,
+        after,
+        query: PRINT_PRODUCTS_SEARCH,
+      },
+      cache: storefront.CacheLong(),
+    });
+
+    const connection = data.products as {
+      nodes?: PrintProductIndexEntry[];
+      pageInfo?: {hasNextPage?: boolean; endCursor?: string | null};
+    };
+
+    products.push(...(connection.nodes ?? []));
+    after = connection.pageInfo?.hasNextPage ? connection.pageInfo.endCursor ?? null : null;
+  } while (after);
+
+  return products;
 }
 
 export async function loadAllPrintProducts(

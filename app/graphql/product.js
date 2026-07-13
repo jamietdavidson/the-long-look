@@ -264,6 +264,27 @@ export const PRINT_CATALOG_PRODUCT_FRAGMENT = `#graphql
   ${PRODUCT_VARIANT_FRAGMENT}
 `;
 
+export const PRINT_PRODUCT_INDEX_QUERY = `#graphql
+  query PrintProductIndex(
+    $country: CountryCode
+    $language: LanguageCode
+    $first: Int!
+    $after: String
+    $query: String!
+  ) @inContext(country: $country, language: $language) {
+    products(first: $first, after: $after, query: $query) {
+      nodes {
+        id
+        handle
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
 export const PRINT_PRODUCTS_QUERY = `#graphql
   query PrintProducts(
     $country: CountryCode

@@ -28,7 +28,7 @@ export function PrintDetailPreview({card, placeholderSrc = null}) {
         alt={product.title}
         framedSpec={framedSpec}
         namedSize={FRAMED_PICTURE_DEFAULT_NAMED_SIZE}
-        printHandle={product.handle}
+        printId={product.id}
         placeholderSrc={placeholderSrc}
       />
       <div className="flex w-full flex-1 px-4 py-6 md:justify-center md:px-10 md:pt-24 md:pb-6">

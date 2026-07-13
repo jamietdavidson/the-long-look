@@ -15,6 +15,7 @@ import interItalicVariable from '~/assets/fonts/inter-italic-variable.ttf?url';
 import playfairDisplayItalicVariable from '~/assets/fonts/playfair-display-italic-variable.ttf?url';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import {loadContentNav} from '~/lib/content-api';
+import {loadPrintProductIndex} from '~/lib/print-catalog';
 import globalsStyles from '~/styles/globals.css?url';
 import {PageLayout} from './components/PageLayout';
 import {AppPageLayout} from './components/AppPageLayout';
@@ -163,10 +164,15 @@ function loadDeferredData({context}) {
       console.error(error);
       return null;
     });
+  const printProductIndex = loadPrintProductIndex(storefront).catch((error) => {
+    console.error(error);
+    return [];
+  });
   return {
     cart: cart.get(),
     isLoggedIn: customerAccount.isLoggedIn(),
     footer,
+    printProductIndex,
   };
 }
 
@@ -208,7 +214,7 @@ export default function App() {
       shop={data.shop}
       consent={data.consent}
     >
-      <PageLayout cart={data.cart}>
+      <PageLayout cart={data.cart} printProductIndex={data.printProductIndex}>
         <Outlet />
       </PageLayout>
     </Analytics.Provider>
