@@ -1,5 +1,6 @@
 import {Link} from 'react-router';
 import {useEffect, useState} from 'react';
+import {motion, useReducedMotion} from 'framer-motion';
 import {Money} from '@shopify/hydrogen';
 import {FavoriteButton} from '~/components/FavoriteButton';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
@@ -22,6 +23,7 @@ import {
 } from '~/lib/warm-print-detail';
 import {cachePrintCatalogCards} from '~/lib/print-product-client-cache';
 import {usePrintCardWarmup} from '~/lib/use-print-card-warmup';
+import {useProgressiveVisibleCount} from '~/lib/use-progressive-visible-count';
 
 export const printGridClassName =
   'grid w-full gap-1 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[100rem]:grid-cols-4';
@@ -339,6 +341,96 @@ export function CatalogPageHeader({title, description}) {
 
 /** @typedef {import('~/lib/print-catalog').PrintCatalogCard} PrintCatalogCard */
 
+const DEFAULT_LAZY_BATCH_SIZE = 12;
+
+const LAZY_GRID_ITEM_TRANSITION = {
+  duration: 0.4,
+  ease: [0.25, 0.1, 0.25, 1],
+};
+
+function lazyGridItemDelay(index, batchSize, prefersReducedMotion) {
+  if (prefersReducedMotion) return 0;
+  return (index % batchSize) * 0.05;
+}
+
+function connectionHasPagination(connection) {
+  return Boolean(
+    connection?.pageInfo?.hasNextPage || connection?.pageInfo?.hasPreviousPage,
+  );
+}
+
+/**
+ * @param {{
+ *   products: PrintCatalogCard[];
+ *   gridClassName: string;
+ *   cardProps: Record<string, unknown>;
+ *   lazyLoadInitialCount?: number;
+ *   lazyLoadBatchSize?: number;
+ * }}
+ */
+function LazyProductGridBody({
+  products,
+  gridClassName,
+  cardProps,
+  lazyLoadInitialCount,
+  lazyLoadBatchSize = DEFAULT_LAZY_BATCH_SIZE,
+}) {
+  const prefersReducedMotion = useReducedMotion();
+  const eagerCount = cardProps.eagerCount;
+  const initialCount =
+    lazyLoadInitialCount ??
+    Math.max(
+      typeof eagerCount === 'number' ? eagerCount + 6 : 0,
+      lazyLoadBatchSize,
+    );
+  const {visibleCount, sentinelRef, hasMore} = useProgressiveVisibleCount(
+    products.length,
+    {initial: initialCount, step: lazyLoadBatchSize},
+  );
+  const visibleProducts = products.slice(0, visibleCount);
+
+  return (
+    <>
+      <div className={gridClassName}>
+        {visibleProducts.map((product, index) => (
+          <motion.div
+            key={product.id}
+            initial={prefersReducedMotion ? false : {opacity: 0, y: 20}}
+            animate={{opacity: 1, y: 0}}
+            transition={{
+              ...LAZY_GRID_ITEM_TRANSITION,
+              delay: lazyGridItemDelay(index, lazyLoadBatchSize, prefersReducedMotion),
+            }}
+          >
+            {renderProductGridCard({product, index, ...cardProps})}
+          </motion.div>
+        ))}
+      </div>
+      {hasMore ? (
+        <motion.div
+          ref={sentinelRef}
+          className="flex min-h-24 items-center justify-center px-6 py-8"
+          initial={{opacity: 0}}
+          animate={{opacity: 1}}
+          aria-hidden
+        >
+          <motion.span
+            className={cn(type.body.sm, 'text-neutral-400')}
+            animate={prefersReducedMotion ? undefined : {opacity: [0.35, 1, 0.35]}}
+            transition={
+              prefersReducedMotion
+                ? undefined
+                : {duration: 1.5, repeat: Infinity, ease: 'easeInOut'}
+            }
+          >
+            Loading more prints…
+          </motion.span>
+        </motion.div>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * @param {{
  *   product: PrintCatalogCard;
@@ -363,7 +455,6 @@ function renderProductGridCard({
 }) {
   return (
     <ProductCard
-      key={product.id}
       product={product}
       size={cardSize}
       layout={cardLayout}
@@ -388,6 +479,8 @@ function renderProductGridCard({
  *   splitWellClassName?: string;
  *   emptyMessage?: string;
  *   eagerCount?: number;
+ *   lazyLoadInitialCount?: number;
+ *   lazyLoadBatchSize?: number;
  * }}
  */
 export function ProductGrid({
@@ -402,6 +495,8 @@ export function ProductGrid({
   splitWellClassName = printGridSplitWellClassName,
   emptyMessage,
   eagerCount,
+  lazyLoadInitialCount,
+  lazyLoadBatchSize,
 }) {
   const cardProps = {
     cardLayout,
@@ -413,6 +508,7 @@ export function ProductGrid({
   };
   const resolvedProducts = connection?.nodes ?? products;
   const isEmpty = resolvedProducts.length === 0;
+  const useCursorPagination = connection && connectionHasPagination(connection);
 
   useEffect(() => {
     cachePrintCatalogCards(resolvedProducts);
@@ -436,7 +532,7 @@ export function ProductGrid({
         >
           {emptyMessage}
         </p>
-      ) : connection ? (
+      ) : useCursorPagination ? (
         <PaginatedResourceSection
           connection={connection}
           resourcesClassName={gridClassName}
@@ -446,11 +542,13 @@ export function ProductGrid({
           }
         </PaginatedResourceSection>
       ) : (
-        <div className={gridClassName}>
-          {products.map((product, index) =>
-            renderProductGridCard({product, index, ...cardProps}),
-          )}
-        </div>
+        <LazyProductGridBody
+          products={resolvedProducts}
+          gridClassName={gridClassName}
+          cardProps={cardProps}
+          lazyLoadInitialCount={lazyLoadInitialCount}
+          lazyLoadBatchSize={lazyLoadBatchSize}
+        />
       )}
     </section>
   );
