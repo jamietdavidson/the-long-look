@@ -6,7 +6,7 @@ Replaces Pipedream for **Airtable → Shopify** print catalog sync. Core logic l
 
 ## How it works
 
-The service **polls** Airtable on an interval (default 60s, starting immediately after each tick completes). Records with Status **Queued** are synced and marked **Committed**. Each tick: variant sync → artists/collections → prints. Orphan pruning runs on a separate interval (default 5 minutes).
+The service **polls** Airtable on an interval (default 60s, starting immediately after each tick completes). Records with Status **Queued** are marked **Processing** before Shopify updates, then **Committed** when done. Each tick: variant sync → artists/collections → prints. Orphan pruning runs on a separate interval (default 5 minutes).
 
 Queued **variants** update shipping packages and push the catalog (prices, dimensions, new Size/Frame/Mount combinations) to every Fine Art Print product in parallel (`SYNC_CONCURRENCY`, default 5). Print sync uses only **Committed** variant rows.
 
