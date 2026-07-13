@@ -55,8 +55,11 @@ export function startFulfillmentPolling({intervalMs, onResult, onError}) {
       for (const record of pickupRecords) {
         const result = await linkFulfillmentToPickup(record.id);
         if (result.action === 'linked') {
+          const pickupStatus = result.easypostPickup?.action === 'scheduled'
+            ? `easypost pickup ${result.easypostPickup.easypostPickupId} confirmation=${result.easypostPickup.confirmation ?? 'n/a'}`
+            : result.easypostPickup?.reason ?? 'no easypost pickup';
           console.log(
-            `[fulfillment-poll] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt})`,
+            `[fulfillment-poll] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) ${pickupStatus}`,
           );
         } else if (result.action === 'skipped' && result.reason) {
           console.log(`[fulfillment-poll] skipped ${record.id}: ${result.reason}`);
