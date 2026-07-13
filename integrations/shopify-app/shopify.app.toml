@@ -11,3 +11,6 @@ optional_scopes = ["write_shipping"]
 
 [auth]
 redirect_urls = [ "https://shopify.dev/apps/default-app-home" ]
+
+[webhooks]
+api_version = "2025-10"
