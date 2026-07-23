@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {ORDER_SYNC_POLL} from '../../lib/order-sync/config.js';
+import {ORDER_SYNC_POLL, SHIPPING_AUTOMATION} from '../../lib/order-sync/config.js';
 import {startOrderSyncPolling} from './poll-fulfillments.mjs';
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -20,6 +20,9 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[order-sync] poll-only service listening on :${PORT} (/health for Railway)`);
+  console.log(
+    `[order-sync] shipping automation: ${SHIPPING_AUTOMATION.isEnabled() ? 'enabled' : 'disabled'}`,
+  );
   startOrderSyncPolling({intervalMs: ORDER_SYNC_POLL.intervalMs});
   if (!process.env.AIRTABLE_PAT) {
     console.warn('[order-sync] WARNING: AIRTABLE_PAT not set');

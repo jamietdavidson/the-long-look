@@ -2,6 +2,8 @@
 
 Polling-only worker: pulls recent Shopify orders into Airtable, then watches **Fullfillments** and **Pickups** for label purchase, pickup linking, and carrier scheduling. No inbound webhooks.
 
+**Shipping automation is disabled by default.** Set `ORDER_SYNC_SHIPPING_AUTOMATION_ENABLED=true` to run label purchase, pickup linking, carrier scheduling, and pickup confirmation from Airtable status changes.
+
 ## HTTP surface
 
 | Method | Path | Description |
@@ -35,6 +37,7 @@ Labels are **not** purchased at checkout time.
 | `SHOPIFY_CLIENT_ID` | for Shopify sync | App client ID — with `SHOPIFY_CLIENT_SECRET`, tokens auto-refresh every 24h |
 | `SHOPIFY_CLIENT_SECRET` | for Shopify sync | App client secret from `shopify app env show` |
 | `ORDER_SYNC_POLL_INTERVAL_MS` | no | Poll interval (default `60000`, min `60000`) |
+| `ORDER_SYNC_SHIPPING_AUTOMATION_ENABLED` | no | Set `true` to run automatic labels, pickup linking, carrier scheduling, and pickup confirmation (default off) |
 | `ORDER_POLL_LOOKBACK_HOURS` | no | How far back to scan Shopify orders each tick (default `48`) |
 | `FULFILLMENT_POLL_INTERVAL_MS` | no | Legacy alias for `ORDER_SYNC_POLL_INTERVAL_MS` |
 | `EASYPOST_FROM_*` | no | Ship-from / pickup address (defaults to The Print Lab, 3370 Tennyson Ave, Victoria) |

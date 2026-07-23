@@ -1,4 +1,4 @@
-import {ORDER_SYNC_POLL} from '../../lib/order-sync/config.js';
+import {ORDER_SYNC_POLL, SHIPPING_AUTOMATION} from '../../lib/order-sync/config.js';
 import {listShopifyOrdersUpdatedSince} from '../../lib/order-sync/shopify-admin.mjs';
 import {syncShopifyOrderToAirtable} from '../../lib/order-sync/sync-order.mjs';
 import {listFulfillmentsNeedingLabels} from '../../lib/order-sync/airtable.mjs';
@@ -54,6 +54,9 @@ export function startOrderSyncPolling({intervalMs = ORDER_SYNC_POLL.intervalMs, 
   console.log(
     `[order-sync] Polling Shopify orders + Airtable every ${intervalMs / 1000}s (lookback ${ORDER_SYNC_POLL.lookbackHours}h)`,
   );
+  if (!SHIPPING_AUTOMATION.isEnabled()) {
+    console.log(`[order-sync] ${SHIPPING_AUTOMATION.disabledReason}`);
+  }
 
   let stopped = false;
   let ticking = false;
@@ -69,64 +72,66 @@ export function startOrderSyncPolling({intervalMs = ORDER_SYNC_POLL.intervalMs, 
         console.log(`[order-sync] synced ${orderResults.length} Shopify order(s)`);
       }
 
-      const [labelRecords, linkRecords, scheduleRecords] = await Promise.all([
-        listFulfillmentsNeedingLabels($),
-        listFulfillmentsNeedingPickup($),
-        listPickupsNeedingSchedule($),
-      ]);
+      if (SHIPPING_AUTOMATION.isEnabled()) {
+        const [labelRecords, linkRecords, scheduleRecords] = await Promise.all([
+          listFulfillmentsNeedingLabels($),
+          listFulfillmentsNeedingPickup($),
+          listPickupsNeedingSchedule($),
+        ]);
 
-      if (labelRecords.length > 0) {
-        console.log(`[order-sync] ${labelRecords.length} fulfillment(s) need labels`);
-      }
-      if (linkRecords.length > 0) {
-        console.log(`[order-sync] ${linkRecords.length} fulfillment(s) need pickup links`);
-      }
-      if (scheduleRecords.length > 0) {
-        console.log(`[order-sync] ${scheduleRecords.length} pickup(s) need carrier scheduling`);
-      }
-
-      for (const record of labelRecords) {
-        const result = await createLabelForFulfillment(record.id);
-        if (result.action === 'labeled') {
-          console.log(`[order-sync] labeled ${record.id} tracking=${result.trackingNumber}`);
-        } else if (result.action === 'failed') {
-          console.error(`[order-sync] failed ${record.id}: ${result.error}`);
-        } else if (result.action === 'skipped' && result.reason) {
-          console.log(`[order-sync] skipped ${record.id}: ${result.reason}`);
+        if (labelRecords.length > 0) {
+          console.log(`[order-sync] ${labelRecords.length} fulfillment(s) need labels`);
         }
-        onResult?.({fulfillmentRecordId: record.id, result});
-      }
-
-      for (const record of linkRecords) {
-        const result = await linkFulfillmentToPickup(record.id);
-        if (result.action === 'linked') {
-          console.log(
-            `[order-sync] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) status=${result.pickupStatus}`,
-          );
-        } else if (result.action === 'skipped' && result.reason) {
-          console.log(`[order-sync] skipped ${record.id}: ${result.reason}`);
+        if (linkRecords.length > 0) {
+          console.log(`[order-sync] ${linkRecords.length} fulfillment(s) need pickup links`);
         }
-        onResult?.({fulfillmentRecordId: record.id, result});
-      }
-
-      for (const record of scheduleRecords) {
-        const result = await schedulePickupRecord(record.id);
-        if (result.action === 'scheduled') {
-          console.log(
-            `[order-sync] scheduled pickup ${record.id} confirmation=${result.confirmation ?? 'n/a'}`,
-          );
-        } else if (result.action === 'failed') {
-          console.error(`[order-sync] pickup schedule failed ${record.id}: ${result.error}`);
-        } else if (result.action === 'skipped' && result.reason) {
-          console.log(`[order-sync] skipped pickup ${record.id}: ${result.reason}`);
+        if (scheduleRecords.length > 0) {
+          console.log(`[order-sync] ${scheduleRecords.length} pickup(s) need carrier scheduling`);
         }
-        onResult?.({pickupRecordId: record.id, result});
-      }
 
-      const confirmed = await confirmCompletedPickups($);
-      for (const result of confirmed) {
-        console.log(`[order-sync] confirmed pickup ${result.pickupRecordId}`);
-        onResult?.({pickupRecordId: result.pickupRecordId, result});
+        for (const record of labelRecords) {
+          const result = await createLabelForFulfillment(record.id);
+          if (result.action === 'labeled') {
+            console.log(`[order-sync] labeled ${record.id} tracking=${result.trackingNumber}`);
+          } else if (result.action === 'failed') {
+            console.error(`[order-sync] failed ${record.id}: ${result.error}`);
+          } else if (result.action === 'skipped' && result.reason) {
+            console.log(`[order-sync] skipped ${record.id}: ${result.reason}`);
+          }
+          onResult?.({fulfillmentRecordId: record.id, result});
+        }
+
+        for (const record of linkRecords) {
+          const result = await linkFulfillmentToPickup(record.id);
+          if (result.action === 'linked') {
+            console.log(
+              `[order-sync] linked ${record.id} → pickup ${result.pickupRecordId} (${result.scheduledAt}) status=${result.pickupStatus}`,
+            );
+          } else if (result.action === 'skipped' && result.reason) {
+            console.log(`[order-sync] skipped ${record.id}: ${result.reason}`);
+          }
+          onResult?.({fulfillmentRecordId: record.id, result});
+        }
+
+        for (const record of scheduleRecords) {
+          const result = await schedulePickupRecord(record.id);
+          if (result.action === 'scheduled') {
+            console.log(
+              `[order-sync] scheduled pickup ${record.id} confirmation=${result.confirmation ?? 'n/a'}`,
+            );
+          } else if (result.action === 'failed') {
+            console.error(`[order-sync] pickup schedule failed ${record.id}: ${result.error}`);
+          } else if (result.action === 'skipped' && result.reason) {
+            console.log(`[order-sync] skipped pickup ${record.id}: ${result.reason}`);
+          }
+          onResult?.({pickupRecordId: record.id, result});
+        }
+
+        const confirmed = await confirmCompletedPickups($);
+        for (const result of confirmed) {
+          console.log(`[order-sync] confirmed pickup ${result.pickupRecordId}`);
+          onResult?.({pickupRecordId: result.pickupRecordId, result});
+        }
       }
     } catch (error) {
       console.error('[order-sync] poll tick failed:', error.message);
